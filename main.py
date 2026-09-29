@@ -12,7 +12,7 @@ app = FastAPI(title="RamsTech")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # ═══════════════════════════════════
-# DATA STORES
+# DATA
 # ═══════════════════════════════════
 FAULT_CODES = {
     "P0101": {"code": "P0101", "description": "Mass Air Flow Circuit", "system": "Engine",
@@ -84,11 +84,6 @@ TORQUE_SPECS = [
     {"size": "M16", "grade": "10.9", "nm": 295, "ftlb": 218, "use": "Heavy diesel heads"},
     {"size": "M12", "grade": "12.9", "nm": 145, "ftlb": 107, "use": "Racing / performance"},
     {"size": "M10", "grade": "12.9", "nm": 83, "ftlb": 61.2, "use": "High performance"},
-    {"size": '1/4"', "grade": "Grade 5", "nm": 12, "ftlb": 8.8, "use": "General automotive"},
-    {"size": '3/8"', "grade": "Grade 5", "nm": 45, "ftlb": 33, "use": "Suspension"},
-    {"size": '1/2"', "grade": "Grade 5", "nm": 105, "ftlb": 77, "use": "Heavy suspension"},
-    {"size": '3/8"', "grade": "Grade 8", "nm": 60, "ftlb": 44, "use": "High-stress"},
-    {"size": '1/2"', "grade": "Grade 8", "nm": 150, "ftlb": 110, "use": "Tow bars / heavy"},
 ]
 
 TORQUE_SEQUENCES = [
@@ -208,9 +203,10 @@ JOBS = {}
 CUSTOMERS = {}
 APPOINTMENTS = {}
 INVOICES = {}
+WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": ""}
 
 # ═══════════════════════════════════
-# HTML FRONTEND
+# HTML
 # ═══════════════════════════════════
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
@@ -218,69 +214,92 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RamsTech</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
+:root{--bg:#f5f5f5;--card:#fff;--text:#212121;--text2:#666;--border:#ddd;--primary:#E65100;--input-bg:#fff}
+body.dark{--bg:#121212;--card:#1e1e1e;--text:#e0e0e0;--text2:#999;--border:#333;--input-bg:#2a2a2a}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;padding-bottom:20px}
-.header{background:#E65100;color:white;padding:16px;text-align:center}
+body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text);padding-bottom:20px;transition:background .3s,color .3s}
+.header{background:var(--primary);color:white;padding:16px;text-align:center;position:relative}
 .header h1{font-size:22px}
 .header p{font-size:12px;opacity:.9;margin-top:4px}
-.tabs{display:flex;background:white;border-bottom:1px solid #ddd;overflow-x:auto;position:sticky;top:0;z-index:99;scrollbar-width:none}
+.theme-btn{position:absolute;right:12px;top:16px;background:rgba(255,255,255,.2);border:none;color:white;padding:6px 10px;border-radius:8px;font-size:18px;cursor:pointer}
+.tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:99;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{padding:14px 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-size:12px}
-.tab.active{color:#E65100;border-bottom-color:#E65100;font-weight:bold}
+.tab{padding:14px 12px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-size:12px;color:var(--text)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:bold}
 .panel{display:none;padding:16px;max-width:800px;margin:0 auto}
 .panel.active{display:block}
-.chat-box{background:white;border-radius:12px;padding:12px;height:400px;overflow-y:auto;margin-bottom:12px}
+.chat-box{background:var(--card);border-radius:12px;padding:12px;height:400px;overflow-y:auto;margin-bottom:12px}
 .msg{padding:10px 14px;margin:6px 0;border-radius:16px;max-width:85%;word-wrap:break-word;font-size:14px;line-height:1.4}
-.msg.user{background:#E65100;color:white;margin-left:auto}
-.msg.ai{background:#f0f0f0}
+.msg.user{background:var(--primary);color:white;margin-left:auto}
+.msg.ai{background:var(--border)}
 .input-row{display:flex;gap:8px}
-.input-row input{flex:1;padding:12px 16px;border:1px solid #ccc;border-radius:25px;font-size:14px;outline:none}
-.input-row button{padding:12px 20px;background:#E65100;color:white;border:none;border-radius:25px;font-weight:bold;cursor:pointer}
-.form-input{width:100%;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:14px;margin-bottom:10px}
-.btn{width:100%;padding:14px;background:#E65100;color:white;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:12px}
+.input-row input{flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:25px;font-size:14px;outline:none;background:var(--input-bg);color:var(--text)}
+.input-row button{padding:12px 16px;background:var(--primary);color:white;border:none;border-radius:25px;font-weight:bold;cursor:pointer}
+.mic-btn{background:#4CAF50!important;padding:12px 14px!important}
+.mic-btn.recording{background:#F44336!important;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.form-input{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:10px;background:var(--input-bg);color:var(--text)}
+.btn{width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:12px}
 .btn:active{background:#BF360C}
-.btn-sm{padding:6px 10px;background:#E65100;color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;margin-right:6px}
+.btn-sm{padding:6px 10px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;margin-right:6px}
 .btn-sm.gray{background:#666}.btn-sm.green{background:#4CAF50}.btn-sm.red{background:#F44336}
-.card{background:white;padding:16px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 4px rgba(0,0,0,.08)}
-.card h3{color:#E65100;margin-bottom:8px;font-size:16px}
-.card p{margin:4px 0;font-size:13px;line-height:1.4}
+.card{background:var(--card);padding:16px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 4px rgba(0,0,0,.08)}
+.card h3{color:var(--primary);margin-bottom:8px;font-size:16px}
+.card p{margin:4px 0;font-size:13px;line-height:1.4;color:var(--text)}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;color:white;margin-left:6px}
-.badge.high{background:#F44336}.badge.medium{background:#FF9800}.badge.low{background:#4CAF50}
-.badge.status{background:#2196F3}.badge.new{background:#666}.badge.progress{background:#FF9800}.badge.done{background:#4CAF50}
-.list-item{padding:6px 0;border-bottom:1px solid #eee;font-size:13px}
+.badge.high,.badge.critical{background:#F44336}
+.badge.medium{background:#FF9800}
+.badge.low{background:#4CAF50}
+.badge.status{background:#2196F3}
+.badge.new{background:#666}
+.badge.inprogress{background:#FF9800}
+.badge.completed{background:#4CAF50}
+.list-item{padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
 .list-item:last-child{border-bottom:none}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.grid-item{background:white;padding:14px;border-radius:12px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.08);cursor:pointer}
-.grid-item:active{background:#f0f0f0}
+.grid-item{background:var(--card);padding:14px;border-radius:12px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.08);cursor:pointer}
+.grid-item:active{opacity:.7}
 .grid-item .icon{font-size:28px;margin-bottom:6px}
 .grid-item .label{font-size:11px;font-weight:bold}
 .img-preview{width:100%;border-radius:12px;margin-bottom:12px}
-.swatch{height:80px;border-radius:12px;border:1px solid #ccc;margin-bottom:12px}
+.swatch{height:80px;border-radius:12px;border:1px solid var(--border);margin-bottom:12px}
 .status-online{background:#E8F5E9;color:#2E7D32;padding:8px 12px;border-radius:8px;display:inline-block;font-size:13px}
 .status-offline{background:#FFEBEE;color:#C62828;padding:8px 12px;border-radius:8px;display:inline-block;font-size:13px}
-.loading{text-align:center;padding:20px;color:#666}
-.torque-table{width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;font-size:12px;margin-bottom:12px}
-.torque-table th{background:#E65100;color:white;padding:8px 6px;text-align:left}
-.torque-table td{padding:8px 6px;border-bottom:1px solid #eee}
-.torque-table tr:last-child td{border-bottom:none}
+.loading{text-align:center;padding:20px;color:var(--text2)}
+.torque-table{width:100%;border-collapse:collapse;background:var(--card);border-radius:8px;overflow:hidden;font-size:12px;margin-bottom:12px}
+.torque-table th{background:var(--primary);color:white;padding:8px 6px;text-align:left}
+.torque-table td{padding:8px 6px;border-bottom:1px solid var(--border);color:var(--text)}
 .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.stat-card{background:white;padding:16px;border-radius:12px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.08)}
-.stat-card .num{font-size:28px;font-weight:bold;color:#E65100}
-.stat-card .lbl{font-size:11px;color:#666;margin-top:4px}
+.stat-card{background:var(--card);padding:16px;border-radius:12px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.08)}
+.stat-card .num{font-size:24px;font-weight:bold;color:var(--primary)}
+.stat-card .lbl{font-size:11px;color:var(--text2);margin-top:4px}
 .stat-card.green .num{color:#4CAF50}
 .stat-card.red .num{color:#F44336}
 .stat-card.blue .num{color:#2196F3}
+canvas{max-height:220px}
+.print-btn{background:#2196F3!important}
+
+/* PRINT STYLES */
+@media print{
+  .header,.tabs,.no-print,button,.btn,.btn-sm{display:none!important}
+  .panel{display:block!important;padding:0}
+  .panel:not(.active){display:none!important}
+  body{background:white;color:black}
+  .card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
+}
 </style>
 </head>
 <body>
 
 <div class="header">
 <h1>🔧 RAMSTECH</h1>
-<p>AI Workshop Assistant v3.0</p>
+<p id="workshopName">AI Workshop Assistant v4.0</p>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
 </div>
 
-<div class="tabs">
+<div class="tabs no-print">
 <div class="tab active" onclick="showTab('home',this)">🏠 Home</div>
 <div class="tab" onclick="showTab('dashboard',this)">📊 Dash</div>
 <div class="tab" onclick="showTab('chat',this)">🤖 AI</div>
@@ -296,6 +315,8 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 <div class="tab" onclick="showTab('parts',this)">🔩 Parts</div>
 <div class="tab" onclick="showTab('boltcalc',this)">🔧 Bolt Calc</div>
 <div class="tab" onclick="showTab('torque',this)">⚙️ Torque</div>
+<div class="tab" onclick="showTab('vehicles',this)">🚗 History</div>
+<div class="tab" onclick="showTab('settings',this)">⚙ Settings</div>
 </div>
 
 <div id="home" class="panel active">
@@ -315,20 +336,25 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 <div class="grid-item" onclick="clickTab(12)"><div class="icon">🔩</div><div class="label">Parts</div></div>
 <div class="grid-item" onclick="clickTab(13)"><div class="icon">🔧</div><div class="label">Bolt Calc</div></div>
 <div class="grid-item" onclick="clickTab(14)"><div class="icon">⚙️</div><div class="label">Torque</div></div>
+<div class="grid-item" onclick="clickTab(15)"><div class="icon">🚗</div><div class="label">History</div></div>
+<div class="grid-item" onclick="clickTab(16)"><div class="icon">⚙</div><div class="label">Settings</div></div>
 </div>
 </div>
 
 <div id="dashboard" class="panel">
-<h3 style="margin-bottom:12px;color:#E65100">📊 Workshop Dashboard</h3>
+<h3 style="margin-bottom:12px;color:var(--primary)">📊 Workshop Dashboard</h3>
 <div id="dashStats"><div class="loading">Loading...</div></div>
-<div class="card"><h3>Today's Appointments</h3><div id="dashAppts"><div class="loading">Loading...</div></div></div>
-<div class="card"><h3>Recent Jobs</h3><div id="dashJobs"><div class="loading">Loading...</div></div></div>
+<div class="card"><h3>Revenue Trend (Last 7 Days)</h3><canvas id="revenueChart"></canvas></div>
+<div class="card"><h3>Job Status</h3><canvas id="jobChart"></canvas></div>
+<div class="card"><h3>Today's Appointments</h3><div id="dashAppts"></div></div>
+<div class="card"><h3>Recent Jobs</h3><div id="dashJobs"></div></div>
 </div>
 
 <div id="chat" class="panel">
-<div class="chat-box" id="chatBox"><div class="msg ai">Welcome! Ask about repairs, diagnostics, or tools.</div></div>
+<div class="chat-box" id="chatBox"><div class="msg ai">Welcome! Ask about repairs, diagnostics, or tools. Use 🎤 to speak.</div></div>
 <div class="input-row">
 <input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()">
+<button class="mic-btn" id="micBtn" onclick="toggleMic()">🎤</button>
 <button onclick="sendMsg()">Send</button>
 </div>
 </div>
@@ -368,7 +394,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 </div>
 
 <div id="jobs" class="panel">
-<button class="btn" onclick="showJobForm()">+ New Job Card</button>
+<button class="btn no-print" onclick="showJobForm()">+ New Job Card</button>
 <div id="jobForm" style="display:none">
 <div class="card">
 <input class="form-input" id="jobCustomer" placeholder="Customer name">
@@ -383,7 +409,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 </div>
 
 <div id="customers" class="panel">
-<button class="btn" onclick="showCustomerForm()">+ New Customer</button>
+<button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
 <div id="customerForm" style="display:none">
 <div class="card">
 <input class="form-input" id="custName" placeholder="Full name">
@@ -398,7 +424,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 </div>
 
 <div id="appointments" class="panel">
-<button class="btn" onclick="showApptForm()">+ New Appointment</button>
+<button class="btn no-print" onclick="showApptForm()">+ New Appointment</button>
 <div id="apptForm" style="display:none">
 <div class="card">
 <input class="form-input" id="apptCustomer" placeholder="Customer name">
@@ -415,7 +441,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 </div>
 
 <div id="invoices" class="panel">
-<button class="btn" onclick="showInvoiceForm()">+ New Invoice</button>
+<button class="btn no-print" onclick="showInvoiceForm()">+ New Invoice</button>
 <div id="invoiceForm" style="display:none">
 <div class="card">
 <input class="form-input" id="invCustomer" placeholder="Customer name">
@@ -438,7 +464,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 <div id="boltcalc" class="panel">
 <div class="card">
 <h3>🔧 Bolt Torque Calculator</h3>
-<p style="font-size:12px;color:#666;margin-bottom:12px">Calculate correct torque based on bolt size and grade.</p>
+<p style="font-size:12px;color:var(--text2);margin-bottom:12px">Calculate correct torque based on bolt size and grade.</p>
 <label style="font-size:13px;font-weight:bold">Bolt Size</label>
 <select class="form-input" id="boltSize">
 <option>M6</option><option>M8</option><option selected>M10</option>
@@ -468,6 +494,29 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#212121;paddi
 <div id="torqueSeq"></div>
 </div>
 
+<div id="vehicles" class="panel">
+<h3 style="margin-bottom:8px;color:var(--primary)">🚗 Vehicle History Search</h3>
+<p style="font-size:12px;color:var(--text2);margin-bottom:12px">Enter registration or vehicle to see all past jobs.</p>
+<input type="text" class="form-input" id="vehicleSearch" placeholder="Search by reg or vehicle..." oninput="searchVehicleHistory()">
+<div id="vehicleHistory"><div class="loading">Enter a search term</div></div>
+</div>
+
+<div id="settings" class="panel">
+<div class="card">
+<h3>⚙ Workshop Settings</h3>
+<input class="form-input" id="wsName" placeholder="Workshop name">
+<input class="form-input" id="wsPhone" placeholder="Phone">
+<input class="form-input" id="wsAddress" placeholder="Address">
+<input class="form-input" id="wsEmail" placeholder="Email">
+<button class="btn" onclick="saveSettings()">Save Settings</button>
+</div>
+<div class="card">
+<h3>About</h3>
+<p>RamsTech v4.0</p>
+<p style="font-size:11px;color:var(--text2);margin-top:8px">AI-powered workshop assistant</p>
+</div>
+</div>
+
 <script>
 function showTab(name,el){
 document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -483,8 +532,18 @@ if(name==='invoices')loadInvoices();
 if(name==='parts'&&!document.getElementById('partsList').dataset.loaded)loadParts();
 if(name==='torque')loadTorque();
 if(name==='dashboard')loadDashboard();
+if(name==='settings')loadSettings();
 }
 function clickTab(i){showTab(document.querySelectorAll('.panel')[i].id,document.querySelectorAll('.tab')[i]);}
+
+// THEME
+function toggleTheme(){
+document.body.classList.toggle('dark');
+const dark=document.body.classList.contains('dark');
+localStorage.setItem('theme',dark?'dark':'light');
+document.getElementById('themeBtn').textContent=dark?'☀️':'🌙';
+}
+if(localStorage.getItem('theme')==='dark'){document.body.classList.add('dark');document.getElementById('themeBtn').textContent='☀️';}
 
 async function checkStatus(){
 try{await fetch('/health');document.getElementById('status').innerHTML='<span class="status-online">✓ Backend Online</span>';}
@@ -493,6 +552,32 @@ catch(e){document.getElementById('status').innerHTML='<span class="status-offlin
 checkStatus();
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
+// VOICE INPUT
+let recognition=null;
+let recording=false;
+function toggleMic(){
+if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){alert('Voice input not supported. Use Chrome browser.');return}
+if(!recognition){
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+recognition=new SR();
+recognition.lang='en-ZA';
+recognition.continuous=false;
+recognition.interimResults=false;
+recognition.onresult=(e)=>{
+document.getElementById('chatInput').value=e.results[0][0].transcript;
+recording=false;
+document.getElementById('micBtn').classList.remove('recording');
+document.getElementById('micBtn').textContent='🎤';
+sendMsg();
+};
+recognition.onerror=()=>{recording=false;document.getElementById('micBtn').classList.remove('recording');document.getElementById('micBtn').textContent='🎤';};
+recognition.onend=()=>{recording=false;document.getElementById('micBtn').classList.remove('recording');document.getElementById('micBtn').textContent='🎤';};
+}
+if(recording){recognition.stop();recording=false;document.getElementById('micBtn').classList.remove('recording');document.getElementById('micBtn').textContent='🎤';}
+else{try{recognition.start();recording=true;document.getElementById('micBtn').classList.add('recording');document.getElementById('micBtn').textContent='⏹';}catch(e){alert('Mic error: '+e.message);}}
+}
+
+// CHAT
 async function sendMsg(){
 const input=document.getElementById('chatInput');
 const msg=input.value.trim();if(!msg)return;
@@ -509,6 +594,42 @@ document.getElementById('typing').outerHTML='<div class="msg ai">'+esc(data.repl
 box.scrollTop=box.scrollHeight;
 }
 
+// DASHBOARD
+let revChart=null,jobChart=null;
+async function loadDashboard(){
+try{
+const res=await fetch('/api/stats');
+const d=await res.json();
+document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Total Jobs</div></div><div class="stat-card"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Completed</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card"><div class="num">'+d.appointments_today+'</div><div class="lbl">Appts Today</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div></div>';
+// Revenue chart
+if(revChart)revChart.destroy();
+const ctx1=document.getElementById('revenueChart');
+if(ctx1){
+revChart=new Chart(ctx1,{type:'line',data:{labels:d.revenue_labels,datasets:[{label:'Revenue (R)',data:d.revenue_data,borderColor:'#E65100',backgroundColor:'rgba(230,81,0,0.1)',tension:.3,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+}
+// Jobs chart
+if(jobChart)jobChart.destroy();
+const ctx2=document.getElementById('jobChart');
+if(ctx2){
+jobChart=new Chart(ctx2,{type:'doughnut',data:{labels:['New','In Progress','Completed'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#666','#FF9800','#4CAF50']}]},options:{responsive:true}});
+}
+}catch(e){document.getElementById('dashStats').innerHTML='<div class="card"><p>Error</p></div>'}
+try{
+const res=await fetch('/api/appointments');
+const d=await res.json();
+const today=new Date().toISOString().slice(0,10);
+const todays=d.appointments.filter(a=>a.date===today);
+document.getElementById('dashAppts').innerHTML=todays.length?todays.map(a=>'<div class="list-item">'+esc(a.time)+' - '+esc(a.customer)+'</div>').join(''):'<p style="color:var(--text2)">No appointments today</p>';
+}catch(e){}
+try{
+const res=await fetch('/api/jobs');
+const d=await res.json();
+const recent=d.jobs.slice(-3).reverse();
+document.getElementById('dashJobs').innerHTML=recent.length?recent.map(j=>'<div class="list-item"><strong>#'+j.id+'</strong> '+esc(j.customer)+' - '+esc(j.vehicle)+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+esc(j.status)+'</span></div>').join(''):'<p style="color:var(--text2)">No jobs yet</p>';
+}catch(e){}
+}
+
+// CODES
 async function searchCodes(){
 const q=document.getElementById('codeSearch').value;
 const c=document.getElementById('codeResults');
@@ -518,10 +639,11 @@ const res=await fetch('/api/fault-codes?search='+encodeURIComponent(q));
 const data=await res.json();
 c.dataset.loaded='true';
 if(!data.codes.length){c.innerHTML='<div class="card"><p>No matches</p></div>';return}
-c.innerHTML=data.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:#666;font-size:12px">'+esc(x.system)+'</p><p style="margin-top:8px"><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p style="margin-top:8px"><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join('');
+c.innerHTML=data.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p style="margin-top:8px"><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p style="margin-top:8px"><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join('');
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
 }
 
+// PROBLEMS
 let problemsData=[];
 async function loadProblems(){
 try{
@@ -537,9 +659,10 @@ function renderProblems(){
 const q=(document.getElementById('problemSearch').value||'').toLowerCase();
 const filtered=problemsData.filter(x=>!q||x.title.toLowerCase().includes(q)||x.system.toLowerCase().includes(q));
 if(!filtered.length){document.getElementById('problemList').innerHTML='<div class="card"><p>No matches</p></div>';return}
-document.getElementById('problemList').innerHTML=filtered.map(x=>'<div class="card"><h3>'+esc(x.title)+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p style="color:#666;font-size:12px">'+esc(x.system)+'</p><p style="margin-top:8px"><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p style="margin-top:8px"><strong>Checks:</strong></p>'+x.checks.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join('');
+document.getElementById('problemList').innerHTML=filtered.map(x=>'<div class="card"><h3>'+esc(x.title)+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p style="margin-top:8px"><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p style="margin-top:8px"><strong>Checks:</strong></p>'+x.checks.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join('');
 }
 
+// VIN
 async function decodeVin(){
 const vin=document.getElementById('vinInput').value.trim().toUpperCase();
 const c=document.getElementById('vinResult');
@@ -553,11 +676,11 @@ c.innerHTML='<div class="card"><h3>🔍 Vehicle Info</h3><p><strong>VIN:</strong
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
 }
 
+// PAINT
 let paintB64='';
 function previewPaint(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){paintB64=ev.target.result;document.getElementById('paintPreview').innerHTML='<img class="img-preview" src="'+paintB64+'">';};r.readAsDataURL(f);}
 async function matchPaint(){
-const btn=document.getElementById('paintBtn');
-const c=document.getElementById('paintResult');
+const btn=document.getElementById('paintBtn');const c=document.getElementById('paintResult');
 if(!paintB64){c.innerHTML='<div class="card"><p style="color:red">Select an image</p></div>';return}
 btn.disabled=true;btn.textContent='Analyzing...';c.innerHTML='<div class="loading">Analyzing...</div>';
 try{
@@ -569,11 +692,11 @@ else{const col=data.detected_colour;let h='<div class="card"><div class="swatch"
 btn.disabled=false;btn.textContent='🎨 Match Paint Colour';
 }
 
+// PHOTO DIAG
 let diagB64='';
 function previewDiag(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){diagB64=ev.target.result;document.getElementById('photoPreview').innerHTML='<img class="img-preview" src="'+diagB64+'">';};r.readAsDataURL(f);}
 async function diagnosePhoto(){
-const btn=document.getElementById('photoBtn');
-const c=document.getElementById('photoResult');
+const btn=document.getElementById('photoBtn');const c=document.getElementById('photoResult');
 if(!diagB64){c.innerHTML='<div class="card"><p style="color:red">Select an image</p></div>';return}
 btn.disabled=true;btn.textContent='Analyzing...';c.innerHTML='<div class="loading">Analyzing...</div>';
 try{
@@ -583,32 +706,6 @@ if(!data.success){c.innerHTML='<div class="card"><p style="color:red">'+(data.er
 else{let h='<div class="card"><h3>🔍 '+esc(data.problem||'Detected')+'</h3><p><strong>Confidence:</strong> '+data.confidence+'</p>';if(data.description)h+='<p style="margin-top:8px">'+esc(data.description)+'</p>';h+='</div>';if(data.possible_causes){h+='<div class="card"><h3>Possible Causes</h3>';data.possible_causes.forEach(x=>{h+='<div class="list-item">• '+esc(x)+'</div>'});h+='</div>'}if(data.diagnostic_steps){h+='<div class="card"><h3>Diagnostic Steps</h3>';data.diagnostic_steps.forEach(x=>{h+='<div class="list-item">• '+esc(x)+'</div>'});h+='</div>'}if(data.repair_suggestions){h+='<div class="card"><h3>Repair Suggestions</h3>';data.repair_suggestions.forEach(x=>{h+='<div class="list-item">• '+esc(x)+'</div>'});h+='</div>'}if(data.tools_needed){h+='<div class="card"><h3>Tools Needed</h3>';data.tools_needed.forEach(x=>{h+='<div class="list-item">• '+esc(x)+'</div>'});h+='</div>'}if(data.safety_warnings){h+='<div class="card" style="background:#FFEBEE"><h3 style="color:#C62828">⚠ Safety</h3>';data.safety_warnings.forEach(w=>{h+='<div class="list-item">⚠ '+esc(w)+'</div>'});h+='</div>'}c.innerHTML=h;}
 }catch(e){c.innerHTML='<div class="card"><p style="color:red">Error: '+e.message+'</p></div>'}
 btn.disabled=false;btn.textContent='📸 Analyze Photo';
-}
-
-// DASHBOARD
-async function loadDashboard(){
-try{
-const res=await fetch('/api/stats');
-const d=await res.json();
-document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Total Jobs</div></div><div class="stat-card orange"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open Jobs</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Completed</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card"><div class="num">'+d.appointments_today+'</div><div class="lbl">Appts Today</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div></div>';
-}catch(e){document.getElementById('dashStats').innerHTML='<div class="card"><p>Error loading stats</p></div>'}
-// Appointments today
-try{
-const res=await fetch('/api/appointments');
-const d=await res.json();
-const today=new Date().toISOString().slice(0,10);
-const todays=d.appointments.filter(a=>a.date===today);
-if(!todays.length){document.getElementById('dashAppts').innerHTML='<p style="color:#666">No appointments today</p>';}
-else{document.getElementById('dashAppts').innerHTML=todays.map(a=>'<div class="list-item">'+esc(a.time)+' - '+esc(a.customer)+' ('+esc(a.service)+')</div>').join('');}
-}catch(e){}
-// Recent jobs
-try{
-const res=await fetch('/api/jobs');
-const d=await res.json();
-const recent=d.jobs.slice(-3).reverse();
-if(!recent.length){document.getElementById('dashJobs').innerHTML='<p style="color:#666">No jobs yet</p>';}
-else{document.getElementById('dashJobs').innerHTML=recent.map(j=>'<div class="list-item"><strong>#'+j.id+'</strong> '+esc(j.customer)+' - '+esc(j.vehicle)+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+esc(j.status)+'</span></div>').join('');}
-}catch(e){}
 }
 
 // JOBS
@@ -622,8 +719,7 @@ const reg=document.getElementById('jobVehicleReg').value.trim();
 if(!customer||!vehicle||!complaint){alert('Fill customer, vehicle, and complaint');return}
 try{
 await fetch('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer,vehicle,complaint,registration:reg})});
-document.getElementById('jobCustomer').value='';document.getElementById('jobVehicle').value='';
-document.getElementById('jobComplaint').value='';document.getElementById('jobVehicleReg').value='';
+['jobCustomer','jobVehicle','jobComplaint','jobVehicleReg'].forEach(id=>document.getElementById(id).value='');
 hideJobForm();loadJobs();
 }catch(e){alert('Error: '+e.message)}
 }
@@ -632,15 +728,24 @@ const c=document.getElementById('jobList');c.innerHTML='<div class="loading">Loa
 try{
 const res=await fetch('/api/jobs');
 const data=await res.json();
-if(!data.jobs.length){c.innerHTML='<div class="card"><p>No jobs yet. Tap "+ New Job Card".</p></div>';return}
+if(!data.jobs.length){c.innerHTML='<div class="card"><p>No jobs yet.</p></div>';return}
 c.innerHTML=data.jobs.reverse().map(j=>{
-const statusClass=j.status.toLowerCase().replace(' ','');
-return '<div class="card"><h3>Job #'+j.id+' <span class="badge '+statusClass+'">'+esc(j.status)+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:#666">'+esc(j.complaint)+'</p><p style="font-size:11px;color:#999">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm" onclick="updateJob(\''+j.id+'\',\'In Progress\')">In Progress</button><button class="btn-sm green" onclick="updateJob(\''+j.id+'\',\'Completed\')">Done</button></div></div>';
+const s=j.status.toLowerCase().replace(' ','');
+return '<div class="card" id="job-'+j.id+'"><h3>Job #'+j.id+' <span class="badge '+s+'">'+esc(j.status)+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p style="font-size:11px;color:var(--text2)">'+esc(j.created)+'</p><div class="no-print" style="margin-top:8px"><button class="btn-sm" onclick="updateJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="updateJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm print-btn" onclick="printJob(\''+j.id+'\')">🖨 Print</button></div></div>';
 }).join('');
-}catch(e){c.innerHTML='<div class="card"><p>Error loading jobs</p></div>'}
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
 }
 async function updateJob(id,status){
 try{await fetch('/api/jobs/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});loadJobs();}catch(e){alert(e.message)}
+}
+function printJob(id){
+const el=document.getElementById('job-'+id);
+const w=window.open('','','width=800,height=600');
+w.document.write('<html><head><title>Job #'+id+'</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}h3{color:#E65100}div{padding:4px 0}</style></head><body>');
+w.document.write('<h1>🔧 RAMSTECH — Job Card #'+id+'</h1>');
+w.document.write(el.innerHTML.replace(/<div class="no-print".*?<\/div>/gs,''));
+w.document.write('</body></html>');
+w.document.close();w.print();
 }
 
 // CUSTOMERS
@@ -671,14 +776,11 @@ function showApptForm(){document.getElementById('apptForm').style.display='block
 function hideApptForm(){document.getElementById('apptForm').style.display='none';}
 async function createAppt(){
 const customer=document.getElementById('apptCustomer').value.trim();
-const phone=document.getElementById('apptPhone').value.trim();
-const vehicle=document.getElementById('apptVehicle').value.trim();
-const service=document.getElementById('apptService').value.trim();
 const date=document.getElementById('apptDate').value;
 const time=document.getElementById('apptTime').value;
 if(!customer||!date||!time){alert('Customer, date, and time required');return}
 try{
-await fetch('/api/appointments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer,phone,vehicle,service,date,time})});
+await fetch('/api/appointments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer,phone:document.getElementById('apptPhone').value,vehicle:document.getElementById('apptVehicle').value,service:document.getElementById('apptService').value,date,time})});
 ['apptCustomer','apptPhone','apptVehicle','apptService','apptDate','apptTime'].forEach(id=>document.getElementById(id).value='');
 hideApptForm();loadAppts();
 }catch(e){alert('Error: '+e.message)}
@@ -690,7 +792,7 @@ const res=await fetch('/api/appointments');
 const data=await res.json();
 if(!data.appointments.length){c.innerHTML='<div class="card"><p>No appointments yet.</p></div>';return}
 const sorted=data.appointments.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-c.innerHTML=sorted.map(a=>'<div class="card"><h3>📅 '+esc(a.date)+' at '+esc(a.time)+'</h3><p><strong>'+esc(a.customer)+'</strong></p>'+(a.phone?'<p>📞 '+esc(a.phone)+'</p>':'')+(a.vehicle?'<p>🚗 '+esc(a.vehicle)+'</p>':'')+(a.service?'<p style="color:#666">'+esc(a.service)+'</p>':'')+'<button class="btn-sm red" style="margin-top:8px" onclick="deleteAppt(\''+a.id+'\')">Delete</button></div>').join('');
+c.innerHTML=sorted.map(a=>'<div class="card"><h3>📅 '+esc(a.date)+' at '+esc(a.time)+'</h3><p><strong>'+esc(a.customer)+'</strong></p>'+(a.phone?'<p>📞 '+esc(a.phone)+'</p>':'')+(a.vehicle?'<p>🚗 '+esc(a.vehicle)+'</p>':'')+(a.service?'<p style="color:var(--text2)">'+esc(a.service)+'</p>':'')+'<button class="btn-sm red" style="margin-top:8px" onclick="deleteAppt(\''+a.id+'\')">Delete</button></div>').join('');
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
 }
 async function deleteAppt(id){
@@ -703,13 +805,10 @@ function showInvoiceForm(){document.getElementById('invoiceForm').style.display=
 function hideInvoiceForm(){document.getElementById('invoiceForm').style.display='none';}
 async function createInvoice(){
 const customer=document.getElementById('invCustomer').value.trim();
-const vehicle=document.getElementById('invVehicle').value.trim();
 const desc=document.getElementById('invDesc').value.trim();
-const labour=parseFloat(document.getElementById('invLabour').value)||0;
-const parts=parseFloat(document.getElementById('invParts').value)||0;
 if(!customer||!desc){alert('Customer and description required');return}
 try{
-await fetch('/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer,vehicle,description:desc,labour,parts})});
+await fetch('/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer,vehicle:document.getElementById('invVehicle').value,description:desc,labour:parseFloat(document.getElementById('invLabour').value)||0,parts:parseFloat(document.getElementById('invParts').value)||0})});
 ['invCustomer','invVehicle','invDesc','invLabour','invParts'].forEach(id=>document.getElementById(id).value='');
 hideInvoiceForm();loadInvoices();
 }catch(e){alert('Error: '+e.message)}
@@ -720,7 +819,7 @@ try{
 const res=await fetch('/api/invoices');
 const data=await res.json();
 if(!data.invoices.length){c.innerHTML='<div class="card"><p>No invoices yet.</p></div>';return}
-c.innerHTML=data.invoices.reverse().map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p>'+(i.vehicle?'<p>🚗 '+esc(i.vehicle)+'</p>':'')+'<p style="color:#666">'+esc(i.description)+'</p><div class="list-item">Labour: R'+i.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+i.parts.toFixed(2)+'</div><div class="list-item"><strong>Subtotal: R'+i.subtotal.toFixed(2)+'</strong></div><div class="list-item"><strong>VAT (15%): R'+i.vat.toFixed(2)+'</strong></div><div class="list-item" style="font-size:16px"><strong>TOTAL: R'+i.total.toFixed(2)+'</strong></div><p style="font-size:11px;color:#999">'+esc(i.created)+'</p><button class="btn-sm" style="margin-top:8px" onclick="shareInvoice(\''+i.id+'\')">Share</button></div>').join('');
+c.innerHTML=data.invoices.reverse().map(i=>'<div class="card" id="inv-'+i.id+'"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p>'+(i.vehicle?'<p>🚗 '+esc(i.vehicle)+'</p>':'')+'<p style="color:var(--text2)">'+esc(i.description)+'</p><div class="list-item">Labour: R'+i.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+i.parts.toFixed(2)+'</div><div class="list-item"><strong>Subtotal: R'+i.subtotal.toFixed(2)+'</strong></div><div class="list-item"><strong>VAT: R'+i.vat.toFixed(2)+'</strong></div><div class="list-item" style="font-size:16px"><strong>TOTAL: R'+i.total.toFixed(2)+'</strong></div><p style="font-size:11px;color:var(--text2)">'+esc(i.created)+'</p><div class="no-print" style="margin-top:8px"><button class="btn-sm" onclick="shareInvoice(\''+i.id+'\')">Share</button><button class="btn-sm print-btn" onclick="printInvoice(\''+i.id+'\')">🖨 Print</button></div></div>').join('');
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
 }
 async function shareInvoice(id){
@@ -731,6 +830,15 @@ const txt='Invoice #'+i.id+'\n\nCustomer: '+i.customer+'\nVehicle: '+i.vehicle+'
 if(navigator.share){navigator.share({title:'Invoice #'+i.id,text:txt});}
 else{navigator.clipboard.writeText(txt);alert('Copied to clipboard');}
 }catch(e){alert(e.message)}
+}
+function printInvoice(id){
+const el=document.getElementById('inv-'+id);
+const w=window.open('','','width=800,height=600');
+w.document.write('<html><head><title>Invoice #'+id+'</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}h3{color:#E65100}div{padding:4px 0}</style></head><body>');
+w.document.write('<h1>🔧 RAMSTECH — Invoice #'+id+'</h1>');
+w.document.write(el.innerHTML.replace(/<div class="no-print".*?<\/div>/gs,''));
+w.document.write('</body></html>');
+w.document.close();w.print();
 }
 
 // PARTS
@@ -749,23 +857,20 @@ function renderParts(){
 const q=(document.getElementById('partsSearch').value||'').toLowerCase();
 const filtered=partsData.filter(x=>!q||x.name.toLowerCase().includes(q)||x.number.toLowerCase().includes(q)||x.brand.toLowerCase().includes(q));
 if(!filtered.length){document.getElementById('partsList').innerHTML='<div class="card"><p>No matches</p></div>';return}
-document.getElementById('partsList').innerHTML=filtered.map(p=>'<div class="card"><h3>'+esc(p.name)+'</h3><p style="font-family:monospace;font-size:12px">'+esc(p.number)+'</p><p>Brand: <strong>'+esc(p.brand)+'</strong> | '+esc(p.category)+'</p><p style="font-size:16px;color:#E65100"><strong>R'+p.price+'</strong></p></div>').join('');
+document.getElementById('partsList').innerHTML=filtered.map(p=>'<div class="card"><h3>'+esc(p.name)+'</h3><p style="font-family:monospace;font-size:12px">'+esc(p.number)+'</p><p>Brand: <strong>'+esc(p.brand)+'</strong> | '+esc(p.category)+'</p><p style="font-size:16px;color:var(--primary)"><strong>R'+p.price+'</strong></p></div>').join('');
 }
 
-// BOLT CALCULATOR
+// BOLT CALC
 async function calcTorque(){
-const size=document.getElementById('boltSize').value;
-const grade=document.getElementById('boltGrade').value;
-const condition=document.getElementById('boltCondition').value;
 try{
-const res=await fetch('/api/bolt-calc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({size,grade,condition})});
+const res=await fetch('/api/bolt-calc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({size:document.getElementById('boltSize').value,grade:document.getElementById('boltGrade').value,condition:document.getElementById('boltCondition').value})});
 const d=await res.json();
-document.getElementById('boltResult').innerHTML='<div class="card" style="background:#E65100;color:white"><h3 style="color:white">Recommended Torque</h3><p style="font-size:32px;font-weight:bold;color:white;margin:8px 0">'+d.nm.toFixed(1)+' Nm</p><p style="color:white">'+d.ftlb.toFixed(1)+' ft·lb</p></div><div class="card"><p><strong>Bolt:</strong> '+esc(d.size)+' grade '+esc(d.grade)+'</p><p><strong>Condition:</strong> '+esc(d.condition)+'</p><p><strong>Clamp force:</strong> '+d.clamp_kn.toFixed(1)+' kN</p><p style="font-size:11px;color:#666;margin-top:8px">⚠ Always verify against OEM specs</p></div>';
+document.getElementById('boltResult').innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Recommended Torque</h3><p style="font-size:32px;font-weight:bold;color:white;margin:8px 0">'+d.nm.toFixed(1)+' Nm</p><p style="color:white">'+d.ftlb.toFixed(1)+' ft·lb</p></div><div class="card"><p><strong>Bolt:</strong> '+esc(d.size)+' grade '+esc(d.grade)+'</p><p><strong>Condition:</strong> '+esc(d.condition)+'</p><p><strong>Clamp force:</strong> '+d.clamp_kn.toFixed(1)+' kN</p><p style="font-size:11px;color:var(--text2);margin-top:8px">⚠ Always verify against OEM specs</p></div>';
 }catch(e){document.getElementById('boltResult').innerHTML='<div class="card"><p>Error</p></div>'}
 }
 
 // TORQUE
-let torqueData=[];let seqData=[];
+let torqueData=[],seqData=[];
 async function loadTorque(){
 if(torqueData.length){renderTorque();return}
 try{
@@ -781,9 +886,44 @@ let h='<table class="torque-table"><tr><th>Size</th><th>Grade</th><th>Nm</th><th
 filtered.forEach(x=>{h+='<tr><td><strong>'+esc(x.size)+'</strong></td><td>'+esc(x.grade)+'</td><td>'+x.nm+'</td><td>'+x.ftlb+'</td><td>'+esc(x.use)+'</td></tr>'});
 h+='</table>';
 document.getElementById('torqueTable').innerHTML=h;
-document.getElementById('torqueSeq').innerHTML=seqData.map(s=>'<div class="card"><h3>'+esc(s.component)+'</h3><p style="font-size:11px;color:#666">Pattern: '+esc(s.pattern)+'</p>'+s.steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'<p style="font-size:12px;font-style:italic;margin-top:6px">'+esc(s.note)+'</p></div>').join('');
+document.getElementById('torqueSeq').innerHTML=seqData.map(s=>'<div class="card"><h3>'+esc(s.component)+'</h3><p style="font-size:11px;color:var(--text2)">Pattern: '+esc(s.pattern)+'</p>'+s.steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'<p style="font-size:12px;font-style:italic;margin-top:6px">'+esc(s.note)+'</p></div>').join('');
 }
 function filterTorque(){renderTorque();}
+
+// VEHICLE HISTORY
+async function searchVehicleHistory(){
+const q=document.getElementById('vehicleSearch').value.trim().toLowerCase();
+const c=document.getElementById('vehicleHistory');
+if(!q){c.innerHTML='<div class="loading">Enter a search term</div>';return}
+try{
+const res=await fetch('/api/jobs');
+const data=await res.json();
+const matches=data.jobs.filter(j=>j.vehicle.toLowerCase().includes(q)||(j.registration||'').toLowerCase().includes(q));
+if(!matches.length){c.innerHTML='<div class="card"><p>No history found for "'+esc(q)+'"</p></div>';return}
+c.innerHTML='<p style="margin-bottom:12px;color:var(--text2)">'+matches.length+' record(s) found</p>'+matches.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+'</h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p><span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+esc(j.status)+'</span></p><p style="font-size:11px;color:var(--text2)">'+esc(j.created)+'</p></div>').join('');
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}
+}
+
+// SETTINGS
+async function loadSettings(){
+try{
+const res=await fetch('/api/workshop');
+const d=await res.json();
+document.getElementById('wsName').value=d.name||'';
+document.getElementById('wsPhone').value=d.phone||'';
+document.getElementById('wsAddress').value=d.address||'';
+document.getElementById('wsEmail').value=d.email||'';
+if(d.name)document.getElementById('workshopName').textContent=d.name;
+}catch(e){}
+}
+async function saveSettings(){
+try{
+await fetch('/api/workshop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('wsName').value,phone:document.getElementById('wsPhone').value,address:document.getElementById('wsAddress').value,email:document.getElementById('wsEmail').value})});
+document.getElementById('workshopName').textContent=document.getElementById('wsName').value;
+alert('Settings saved');
+}catch(e){alert(e.message)}
+}
+loadSettings();
 </script>
 </body>
 </html>"""
@@ -802,17 +942,44 @@ def health():
 # STATS
 @app.get("/api/stats")
 def get_stats():
+    from datetime import timedelta
     jobs_total = len(JOBS)
     jobs_open = sum(1 for j in JOBS.values() if j["status"] != "Completed")
     jobs_completed = sum(1 for j in JOBS.values() if j["status"] == "Completed")
+    jobs_new = sum(1 for j in JOBS.values() if j["status"] == "New")
+    jobs_progress = sum(1 for j in JOBS.values() if j["status"] == "In Progress")
     today = datetime.now().strftime("%Y-%m-%d")
     appts_today = sum(1 for a in APPOINTMENTS.values() if a.get("date") == today)
     revenue = sum(i["total"] for i in INVOICES.values())
+
+    # Revenue last 7 days
+    labels = []
+    data = []
+    for i in range(6, -1, -1):
+        day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        labels.append(day[5:])  # MM-DD
+        day_rev = sum(inv["total"] for inv in INVOICES.values() if inv.get("created", "").startswith(day))
+        data.append(round(day_rev, 2))
+
     return {
         "jobs_total": jobs_total, "jobs_open": jobs_open,
-        "jobs_completed": jobs_completed, "customers": len(CUSTOMERS),
-        "appointments_today": appts_today, "revenue": round(revenue, 2),
+        "jobs_completed": jobs_completed, "jobs_new": jobs_new,
+        "jobs_progress": jobs_progress,
+        "customers": len(CUSTOMERS), "appointments_today": appts_today,
+        "revenue": round(revenue, 2),
+        "revenue_labels": labels, "revenue_data": data,
     }
+
+# WORKSHOP
+@app.get("/api/workshop")
+def get_workshop():
+    return WORKSHOP
+
+@app.post("/api/workshop")
+async def save_workshop(request: Request):
+    data = await request.json()
+    WORKSHOP.update(data)
+    return {"success": True, "workshop": WORKSHOP}
 
 # FAULT CODES
 @app.get("/api/fault-codes")
@@ -906,8 +1073,7 @@ async def diagnose_photo(request: Request):
     if len(img) > 7000000:
         return {"success": False, "error": "Image too large"}
     prompt = f"""You are an expert mechanic analyzing a vehicle photo. Vehicle: {vehicle or 'Not specified'}
-Identify visible problems (wear, damage, leaks, corrosion).
-Respond ONLY with valid JSON:
+Identify visible problems. Respond ONLY with valid JSON:
 {{"problem":"Short description","description":"What you see","confidence":"High|Medium|Low","possible_causes":["Cause 1"],"diagnostic_steps":["Step 1"],"repair_suggestions":["Repair 1"],"tools_needed":["Tool 1"],"safety_warnings":["Warning 1"]}}"""
     try:
         client = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
@@ -1022,27 +1188,23 @@ async def create_invoice(request: Request):
 def list_parts():
     return {"parts": PARTS_CATALOG}
 
-# BOLT CALCULATOR
+# BOLT CALC
 @app.post("/api/bolt-calc")
 async def bolt_calc(request: Request):
     data = await request.json()
     size = data.get("size", "M8")
     grade = data.get("grade", "8.8")
     condition = data.get("condition", "dry")
-
     tensile_map = {"8.8": 800, "10.9": 1040, "12.9": 1220}
     area_map = {"M6": 20.1, "M8": 36.6, "M10": 58.0, "M12": 84.3,
                 "M14": 115.0, "M16": 157.0, "M18": 192.0, "M20": 245.0}
     k_map = {"dry": 0.20, "oiled": 0.17, "moly": 0.14}
-
     tensile = tensile_map.get(grade, 800)
     area = area_map.get(size, 36.6)
     k = k_map.get(condition, 0.20)
-
     clamp_force = 0.75 * tensile * area
     d_m = float(size.replace("M", "")) / 1000.0
     torque_nm = k * d_m * clamp_force
-
     return {
         "size": size, "grade": grade, "condition": condition,
         "nm": torque_nm, "ftlb": torque_nm * 0.73756,
