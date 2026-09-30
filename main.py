@@ -3,82 +3,109 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io
 
+import db
 from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
                   PARTS_CATALOG, COMMON_PROBLEMS, WIRING_LIBRARY, OBD_PIDS,
                   BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES,
-                  INSPECTION_CATEGORIES, SERVICE_INTERVALS)
+                  INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
 from pages import HTML_PAGE
 
 app = FastAPI(title="RamsTech")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+db.init()
 
-# ═══════════════════════════════════
-# IN-MEMORY STORES
-# ═══════════════════════════════════
-JOBS, CUSTOMERS, APPOINTMENTS, INVOICES, STAFF, INVENTORY = {}, {}, {}, {}, {}, {}
-QUOTES, EXPENSES, CLOCKINS, PURCHASE_ORDERS = {}, {}, {}, {}
+MEM = {k: {} for k in ["jobs","customers","appointments","quotes","invoices",
+                       "inventory","purchase_orders","staff","clockins","expenses",
+                       "fuel_logs"]}
 WORKSHOP = {"name":"My Workshop","phone":"","address":"","email":"","logo":"🔧","labour_rate":450}
 
 def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
 def today(): return datetime.now().strftime("%Y-%m-%d")
 
-# ═══════════════════════════════════
-# HTML
-# ═══════════════════════════════════
+def store_list(t):
+    if db.is_ready(): return db.get_all(t)
+    return list(MEM[t].values())
+def store_get(t,i):
+    if db.is_ready(): return db.get_one(t,i)
+    return MEM[t].get(i)
+def store_save(t,i,row):
+    if db.is_ready():
+        return db.update(t,i,row) if db.get_one(t,i) else db.insert(t,row)
+    MEM[t][i]=row; return row
+def store_delete(t,i):
+    if db.is_ready(): return db.delete(t,i)
+    MEM[t].pop(i,None); return True
+def get_workshop_data():
+    if db.is_ready():
+        w=db.get_workshop()
+        if w: return w
+    return WORKSHOP
+def save_workshop_data(d):
+    if db.is_ready(): return db.save_workshop(d)
+    WORKSHOP.update(d); return d
+
 @app.get("/", response_class=HTMLResponse)
 async def home(): return HTML_PAGE
 
 @app.get("/health")
-def health(): return {"status":"healthy","time":datetime.now().isoformat()}
+def health():
+    return {"status":"healthy","database":("supabase" if db.is_ready() else "memory"),
+            "time":datetime.now().isoformat()}
+
+# ═══════════════════════════════════
+# TRANSLATIONS
+# ═══════════════════════════════════
+@app.get("/api/translations/{lang}")
+def get_translations(lang: str):
+    return {"lang":lang,"strings":TRANSLATIONS.get(lang,TRANSLATIONS["en"])}
 
 # STATS
 @app.get("/api/stats")
 def get_stats():
-    total=len(JOBS)
-    open_j=sum(1 for j in JOBS.values() if j["status"]!="Completed")
-    done=sum(1 for j in JOBS.values() if j["status"]=="Completed")
-    new=sum(1 for j in JOBS.values() if j["status"]=="New")
-    prog=sum(1 for j in JOBS.values() if j["status"]=="In Progress")
-    rev=sum(i["total"] for i in INVOICES.values())
-    exp=sum(e["amount"] for e in EXPENSES.values())
+    jobs=store_list("jobs"); invs=store_list("invoices"); exps=store_list("expenses")
+    custs=store_list("customers")
+    rev=sum(float(i.get("total",0)) for i in invs)
+    exp=sum(float(e.get("amount",0)) for e in exps)
     labels,data=[],[]
     for i in range(6,-1,-1):
         day=(datetime.now()-timedelta(days=i)).strftime("%Y-%m-%d")
         labels.append(day[5:])
-        data.append(round(sum(inv["total"] for inv in INVOICES.values() if inv.get("created","").startswith(day)),2))
-    return {"jobs_total":total,"jobs_open":open_j,"jobs_completed":done,"jobs_new":new,"jobs_progress":prog,
-            "customers":len(CUSTOMERS),"revenue":round(rev,2),"expenses":round(exp,2),
+        data.append(round(sum(float(x.get("total",0)) for x in invs if (x.get("created") or "").startswith(day)),2))
+    return {"jobs_total":len(jobs),"jobs_open":sum(1 for j in jobs if j.get("status")!="Completed"),
+            "jobs_completed":sum(1 for j in jobs if j.get("status")=="Completed"),
+            "jobs_new":sum(1 for j in jobs if j.get("status")=="New"),
+            "jobs_progress":sum(1 for j in jobs if j.get("status")=="In Progress"),
+            "customers":len(custs),"revenue":round(rev,2),"expenses":round(exp,2),
             "revenue_labels":labels,"revenue_data":data}
 
 @app.get("/api/analytics")
 def get_analytics():
-    tr=sum(i["total"] for i in INVOICES.values())
-    te=sum(e["amount"] for e in EXPENSES.values())
-    avg=tr/len(INVOICES) if INVOICES else 0
-    services={}
-    for j in JOBS.values():
-        c=j.get("complaint","").strip()[:30]
-        if c: services[c]=services.get(c,0)+1
-    top_services=[{"name":k,"count":v} for k,v in sorted(services.items(),key=lambda x:-x[1])[:5]]
+    invs=store_list("invoices"); exps=store_list("expenses"); jobs=store_list("jobs")
+    tr=sum(float(i.get("total",0)) for i in invs)
+    te=sum(float(e.get("amount",0)) for e in exps)
+    avg=tr/len(invs) if invs else 0
+    svc={}
+    for j in jobs:
+        c=(j.get("complaint") or "").strip()[:30]
+        if c: svc[c]=svc.get(c,0)+1
+    top_services=[{"name":k,"count":v} for k,v in sorted(svc.items(),key=lambda x:-x[1])[:5]]
     cr={}
-    for i in INVOICES.values():
+    for i in invs:
         n=i.get("customer","")
-        if n:
-            if n not in cr: cr[n]={"total":0}
-            cr[n]["total"]+=i["total"]
-    top_customers=[{"name":k,"total":v["total"]} for k,v in sorted(cr.items(),key=lambda x:-x[1]["total"])[:5]]
-    return {"total_revenue":tr,"total_expenses":te,"net_profit":tr-te,"avg_invoice":avg,
-            "top_services":top_services,"top_customers":top_customers}
+        if n: cr[n]=cr.get(n,0)+float(i.get("total",0))
+    top_customers=[{"name":k,"total":v} for k,v in sorted(cr.items(),key=lambda x:-x[1])[:5]]
+    return {"total_revenue":tr,"total_expenses":te,"net_profit":tr-te,
+            "avg_invoice":avg,"top_services":top_services,"top_customers":top_customers}
 
-# WORKSHOP
 @app.get("/api/workshop")
-def get_workshop(): return WORKSHOP
+def get_workshop(): return get_workshop_data()
 
 @app.post("/api/workshop")
 async def save_workshop(r: Request):
-    d=await r.json(); WORKSHOP.update(d); return {"success":True,"workshop":WORKSHOP}
+    d=await r.json(); save_workshop_data(d)
+    return {"success":True,"workshop":get_workshop_data()}
 
-# STATIC DATA
+# STATIC
 @app.get("/api/fault-codes")
 def list_codes(search: str = None):
     res=list(FAULT_CODES.values())
@@ -121,26 +148,21 @@ def get_checklist(ctype: str):
 
 @app.post("/api/service-calc")
 async def service_calc(r: Request):
-    d=await r.json()
-    km=int(d.get("current_km",0))
-    vt=d.get("vehicle_type","petrol")
+    d=await r.json(); km=int(d.get("current_km",0)); vt=d.get("vehicle_type","petrol")
     cfg=SERVICE_INTERVALS.get(vt,SERVICE_INTERVALS["petrol"])
-    next_km=((km // cfg["km"]) + 1) * cfg["km"]
-    return {"next_service_km":next_km,"months_interval":cfg["months"],"items":cfg["items"]}
+    return {"next_service_km":((km//cfg["km"])+1)*cfg["km"],
+            "months_interval":cfg["months"],"items":cfg["items"]}
 
 @app.post("/api/bolt-calc")
 async def bolt_calc(r: Request):
-    d=await r.json()
-    size=d.get("size","M8"); grade=d.get("grade","8.8"); cond=d.get("condition","dry")
+    d=await r.json(); size=d.get("size","M8"); grade=d.get("grade","8.8"); cond=d.get("condition","dry")
     tm={"8.8":800,"10.9":1040,"12.9":1220}
     am={"M6":20.1,"M8":36.6,"M10":58.0,"M12":84.3,"M14":115.0,"M16":157.0,"M18":192.0,"M20":245.0}
     km={"dry":0.20,"oiled":0.17,"moly":0.14}
     ts=tm.get(grade,800); a=am.get(size,36.6); k=km.get(cond,0.20)
-    cf=0.75*ts*a; dm=float(size.replace("M",""))/1000.0
-    nm=k*dm*cf
+    cf=0.75*ts*a; dm=float(size.replace("M",""))/1000.0; nm=k*dm*cf
     return {"size":size,"grade":grade,"condition":cond,"nm":nm,"ftlb":nm*0.73756,"clamp_kn":cf/1000}
 
-# VIN
 @app.get("/api/vin/{vin}")
 def decode_vin(vin: str):
     v=vin.strip().upper()
@@ -148,7 +170,7 @@ def decode_vin(vin: str):
     m,c=WMI_DB.get(v[:3],("Unknown","Unknown"))
     return {"vin":v,"manufacturer":m,"country":c,"year":YEAR_CODES.get(v[9],"Unknown")}
 
-# AI CHAT
+# AI
 @app.post("/api/chat")
 async def chat(r: Request):
     d=await r.json(); msg=d.get("message","")
@@ -162,7 +184,6 @@ async def chat(r: Request):
         return {"reply":resp.choices[0].message.content}
     except Exception as e: return {"reply":f"Error: {str(e)}"}
 
-# PAINT
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
     d=await r.json(); img=d.get("image_base64",""); veh=d.get("vehicle_info","")
@@ -172,7 +193,7 @@ async def match_paint(r: Request):
     if len(img)>7000000: return {"success":False,"error":"Image too large"}
     prompt=f"""Expert paint tech. Vehicle: {veh or 'N/A'}
 Respond ONLY valid JSON:
-{{"detected_colour":{{"name":"N","hex_code":"#RRGGBB","rgb":[R,G,B],"finish":"Solid|Metallic|Pearl","colour_family":"White|Black|Red|Blue|Silver|Grey"}},"confidence":"High|Medium|Low","brand_codes":[{{"brand":"DuPont","code":"C","name":"F"}},{{"brand":"PPG","code":"C","name":"F"}}],"mixing_formula":{{"base_colour":"D","toners":[{{"name":"T","parts":"X"}}],"reducer":"R"}},"safety_warnings":["W"]}}"""
+{{"detected_colour":{{"name":"N","hex_code":"#RRGGBB","rgb":[R,G,B],"finish":"Solid|Metallic|Pearl","colour_family":"White|Black|Red|Blue|Silver|Grey"}},"confidence":"High|Medium|Low","brand_codes":[{{"brand":"DuPont","code":"C","name":"F"}}],"mixing_formula":{{"base_colour":"D","toners":[{{"name":"T","parts":"X"}}],"reducer":"R"}},"safety_warnings":["W"]}}"""
     try:
         c=openai.OpenAI(api_key=OPENAI_KEY,timeout=60.0)
         resp=c.chat.completions.create(model="gpt-4o",
@@ -201,260 +222,326 @@ Respond ONLY valid JSON:
 
 # JOBS
 @app.get("/api/jobs")
-def list_jobs(): return {"jobs":list(JOBS.values())}
+def list_jobs(): return {"jobs":store_list("jobs")}
 
 @app.post("/api/jobs")
 async def create_job(r: Request):
     d=await r.json()
-    jid=str(len(JOBS)+1).zfill(4)
-    JOBS[jid]={"id":jid,"customer":d.get("customer",""),"phone":d.get("phone",""),
-               "vehicle":d.get("vehicle",""),"registration":d.get("registration",""),
-               "km":int(d.get("km",0)),"complaint":d.get("complaint",""),
-               "assigned_to":d.get("assigned_to",""),"photos":d.get("photos",[])[:5],
-               "warranty_months":int(d.get("warranty_months",6)),
-               "status":"New","timeline":[now()+" — Job created"],
-               "labour_hours":0,"labour_rate":WORKSHOP.get("labour_rate",450),"parts_cost":0,
-               "labour_cost":0,"subtotal":0,"vat":0,"total":0,
-               "created":now()}
-    return {"success":True,"job":JOBS[jid]}
+    jid=str(uuid.uuid4())[:8]
+    job={"id":jid,"customer":d.get("customer",""),"phone":d.get("phone",""),
+         "vehicle":d.get("vehicle",""),"registration":d.get("registration",""),
+         "km":int(d.get("km",0)),"complaint":d.get("complaint",""),
+         "assigned_to":d.get("assigned_to",""),"photos":d.get("photos",[])[:5],
+         "signature":d.get("signature",""),
+         "warranty_months":int(d.get("warranty_months",6)),"status":"New",
+         "timeline":[now()+" — Job created"],
+         "labour_hours":0,"labour_rate":get_workshop_data().get("labour_rate",450),
+         "parts_cost":0,"labour_cost":0,"subtotal":0,"vat":0,"total":0,"created":now()}
+    store_save("jobs",jid,job)
+    return {"success":True,"job":job}
 
 @app.put("/api/jobs/{jid}")
 async def update_job(jid: str, r: Request):
     d=await r.json()
-    if jid not in JOBS: raise HTTPException(404,"Not found")
-    if "status" in d: JOBS[jid]["status"]=d["status"]
-    if "note" in d: JOBS[jid].setdefault("timeline",[]).append(now()+" — "+d["note"])
-    return {"success":True,"job":JOBS[jid]}
+    job=store_get("jobs",jid)
+    if not job: raise HTTPException(404)
+    if "status" in d: job["status"]=d["status"]
+    if "note" in d:
+        tl=job.get("timeline") or []
+        tl.append(now()+" — "+d["note"])
+        job["timeline"]=tl
+    store_save("jobs",jid,job)
+    return {"success":True,"job":job}
 
 @app.post("/api/jobs/{jid}/cost")
 async def set_cost(jid: str, r: Request):
     d=await r.json()
-    if jid not in JOBS: raise HTTPException(404,"Not found")
+    job=store_get("jobs",jid)
+    if not job: raise HTTPException(404)
     h=float(d.get("labour_hours",0)); rate=float(d.get("labour_rate",450))
     parts=float(d.get("parts_cost",0))
     labour=h*rate; subtotal=labour+parts; vat=subtotal*0.15; total=subtotal+vat
-    JOBS[jid].update({"labour_hours":h,"labour_rate":rate,"parts_cost":parts,
-                      "labour_cost":labour,"subtotal":subtotal,"vat":vat,"total":total})
-    JOBS[jid].setdefault("timeline",[]).append(now()+f" — Cost: R{total:.2f}")
-    return {"success":True,"job":JOBS[jid]}
+    job.update({"labour_hours":h,"labour_rate":rate,"parts_cost":parts,
+                "labour_cost":labour,"subtotal":subtotal,"vat":vat,"total":total})
+    tl=job.get("timeline") or []
+    tl.append(now()+f" — Cost: R{total:.2f}")
+    job["timeline"]=tl
+    store_save("jobs",jid,job)
+    return {"success":True,"job":job}
 
 # CUSTOMERS
 @app.get("/api/customers")
-def list_customers(): return {"customers":list(CUSTOMERS.values())}
+def list_customers(): return {"customers":store_list("customers")}
 
 @app.post("/api/customers")
 async def create_customer(r: Request):
     d=await r.json()
     cid=str(uuid.uuid4())[:8]
-    CUSTOMERS[cid]={"id":cid,"name":d.get("name",""),"phone":d.get("phone",""),
-                    "email":d.get("email",""),"address":d.get("address",""),
-                    "created":today()}
-    return {"success":True,"customer":CUSTOMERS[cid]}
+    c={"id":cid,"name":d.get("name",""),"phone":d.get("phone",""),
+       "email":d.get("email",""),"address":d.get("address",""),"created":today()}
+    store_save("customers",cid,c)
+    return {"success":True,"customer":c}
 
 # APPOINTMENTS
 @app.get("/api/appointments")
-def list_appts(): return {"appointments":list(APPOINTMENTS.values())}
+def list_appts(): return {"appointments":store_list("appointments")}
 
 @app.post("/api/appointments")
 async def create_appt(r: Request):
     d=await r.json()
     aid=str(uuid.uuid4())[:8]
-    APPOINTMENTS[aid]={"id":aid,**{k:d.get(k,"") for k in ["customer","phone","vehicle","service","date","time"]}}
-    return {"success":True,"appointment":APPOINTMENTS[aid]}
+    a={"id":aid,**{k:d.get(k,"") for k in ["customer","phone","vehicle","service","date","time"]}}
+    store_save("appointments",aid,a)
+    return {"success":True,"appointment":a}
 
 @app.delete("/api/appointments/{aid}")
-def delete_appt(aid: str):
-    if aid not in APPOINTMENTS: raise HTTPException(404)
-    del APPOINTMENTS[aid]; return {"success":True}
+def del_appt(aid: str):
+    store_delete("appointments",aid); return {"success":True}
 
 # QUOTES
 @app.get("/api/quotes")
-def list_quotes(): return {"quotes":list(QUOTES.values())}
+def list_quotes(): return {"quotes":store_list("quotes")}
 
 @app.post("/api/quotes")
 async def create_quote(r: Request):
     d=await r.json()
-    qid=str(len(QUOTES)+1).zfill(4)
+    qid=str(uuid.uuid4())[:8]
     labour=float(d.get("labour",0)); parts=float(d.get("parts",0))
     subtotal=labour+parts; vat=subtotal*0.15; total=subtotal+vat
-    QUOTES[qid]={"id":qid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
-                 "description":d.get("description",""),"labour":labour,"parts":parts,
-                 "subtotal":subtotal,"vat":vat,"total":total,"created":now()}
-    return {"success":True,"quote":QUOTES[qid]}
+    q={"id":qid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
+       "description":d.get("description",""),"labour":labour,"parts":parts,
+       "subtotal":subtotal,"vat":vat,"total":total,"created":now()}
+    store_save("quotes",qid,q)
+    return {"success":True,"quote":q}
 
 @app.post("/api/quotes/{qid}/accept")
 async def accept_quote(qid: str):
-    if qid not in QUOTES: raise HTTPException(404)
-    q=QUOTES[qid]
-    iid=str(len(INVOICES)+1).zfill(4)
-    INVOICES[iid]={"id":iid,"customer":q["customer"],"vehicle":q["vehicle"],
-                   "description":q["description"],"labour":q["labour"],"parts":q["parts"],
-                   "subtotal":q["subtotal"],"vat":q["vat"],"total":q["total"],
-                   "amount_paid":0,"paid":False,"created":now()}
-    del QUOTES[qid]
-    return {"success":True,"invoice":INVOICES[iid]}
+    q=store_get("quotes",qid)
+    if not q: raise HTTPException(404)
+    iid=str(uuid.uuid4())[:8]
+    i={"id":iid,"customer":q["customer"],"vehicle":q["vehicle"],
+       "description":q["description"],"labour":q["labour"],"parts":q["parts"],
+       "subtotal":q["subtotal"],"vat":q["vat"],"total":q["total"],
+       "amount_paid":0,"paid":False,"created":now()}
+    store_save("invoices",iid,i)
+    store_delete("quotes",qid)
+    return {"success":True,"invoice":i}
 
 @app.delete("/api/quotes/{qid}")
-def delete_quote(qid: str):
-    if qid not in QUOTES: raise HTTPException(404)
-    del QUOTES[qid]; return {"success":True}
+def del_quote(qid: str):
+    store_delete("quotes",qid); return {"success":True}
 
 # INVOICES
 @app.get("/api/invoices")
-def list_invoices(): return {"invoices":list(INVOICES.values())}
+def list_invoices(): return {"invoices":store_list("invoices")}
 
 @app.post("/api/invoices")
 async def create_invoice(r: Request):
     d=await r.json()
     labour=float(d.get("labour",0)); parts=float(d.get("parts",0))
     subtotal=labour+parts; vat=subtotal*0.15; total=subtotal+vat
-    iid=str(len(INVOICES)+1).zfill(4)
-    INVOICES[iid]={"id":iid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
-                   "description":d.get("description",""),"labour":labour,"parts":parts,
-                   "subtotal":subtotal,"vat":vat,"total":total,
-                   "amount_paid":0,"paid":False,"created":now()}
-    return {"success":True,"invoice":INVOICES[iid]}
+    iid=str(uuid.uuid4())[:8]
+    i={"id":iid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
+       "description":d.get("description",""),"labour":labour,"parts":parts,
+       "subtotal":subtotal,"vat":vat,"total":total,"amount_paid":0,"paid":False,"created":now()}
+    store_save("invoices",iid,i)
+    return {"success":True,"invoice":i}
 
 @app.post("/api/invoices/{iid}/pay")
 async def record_payment(iid: str, r: Request):
     d=await r.json()
-    if iid not in INVOICES: raise HTTPException(404)
+    inv=store_get("invoices",iid)
+    if not inv: raise HTTPException(404)
     amt=float(d.get("amount",0))
-    INVOICES[iid]["amount_paid"]=INVOICES[iid].get("amount_paid",0)+amt
-    INVOICES[iid]["paid"]=INVOICES[iid]["amount_paid"]>=INVOICES[iid]["total"]
-    return {"success":True,"invoice":INVOICES[iid]}
+    inv["amount_paid"]=float(inv.get("amount_paid",0))+amt
+    inv["paid"]=inv["amount_paid"]>=float(inv["total"])
+    store_save("invoices",iid,inv)
+    return {"success":True,"invoice":inv}
 
 # INVENTORY
 @app.get("/api/inventory")
-def list_inv(): return {"items":list(INVENTORY.values())}
+def list_inv(): return {"items":store_list("inventory")}
 
 @app.get("/api/inventory/low-stock")
 def low_stock():
-    return {"items":[{"id":k,"name":v["name"],"qty":v["qty"],"min":v["min_qty"]}
-                     for k,v in INVENTORY.items() if v["qty"]<=v["min_qty"]]}
+    return {"items":[{"id":i["id"],"name":i["name"],"qty":int(i["qty"]),"min":int(i["min_qty"])}
+                     for i in store_list("inventory") if int(i["qty"])<=int(i["min_qty"])]}
 
 @app.post("/api/inventory")
 async def add_inv(r: Request):
     d=await r.json()
     iid=str(uuid.uuid4())[:8]
-    INVENTORY[iid]={"id":iid,"part_number":d.get("part_number",""),"name":d.get("name",""),
-                    "category":d.get("category",""),"qty":int(d.get("qty",0)),
-                    "min_qty":int(d.get("min_qty",5)),"cost_price":float(d.get("cost_price",0)),
-                    "sell_price":float(d.get("sell_price",0)),"supplier":d.get("supplier",""),
-                    "created":today()}
-    return {"success":True,"item":INVENTORY[iid]}
+    item={"id":iid,"part_number":d.get("part_number",""),"name":d.get("name",""),
+          "category":d.get("category",""),"qty":int(d.get("qty",0)),
+          "min_qty":int(d.get("min_qty",5)),"cost_price":float(d.get("cost_price",0)),
+          "sell_price":float(d.get("sell_price",0)),"supplier":d.get("supplier",""),"created":today()}
+    store_save("inventory",iid,item)
+    return {"success":True,"item":item}
 
 @app.post("/api/inventory/{iid}/adjust")
 async def adj_inv(iid: str, r: Request):
     d=await r.json()
-    if iid not in INVENTORY: raise HTTPException(404)
-    INVENTORY[iid]["qty"]=max(0,INVENTORY[iid]["qty"]+int(d.get("delta",0)))
-    return {"success":True,"item":INVENTORY[iid]}
+    item=store_get("inventory",iid)
+    if not item: raise HTTPException(404)
+    item["qty"]=max(0,int(item["qty"])+int(d.get("delta",0)))
+    store_save("inventory",iid,item)
+    return {"success":True,"item":item}
 
 @app.delete("/api/inventory/{iid}")
 def del_inv(iid: str):
-    if iid not in INVENTORY: raise HTTPException(404)
-    del INVENTORY[iid]; return {"success":True}
+    store_delete("inventory",iid); return {"success":True}
 
 # PURCHASE ORDERS
 @app.get("/api/purchase-orders")
-def list_pos(): return {"pos":list(PURCHASE_ORDERS.values())}
+def list_pos(): return {"pos":store_list("purchase_orders")}
 
 @app.post("/api/purchase-orders")
 async def create_po(r: Request):
     d=await r.json()
-    pid=str(len(PURCHASE_ORDERS)+1).zfill(4)
-    PURCHASE_ORDERS[pid]={"id":pid,"supplier":d.get("supplier",""),"items":d.get("items",""),
-                          "total":float(d.get("total",0)),"status":"pending","created":now()}
-    return {"success":True,"po":PURCHASE_ORDERS[pid]}
+    pid=str(uuid.uuid4())[:8]
+    po={"id":pid,"supplier":d.get("supplier",""),"items":d.get("items",""),
+        "total":float(d.get("total",0)),"status":"pending","created":now()}
+    store_save("purchase_orders",pid,po)
+    return {"success":True,"po":po}
 
 @app.put("/api/purchase-orders/{pid}")
 async def update_po(pid: str, r: Request):
     d=await r.json()
-    if pid not in PURCHASE_ORDERS: raise HTTPException(404)
-    PURCHASE_ORDERS[pid]["status"]=d.get("status","pending")
-    return {"success":True,"po":PURCHASE_ORDERS[pid]}
+    po=store_get("purchase_orders",pid)
+    if not po: raise HTTPException(404)
+    po["status"]=d.get("status","pending")
+    store_save("purchase_orders",pid,po)
+    return {"success":True,"po":po}
 
 @app.delete("/api/purchase-orders/{pid}")
 def del_po(pid: str):
-    if pid not in PURCHASE_ORDERS: raise HTTPException(404)
-    del PURCHASE_ORDERS[pid]; return {"success":True}
+    store_delete("purchase_orders",pid); return {"success":True}
 
 # STAFF
 @app.get("/api/staff")
-def list_staff(): return {"staff":list(STAFF.values())}
+def list_staff(): return {"staff":store_list("staff")}
 
 @app.post("/api/staff")
 async def add_staff(r: Request):
     d=await r.json()
     sid=str(uuid.uuid4())[:8]
-    STAFF[sid]={"id":sid,"name":d.get("name",""),"role":d.get("role",""),
-                "phone":d.get("phone",""),"email":d.get("email",""),
-                "hourly_rate":float(d.get("hourly_rate",150)),"created":today()}
-    return {"success":True,"staff":STAFF[sid]}
+    s={"id":sid,"name":d.get("name",""),"role":d.get("role",""),
+       "phone":d.get("phone",""),"email":d.get("email",""),
+       "hourly_rate":float(d.get("hourly_rate",150)),"created":today()}
+    store_save("staff",sid,s)
+    return {"success":True,"staff":s}
 
 @app.delete("/api/staff/{sid}")
 def del_staff(sid: str):
-    if sid not in STAFF: raise HTTPException(404)
-    del STAFF[sid]; return {"success":True}
+    store_delete("staff",sid); return {"success":True}
 
-# CLOCK IN/OUT
+# CLOCKINS
 @app.get("/api/clockins")
-def list_clockins(): return {"clockins":list(CLOCKINS.values())}
+def list_clockins(): return {"clockins":store_list("clockins")}
 
 @app.post("/api/clockins")
 async def clock_in(r: Request):
     d=await r.json()
     cid=str(uuid.uuid4())[:8]
-    CLOCKINS[cid]={"id":cid,"staff_id":d.get("staff_id",""),
-                   "clock_in":now(),"clock_out":None}
-    return {"success":True,"clockin":CLOCKINS[cid]}
+    c={"id":cid,"staff_id":d.get("staff_id",""),"clock_in":now(),"clock_out":None}
+    store_save("clockins",cid,c)
+    return {"success":True,"clockin":c}
 
 @app.post("/api/clockins/{sid}/out")
 async def clock_out(sid: str):
-    for c in CLOCKINS.values():
-        if c["staff_id"]==sid and not c["clock_out"]:
+    for c in store_list("clockins"):
+        if c["staff_id"]==sid and not c.get("clock_out"):
             c["clock_out"]=now()
+            store_save("clockins",c["id"],c)
             return {"success":True,"clockin":c}
     raise HTTPException(404,"No active clock-in")
 
 # EXPENSES
 @app.get("/api/expenses")
-def list_exp(): return {"expenses":list(EXPENSES.values())}
+def list_exp(): return {"expenses":store_list("expenses")}
 
 @app.post("/api/expenses")
 async def add_exp(r: Request):
     d=await r.json()
     eid=str(uuid.uuid4())[:8]
-    EXPENSES[eid]={"id":eid,"category":d.get("category","Other"),
-                   "amount":float(d.get("amount",0)),
-                   "date":d.get("date",today()),"note":d.get("note",""),
-                   "created":now()}
-    return {"success":True,"expense":EXPENSES[eid]}
+    e={"id":eid,"category":d.get("category","Other"),"amount":float(d.get("amount",0)),
+       "date":d.get("date",today()),"note":d.get("note",""),"created":now()}
+    store_save("expenses",eid,e)
+    return {"success":True,"expense":e}
 
 @app.delete("/api/expenses/{eid}")
 def del_exp(eid: str):
-    if eid not in EXPENSES: raise HTTPException(404)
-    del EXPENSES[eid]; return {"success":True}
+    store_delete("expenses",eid); return {"success":True}
 
 # REMINDERS
 @app.get("/api/reminders")
 def get_reminders():
     reminders=[]
-    for j in JOBS.values():
-        if j.get("km",0)>0 and j["status"]=="Completed":
-            due_km=j["km"]+10000
+    for j in store_list("jobs"):
+        if int(j.get("km",0))>0 and j.get("status")=="Completed":
+            due=int(j["km"])+10000
             reminders.append({"vehicle":j["vehicle"],"customer":j["customer"],
-                              "phone":j.get("phone",""),"last_service":j["created"][:10],
-                              "last_km":j["km"],"due":f"at {due_km} km or 6 months"})
+                              "phone":j.get("phone",""),"last_service":(j.get("created") or "")[:10],
+                              "last_km":j["km"],"due":f"at {due} km or 6 months"})
     return {"reminders":reminders[:20]}
+
+# ═══════════════════════════════════
+# FUEL LOG (v9.0)
+# ═══════════════════════════════════
+@app.get("/api/fuel")
+def list_fuel(): return {"logs":store_list("fuel_logs")}
+
+@app.post("/api/fuel")
+async def add_fuel(r: Request):
+    d=await r.json()
+    fid=str(uuid.uuid4())[:8]
+    km=int(d.get("km",0)); litres=float(d.get("litres",0)); cost=float(d.get("cost",0))
+    # Calculate consumption if previous entry exists for same vehicle
+    prev=[x for x in store_list("fuel_logs") if x.get("vehicle")==d.get("vehicle","")]
+    consumption=0
+    if prev:
+        prev_km=max(int(x.get("km",0)) for x in prev)
+        if km>prev_km: consumption=round((litres/(km-prev_km))*100,2)
+    log={"id":fid,"vehicle":d.get("vehicle",""),"km":km,"litres":litres,"cost":cost,
+         "consumption":consumption,"station":d.get("station",""),"date":d.get("date",today())}
+    store_save("fuel_logs",fid,log)
+    return {"success":True,"log":log}
+
+@app.delete("/api/fuel/{fid}")
+def del_fuel(fid: str):
+    store_delete("fuel_logs",fid); return {"success":True}
+
+# ═══════════════════════════════════
+# WARRANTY TRACKER (v9.0)
+# ═══════════════════════════════════
+@app.get("/api/warranty")
+def get_warranty():
+    from datetime import datetime as dt
+    items=[]
+    for j in store_list("jobs"):
+        if j.get("status")=="Completed" and int(j.get("warranty_months",0))>0:
+            try:
+                done=dt.strptime((j.get("created") or "")[:10],"%Y-%m-%d")
+                months=int(j["warranty_months"])
+                # Calculate expiry
+                year=done.year + (done.month + months - 1) // 12
+                month=((done.month + months - 1) % 12) + 1
+                expiry=done.replace(year=year,month=month)
+                days_left=(expiry-dt.now()).days
+                items.append({"id":j["id"],"customer":j["customer"],"vehicle":j["vehicle"],
+                              "phone":j.get("phone",""),"job_date":(j.get("created") or "")[:10],
+                              "months":months,"expiry":expiry.strftime("%Y-%m-%d"),
+                              "days_left":days_left,"status":"active" if days_left>0 else "expired"})
+            except Exception: pass
+    items.sort(key=lambda x:x["days_left"])
+    return {"warranties":items}
 
 # CSV EXPORTS
 @app.get("/api/export/jobs")
 def exp_jobs():
     o=io.StringIO(); w=csv.writer(o)
     w.writerow(["Job ID","Customer","Vehicle","Reg","Complaint","Assigned","Status","Total","Created"])
-    for j in JOBS.values():
+    for j in store_list("jobs"):
         w.writerow([j["id"],j["customer"],j["vehicle"],j.get("registration",""),
                     j["complaint"],j.get("assigned_to",""),j["status"],j.get("total",0),j["created"]])
     o.seek(0)
@@ -465,7 +552,7 @@ def exp_jobs():
 def exp_cust():
     o=io.StringIO(); w=csv.writer(o)
     w.writerow(["Name","Phone","Email","Address","Created"])
-    for c in CUSTOMERS.values():
+    for c in store_list("customers"):
         w.writerow([c["name"],c["phone"],c.get("email",""),c.get("address",""),c["created"]])
     o.seek(0)
     return StreamingResponse(iter([o.getvalue()]),media_type="text/csv",
@@ -475,14 +562,15 @@ def exp_cust():
 def exp_tax(from_date: str = None, to_date: str = None):
     o=io.StringIO(); w=csv.writer(o)
     w.writerow(["Date","Type","Description","Amount","VAT"])
-    for i in INVOICES.values():
-        if from_date and i["created"][:10]<from_date: continue
-        if to_date and i["created"][:10]>to_date: continue
-        w.writerow([i["created"][:10],"Income",i["description"],i["total"],i["vat"]])
-    for e in EXPENSES.values():
+    for i in store_list("invoices"):
+        d=(i.get("created") or "")[:10]
+        if from_date and d<from_date: continue
+        if to_date and d>to_date: continue
+        w.writerow([d,"Income",i["description"],i["total"],i.get("vat",0)])
+    for e in store_list("expenses"):
         if from_date and e["date"]<from_date: continue
         if to_date and e["date"]>to_date: continue
-        w.writerow([e["date"],"Expense",e["category"]+" - "+e.get("note",""),-e["amount"],0])
+        w.writerow([e["date"],"Expense",e["category"]+" - "+e.get("note",""),-float(e["amount"]),0])
     o.seek(0)
     return StreamingResponse(iter([o.getvalue()]),media_type="text/csv",
                              headers={"Content-Disposition":"attachment; filename=tax_report.csv"})
