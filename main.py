@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from datetime import datetime, timedelta
-import openai, os, uuid, csv, io
+import openai, os, uuid, csv, io, json
 
 app = FastAPI()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -87,6 +87,17 @@ FAULT_CODES = {
     "PNEU-001":{"code":"PNEU-001","description":"Air Compressor No Pressure","system":"Pneumatic","severity":"High","causes":["Worn rings","Leaking valves"],"steps":["Check belt","Test output"]},
 }
 
+WMI_DB = {"1HG":("Honda","USA"),"1FT":("Ford","USA"),"JHM":("Honda","Japan"),
+          "JTD":("Toyota","Japan"),"JTM":("Toyota","Japan"),"KMH":("Hyundai","Korea"),
+          "KNA":("Kia","Korea"),"WBA":("BMW","Germany"),"WDB":("Mercedes-Benz","Germany"),
+          "WVW":("Volkswagen","Germany"),"YV1":("Volvo","Sweden"),"ZFA":("Fiat","Italy"),
+          "AAV":("VW South Africa","South Africa"),"AHT":("Toyota SA","South Africa"),
+          "AFA":("Ford SA","South Africa"),"ADB":("Mercedes SA","South Africa")}
+
+YEAR_CODES = {"A":2010,"B":2011,"C":2012,"D":2013,"E":2014,"F":2015,"G":2016,"H":2017,
+              "J":2018,"K":2019,"L":2020,"M":2021,"N":2022,"P":2023,"R":2024,
+              "Y":2000,"1":2001,"2":2002,"3":2003,"4":2004,"5":2005,"6":2006,"7":2007,"8":2008,"9":2009}
+
 HTML = r"""<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
@@ -146,6 +157,8 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .stat-card .lbl{font-size:10px;color:var(--text2);margin-top:4px;font-weight:600;text-transform:uppercase}
 .stat-card.green .num{color:#10b981}.stat-card.red .num{color:#ef4444}.stat-card.blue .num{color:#3b82f6}.stat-card.purple .num{color:#8b5cf6}
 canvas{max-height:220px}
+.img-preview{width:100%;border-radius:14px;margin-bottom:12px}
+.swatch{height:90px;border-radius:14px;border:2px solid var(--border);margin-bottom:12px}
 </style>
 </head><body>
 
@@ -160,6 +173,9 @@ canvas{max-height:220px}
 <div class="tile" onclick="showTab('dashboard',this)"><span class="tile-icon">📊</span><div class="tile-label">Dashboard</div></div>
 <div class="tile" onclick="showTab('chat',this)"><span class="tile-icon">🤖</span><div class="tile-label">AI Chat</div></div>
 <div class="tile" onclick="showTab('codes',this)"><span class="tile-icon">📟</span><div class="tile-label">Fault Codes</div></div>
+<div class="tile" onclick="showTab('vin',this)"><span class="tile-icon">🔍</span><div class="tile-label">VIN Decoder</div></div>
+<div class="tile" onclick="showTab('photo',this)"><span class="tile-icon">📸</span><div class="tile-label">Photo Diag</div></div>
+<div class="tile" onclick="showTab('paint',this)"><span class="tile-icon">🎨</span><div class="tile-label">Paint Match</div></div>
 <div class="tile" onclick="showTab('jobs',this)"><span class="tile-icon">📋</span><div class="tile-label">Jobs</div></div>
 <div class="tile" onclick="showTab('quotes',this)"><span class="tile-icon">💬</span><div class="tile-label">Quotes</div></div>
 <div class="tile" onclick="showTab('appointments',this)"><span class="tile-icon">📅</span><div class="tile-label">Appointments</div></div>
@@ -208,9 +224,42 @@ canvas{max-height:220px}
 <h2 id="bcName" style="color:#E65100;margin:8px 0">My Workshop</h2>
 <p id="bcPhone" style="font-size:14px">Phone</p>
 <p id="bcAddress" style="font-size:12px;color:#666">Address</p>
-<p style="font-size:11px;color:#999;margin-top:8px">Powered by RamsTech</p>
 </div>
 <button class="btn" style="margin-top:12px" onclick="printBizCard()">🖨 Print Card</button>
+</div>
+</div>
+
+<div id="vin" class="panel">
+<div class="panel-title">🔍 VIN Decoder</div>
+<div class="card">
+<p style="font-size:13px;color:var(--text2);margin-bottom:10px">Enter the 17-character VIN from the vehicle. It's usually on the driver-side door frame, engine bay, or windshield base.</p>
+<input class="form-input" id="vinInput" placeholder="e.g. AHTFR22G50XXXXXXX" maxlength="17" style="text-transform:uppercase">
+<button class="btn btn-green" onclick="decodeVin()">🔍 Decode VIN</button>
+<div id="vinResult"></div>
+</div>
+</div>
+
+<div id="photo" class="panel">
+<div class="panel-title">📸 Photo Diagnosis</div>
+<div class="card">
+<p style="font-size:13px;color:var(--text2);margin-bottom:10px">📸 Take a photo of the mechanical issue — leak, worn part, damage, warning light, etc. AI will analyze it and give you diagnostic steps.</p>
+<input class="form-input" id="photoVehicle" placeholder="Vehicle info (optional) e.g. 2018 Toyota Hilux">
+<input type="file" id="photoImage" accept="image/*" capture="environment" class="form-input" onchange="previewDiag(event)">
+<div id="photoPreview"></div>
+<button class="btn btn-green" id="photoBtn" onclick="diagnosePhoto()">📸 Analyze Photo</button>
+<div id="photoResult"></div>
+</div>
+</div>
+
+<div id="paint" class="panel">
+<div class="panel-title">🎨 Paint Match</div>
+<div class="card">
+<p style="font-size:13px;color:var(--text2);margin-bottom:10px">🎨 Take a clear photo of the vehicle panel in good natural light. AI identifies the colour and provides paint codes.</p>
+<input class="form-input" id="paintVehicle" placeholder="Vehicle info (optional)">
+<input type="file" id="paintImage" accept="image/*" capture="environment" class="form-input" onchange="previewPaint(event)">
+<div id="paintPreview"></div>
+<button class="btn btn-green" id="paintBtn" onclick="matchPaint()">🎨 Match Paint Colour</button>
+<div id="paintResult"></div>
 </div>
 </div>
 
@@ -324,7 +373,7 @@ canvas{max-height:220px}
 <input class="form-input" id="pName" placeholder="Part name">
 <input class="form-input" id="pCategory" placeholder="Category">
 <input class="form-input" id="pQty" type="number" placeholder="Quantity">
-<input class="form-input" id="pMinQty" type="number" placeholder="Min qty (low alert)" value="5">
+<input class="form-input" id="pMinQty" type="number" placeholder="Min qty" value="5">
 <input class="form-input" id="pCost" type="number" placeholder="Cost price (R)">
 <input class="form-input" id="pSell" type="number" placeholder="Sell price (R)">
 <input class="form-input" id="pSupplier" placeholder="Supplier">
@@ -341,7 +390,7 @@ canvas{max-height:220px}
 <div id="staffForm" style="display:none">
 <div class="card">
 <input class="form-input" id="stName" placeholder="Full name">
-<input class="form-input" id="stRole" placeholder="Role (e.g. Mechanic)">
+<input class="form-input" id="stRole" placeholder="Role">
 <input class="form-input" id="stPhone" placeholder="Phone">
 <input class="form-input" id="stEmail" placeholder="Email">
 <input class="form-input" id="stRate" type="number" placeholder="Hourly rate (R)" value="150">
@@ -387,9 +436,9 @@ canvas{max-height:220px}
 
 <div class="bottom-nav">
 <div class="bnav active" onclick="showTab('home',this)"><div class="bnav-icon">🏠</div><div class="bnav-label">Home</div></div>
-<div class="bnav" onclick="showTab('dashboard',this)"><div class="bnav-icon">📊</div><div class="bnav-label">Dash</div></div>
+<div class="bnav" onclick="showTab('chat',this)"><div class="bnav-icon">🤖</div><div class="bnav-label">AI</div></div>
 <div class="bnav" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
-<div class="bnav" onclick="showTab('inventory',this)"><div class="bnav-icon">📦</div><div class="bnav-label">Stock</div></div>
+<div class="bnav" onclick="showTab('photo',this)"><div class="bnav-icon">📸</div><div class="bnav-label">Photo</div></div>
 <div class="bnav" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
 </div>
 
@@ -428,6 +477,92 @@ document.getElementById('status').innerHTML='<span class="status-online">Backend
 }catch(e){document.getElementById('status').innerHTML='<span class="status-offline">Offline</span>';}}
 checkStatus();
 
+// ═══ IMAGE COMPRESSION ═══
+function compressImage(file,maxWidth,quality){
+return new Promise((resolve)=>{
+const reader=new FileReader();
+reader.onload=(e)=>{
+const img=new Image();
+img.onload=()=>{
+const canvas=document.createElement('canvas');
+let{width,height}=img;
+if(width>maxWidth){height=(height*maxWidth)/width;width=maxWidth;}
+canvas.width=width;canvas.height=height;
+canvas.getContext('2d').drawImage(img,0,0,width,height);
+resolve(canvas.toDataURL('image/jpeg',quality));
+};
+img.src=e.target.result;
+};
+reader.readAsDataURL(file);
+});}
+
+// ═══ VIN DECODER ═══
+async function decodeVin(){
+const vin=document.getElementById('vinInput').value.trim().toUpperCase();
+const c=document.getElementById('vinResult');
+if(vin.length!==17){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">⚠ VIN must be exactly 17 characters</p></div>';return;}
+c.innerHTML='<div class="loading">Decoding VIN...</div>';
+try{const d=await jget('/api/vin/'+vin);
+if(d.detail){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">'+d.detail+'</p></div>';return;}
+c.innerHTML='<div class="card"><h3>🔍 Vehicle Information</h3><div class="list-item"><strong>VIN:</strong> <span style="font-family:monospace">'+d.vin+'</span></div><div class="list-item"><strong>Manufacturer:</strong> '+d.manufacturer+'</div><div class="list-item"><strong>Country:</strong> '+d.country+'</div><div class="list-item"><strong>Year:</strong> '+d.year+'</div><div class="list-item"><strong>Plant:</strong> '+d.plant+'</div><div class="list-item"><strong>Serial:</strong> '+d.serial+'</div></div>';
+}catch(e){c.innerHTML='<div class="card"><p>Error decoding VIN</p></div>';}
+}
+
+// ═══ PHOTO DIAG ═══
+let diagB64='';
+async function previewDiag(e){
+const f=e.target.files[0];if(!f)return;
+diagB64=await compressImage(f,1200,0.75);
+document.getElementById('photoPreview').innerHTML='<img class="img-preview" src="'+diagB64+'">';
+}
+async function diagnosePhoto(){
+const btn=document.getElementById('photoBtn');
+const c=document.getElementById('photoResult');
+if(!diagB64){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">Select a photo first</p></div>';return;}
+btn.disabled=true;btn.textContent='📸 Analyzing...';
+c.innerHTML='<div class="loading">AI is analyzing your photo...</div>';
+try{
+const d=await jpost('/api/diagnose/photo',{image_base64:diagB64,vehicle_info:document.getElementById('photoVehicle').value});
+if(!d.success){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">'+(d.error||'Analysis failed')+'</p></div>';}
+else{
+let h='<div class="card"><h3>🔍 '+(d.problem?esc(d.problem):'Detected')+'</h3><p><strong>Confidence:</strong> '+(d.confidence||'?')+'</p>'+(d.description?'<p style="margin-top:8px">'+esc(d.description)+'</p>':'')+'</div>';
+if(d.possible_causes&&d.possible_causes.length){h+='<div class="card"><h3>Possible Causes</h3>'+d.possible_causes.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'</div>';}
+if(d.diagnostic_steps&&d.diagnostic_steps.length){h+='<div class="card"><h3>Diagnostic Steps</h3>'+d.diagnostic_steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'</div>';}
+if(d.safety_warnings&&d.safety_warnings.length){h+='<div class="card" style="background:#fef2f2;border-color:#fecaca"><h3 style="color:#dc2626">⚠️ Safety</h3>'+d.safety_warnings.map(x=>'<div class="list-item">⚠ '+esc(x)+'</div>').join('')+'</div>';}
+c.innerHTML=h;
+}
+}catch(e){c.innerHTML='<div class="card"><p>Error analyzing photo</p></div>';}
+btn.disabled=false;btn.textContent='📸 Analyze Photo';
+}
+
+// ═══ PAINT MATCH ═══
+let paintB64='';
+async function previewPaint(e){
+const f=e.target.files[0];if(!f)return;
+paintB64=await compressImage(f,1200,0.75);
+document.getElementById('paintPreview').innerHTML='<img class="img-preview" src="'+paintB64+'">';
+}
+async function matchPaint(){
+const btn=document.getElementById('paintBtn');
+const c=document.getElementById('paintResult');
+if(!paintB64){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">Select a photo first</p></div>';return;}
+btn.disabled=true;btn.textContent='🎨 Analyzing...';
+c.innerHTML='<div class="loading">AI is matching the paint colour...</div>';
+try{
+const d=await jpost('/api/paint/match',{image_base64:paintB64,vehicle_info:document.getElementById('paintVehicle').value});
+if(!d.success){c.innerHTML='<div class="card" style="background:#fef2f2"><p style="color:#ef4444">'+(d.error||'Analysis failed')+'</p></div>';}
+else{
+const col=d.detected_colour||{};
+let h='<div class="card"><div class="swatch" style="background:'+(col.hex_code||'#ccc')+'"></div><h3>'+esc(col.name||'Unknown')+'</h3><p><strong>'+esc(col.finish||'')+'</strong>'+(col.colour_family?' • '+esc(col.colour_family):'')+'</p><p style="font-family:monospace;margin-top:6px">'+(col.hex_code||'')+'</p><p>Confidence: <strong>'+(d.confidence||'?')+'</strong></p></div>';
+if(d.brand_codes&&d.brand_codes.length){h+='<div class="card"><h3>🏷️ Brand Codes</h3>';d.brand_codes.forEach(b=>{h+='<div class="list-item"><strong>'+esc(b.brand)+':</strong> '+esc(b.code||'?')+(b.name?' — '+esc(b.name):'')+'</div>';});h+='</div>';}
+if(d.mixing_formula){const m=d.mixing_formula;h+='<div class="card"><h3>🧪 Mixing Formula</h3>';if(m.base_colour)h+='<div class="list-item"><strong>Base:</strong> '+esc(m.base_colour)+'</div>';if(m.toners&&m.toners.length){m.toners.forEach(t=>{h+='<div class="list-item">• '+esc(t.name)+': '+esc(t.parts)+' parts</div>';});}if(m.reducer)h+='<div class="list-item"><strong>Reducer:</strong> '+esc(m.reducer)+'</div>';h+='</div>';}
+if(d.safety_warnings&&d.safety_warnings.length){h+='<div class="card" style="background:#fef2f2"><h3 style="color:#dc2626">⚠️ Safety</h3>'+d.safety_warnings.map(x=>'<div class="list-item">⚠ '+esc(x)+'</div>').join('')+'</div>';}
+c.innerHTML=h;
+}
+}catch(e){c.innerHTML='<div class="card"><p>Error matching paint</p></div>';}
+btn.disabled=false;btn.textContent='🎨 Match Paint Colour';
+}
+
 async function sendMsg(){
 const i=document.getElementById('chatInput');const m=i.value.trim();if(!m)return;
 const b=document.getElementById('chatBox');
@@ -448,7 +583,7 @@ if(c1)rC=new Chart(c1,{type:'line',data:{labels:d.revenue_labels,datasets:[{data
 if(jC)jC.destroy();const c2=document.getElementById('jobChart');
 if(c2)jC=new Chart(c2,{type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#6b7280','#f59e0b','#10b981'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
 const ls=await jget('/api/inventory/low-stock');
-document.getElementById('dashLowStock').innerHTML=ls.items.length?ls.items.map(i=>'<div class="list-item">⚠️ <strong>'+esc(i.name)+'</strong> — '+i.qty+' left (min '+i.min+')</div>').join(''):'<p style="color:var(--text2)">✓ All stock OK</p>';
+document.getElementById('dashLowStock').innerHTML=ls.items.length?ls.items.map(i=>'<div class="list-item">⚠️ <strong>'+esc(i.name)+'</strong> — '+i.qty+' left</div>').join(''):'<p style="color:var(--text2)">✓ All stock OK</p>';
 }catch(e){}
 }
 
@@ -459,7 +594,7 @@ let h='<div class="stats-row"><div class="stat-card blue"><div class="num">R'+d.
 h+='<div class="stats-row"><div class="stat-card purple"><div class="num">'+d.invoices_count+'</div><div class="lbl">Invoices</div></div><div class="stat-card"><div class="num">'+d.jobs_count+'</div><div class="lbl">Jobs</div></div></div>';
 if(d.top_services.length){h+='<div class="card"><h3>🔥 Top Job Types</h3>';d.top_services.forEach(s=>{h+='<div class="list-item"><strong>'+esc(s.name)+'</strong> <span style="color:var(--text2);float:right">'+s.count+'×</span></div>';});h+='</div>';}
 if(d.top_customers.length){h+='<div class="card"><h3>⭐ Top Customers</h3>';d.top_customers.forEach(x=>{h+='<div class="list-item"><strong>'+esc(x.name)+'</strong> <span style="color:#10b981;float:right">R'+x.total.toFixed(0)+'</span></div>';});h+='</div>';}
-h+='<div class="card"><h3>💼 This Month</h3><div class="list-item">Revenue: <strong>R'+d.month_revenue.toFixed(2)+'</strong></div><div class="list-item">Jobs: <strong>'+d.month_jobs+'</strong></div><div class="list-item">New customers: <strong>'+d.month_customers+'</strong></div></div>';
+h+='<div class="card"><h3>💼 This Month</h3><div class="list-item">Revenue: <strong>R'+d.month_revenue.toFixed(2)+'</strong></div><div class="list-item">Jobs: <strong>'+d.month_jobs+'</strong></div></div>';
 document.getElementById('analyticsContent').innerHTML=h;
 }catch(e){document.getElementById('analyticsContent').innerHTML='<div class="card"><p>Error</p></div>';}
 }
@@ -468,13 +603,10 @@ document.getElementById('analyticsContent').innerHTML=h;
 async function loadWarranty(){
 const c=document.getElementById('warrantyList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/warranty');
-c.innerHTML=d.warranties.length?d.warranties.map(w=>{
-const cls=w.status==='active'?'ok':'warn';
-return '<div class="card"><h3>🎁 '+esc(w.vehicle)+' <span class="badge '+cls+'">'+w.status.toUpperCase()+'</span></h3><p><strong>'+esc(w.customer)+'</strong></p>'+(w.phone?'<p>📞 '+esc(w.phone)+'</p>':'')+'<div class="list-item">Job #'+w.id+' on '+esc(w.job_date)+'</div><div class="list-item">Warranty: '+w.months+' months</div><div class="list-item">Expires: <strong>'+esc(w.expiry)+'</strong></div><div class="list-item">'+(w.days_left>0?'<span style="color:#10b981;font-weight:700">'+w.days_left+' days remaining</span>':'<span style="color:#ef4444;font-weight:700">Expired '+Math.abs(w.days_left)+' days ago</span>')+'</div>'+(w.phone?'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waWarranty(\''+esc(w.phone)+'\',\''+esc(w.customer)+'\',\''+esc(w.vehicle)+'\')">📱 Remind</button></div>':'')+'</div>';
-}).join(''):'<div class="card"><p>No warranties. Complete a job with warranty to see it here.</p></div>';
+c.innerHTML=d.warranties.length?d.warranties.map(w=>{const cls=w.status==='active'?'ok':'warn';return '<div class="card"><h3>🎁 '+esc(w.vehicle)+' <span class="badge '+cls+'">'+w.status.toUpperCase()+'</span></h3><p><strong>'+esc(w.customer)+'</strong></p>'+(w.phone?'<p>📞 '+esc(w.phone)+'</p>':'')+'<div class="list-item">Expires: <strong>'+esc(w.expiry)+'</strong></div><div class="list-item">'+(w.days_left>0?'<span style="color:#10b981">'+w.days_left+' days remaining</span>':'<span style="color:#ef4444">Expired</span>')+'</div>'+(w.phone?'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waWarranty(\''+esc(w.phone)+'\',\''+esc(w.customer)+'\',\''+esc(w.vehicle)+'\')">📱</button></div>':'')+'</div>';}).join(''):'<div class="card"><p>No warranties.</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
-function waWarranty(phone,name,vehicle){const txt='Hi '+name+', your '+vehicle+' has an active warranty. Contact us for any covered issues.';window.open('https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt),'_blank');}
+function waWarranty(phone,name,vehicle){const txt='Hi '+name+', your '+vehicle+' has an active warranty.';window.open('https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt),'_blank');}
 
 // TAX
 async function loadTax(){
@@ -510,7 +642,7 @@ if(sel)sel.innerHTML='<option value="">— Assign staff —</option>'+d.staff.ma
 async function loadJobs(){
 const c=document.getElementById('jobList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/jobs');
-c.innerHTML=d.jobs.length?d.jobs.map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p>'+(j.assigned_to?'<p style="color:var(--text2);font-size:12px">👷 '+esc(j.assigned_to)+'</p>':'')+'<p style="color:var(--text2)">'+esc(j.complaint)+'</p>'+(j.warranty_months?'<p style="font-size:11px;color:var(--text2)">Warranty: '+j.warranty_months+' months</p>':'')+'<p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
+c.innerHTML=d.jobs.length?d.jobs.map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p>'+(j.assigned_to?'<p style="color:var(--text2);font-size:12px">👷 '+esc(j.assigned_to)+'</p>':'')+'<p style="color:var(--text2)">'+esc(j.complaint)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createJob(){
@@ -530,52 +662,52 @@ function waJob(id){jget('/api/jobs').then(d=>{const j=d.jobs.find(x=>x.id==id);i
 async function loadQuotes(){
 const c=document.getElementById('quoteList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/quotes');
-c.innerHTML=d.quotes.length?d.quotes.map(q=>'<div class="card"><h3>💬 Quote #'+q.id+'</h3><p><strong>'+esc(q.customer)+'</strong></p><p>'+esc(q.description)+'</p><div class="list-item">Labour: R'+q.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+q.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+q.total.toFixed(2)+'</strong></div><div style="margin-top:10px"><button class="btn-sm green" onclick="acceptQuote(\''+q.id+'\')">→ Invoice</button><button class="btn-sm wa" onclick="waQuote(\''+q.id+'\')">📱</button><button class="btn-sm red" onclick="delQuote(\''+q.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No quotes</p></div>';
+c.innerHTML=d.quotes.length?d.quotes.map(q=>'<div class="card"><h3>💬 Quote #'+q.id+'</h3><p><strong>'+esc(q.customer)+'</strong></p><p>'+esc(q.description)+'</p><div class="list-item"><strong>Total: R'+q.total.toFixed(2)+'</strong></div><div style="margin-top:10px"><button class="btn-sm green" onclick="acceptQuote(\''+q.id+'\')">→ Invoice</button><button class="btn-sm wa" onclick="waQuote(\''+q.id+'\')">📱</button><button class="btn-sm red" onclick="delQuote(\''+q.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No quotes</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createQuote(){
 const c=document.getElementById('qCustomer').value.trim();
 const d=document.getElementById('qDesc').value.trim();
-if(!c||!d){alert('Customer and description required');return;}
+if(!c||!d){alert('Required');return;}
 await jpost('/api/quotes',{customer:c,vehicle:document.getElementById('qVehicle').value,description:d,labour:parseFloat(document.getElementById('qLabour').value)||0,parts:parseFloat(document.getElementById('qParts').value)||0});
 ['qCustomer','qVehicle','qDesc','qLabour','qParts'].forEach(id=>document.getElementById(id).value='');
 hideForm('quoteForm');loadQuotes();
 }
 async function acceptQuote(id){if(!confirm('Convert to invoice?'))return;const r=await jpost('/api/quotes/'+id+'/accept',{});if(r.success){alert('Converted ✓');loadQuotes();}}
 async function delQuote(id){if(!confirm('Delete?'))return;await fetch('/api/quotes/'+id,{method:'DELETE'});loadQuotes();}
-function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);if(!q)return;const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\n'+q.description+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);if(!q)return;const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 
 // APPOINTMENTS
 async function loadAppts(){
 const c=document.getElementById('apptList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/appointments');
 const s=d.appointments.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-c.innerHTML=s.length?s.map(a=>'<div class="card"><h3>📅 '+esc(a.date)+' at '+esc(a.time)+'</h3><p><strong>'+esc(a.customer)+'</strong></p>'+(a.phone?'<p>📞 '+esc(a.phone)+'</p>':'')+(a.vehicle?'<p>🚗 '+esc(a.vehicle)+'</p>':'')+(a.service?'<p style="color:var(--text2)">'+esc(a.service)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waAppt(\''+a.id+'\')">📱</button><button class="btn-sm red" onclick="delAppt(\''+a.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No appointments</p></div>';
+c.innerHTML=s.length?s.map(a=>'<div class="card"><h3>📅 '+esc(a.date)+' at '+esc(a.time)+'</h3><p><strong>'+esc(a.customer)+'</strong></p>'+(a.vehicle?'<p>🚗 '+esc(a.vehicle)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waAppt(\''+a.id+'\')">📱</button><button class="btn-sm red" onclick="delAppt(\''+a.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No appointments</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createAppt(){
 const c=document.getElementById('aCustomer').value.trim();
 const d=document.getElementById('aDate').value;
 const t=document.getElementById('aTime').value;
-if(!c||!d||!t){alert('Customer, date, time required');return;}
+if(!c||!d||!t){alert('Required');return;}
 await jpost('/api/appointments',{customer:c,phone:document.getElementById('aPhone').value,vehicle:document.getElementById('aVehicle').value,service:document.getElementById('aService').value,date:d,time:t});
 ['aCustomer','aPhone','aVehicle','aService','aDate','aTime'].forEach(id=>document.getElementById(id).value='');
 hideForm('apptForm');loadAppts();
 }
 async function delAppt(id){if(!confirm('Delete?'))return;await fetch('/api/appointments/'+id,{method:'DELETE'});loadAppts();}
-function waAppt(id){jget('/api/appointments').then(d=>{const a=d.appointments.find(x=>x.id==id);if(!a)return;const txt='📅 *Appointment*\n'+a.customer+'\nVehicle: '+(a.vehicle||'N/A')+'\nDate: '+a.date+' at '+a.time;window.open('https://wa.me/'+(a.phone?a.phone.replace(/\D/g,'')+'?text=':'?text=')+encodeURIComponent(txt),'_blank');});}
+function waAppt(id){jget('/api/appointments').then(d=>{const a=d.appointments.find(x=>x.id==id);if(!a)return;const txt='📅 Appointment\n'+a.customer+'\nDate: '+a.date+' at '+a.time;window.open('https://wa.me/'+(a.phone?a.phone.replace(/\D/g,'')+'?text=':'?text=')+encodeURIComponent(txt),'_blank');});}
 
 // CUSTOMERS
 async function loadCust(){
 const c=document.getElementById('custList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/customers');
-c.innerHTML=d.customers.length?d.customers.map(x=>'<div class="card"><h3>👤 '+esc(x.name)+'</h3><p>📞 '+esc(x.phone)+'</p>'+(x.email?'<p>📧 '+esc(x.email)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waCust(\''+esc(x.phone)+'\')">📱 WhatsApp</button><button class="btn-sm red" onclick="delCust(\''+x.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No customers</p></div>';
+c.innerHTML=d.customers.length?d.customers.map(x=>'<div class="card"><h3>👤 '+esc(x.name)+'</h3><p>📞 '+esc(x.phone)+'</p>'+(x.email?'<p>📧 '+esc(x.email)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waCust(\''+esc(x.phone)+'\')">📱</button><button class="btn-sm red" onclick="delCust(\''+x.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No customers</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createCustomer(){
 const n=document.getElementById('cName').value.trim();
 const p=document.getElementById('cPhone').value.trim();
-if(!n||!p){alert('Name and phone required');return;}
+if(!n||!p){alert('Required');return;}
 await jpost('/api/customers',{name:n,phone:p,email:document.getElementById('cEmail').value});
 ['cName','cPhone','cEmail'].forEach(id=>document.getElementById(id).value='');
 hideForm('custForm');loadCust();
@@ -587,33 +719,30 @@ function waCust(p){window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
 async function loadInv(){
 const c=document.getElementById('invList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/invoices');
-c.innerHTML=d.invoices.length?d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p><p>'+esc(i.description)+'</p><div class="list-item">Labour: R'+i.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+i.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+i.total.toFixed(2)+'</strong></div><div style="margin-top:8px"><button class="btn-sm wa" onclick="waInv(\''+i.id+'\')">📱</button><button class="btn-sm red" onclick="delInv(\''+i.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No invoices</p></div>';
+c.innerHTML=d.invoices.length?d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p><p>'+esc(i.description)+'</p><div class="list-item"><strong>Total: R'+i.total.toFixed(2)+'</strong></div><div style="margin-top:8px"><button class="btn-sm wa" onclick="waInv(\''+i.id+'\')">📱</button><button class="btn-sm red" onclick="delInv(\''+i.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No invoices</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createInvoice(){
 const c=document.getElementById('iCustomer').value.trim();
 const d=document.getElementById('iDesc').value.trim();
-if(!c||!d){alert('Customer and description required');return;}
+if(!c||!d){alert('Required');return;}
 await jpost('/api/invoices',{customer:c,vehicle:document.getElementById('iVehicle').value,description:d,labour:parseFloat(document.getElementById('iLabour').value)||0,parts:parseFloat(document.getElementById('iParts').value)||0});
 ['iCustomer','iVehicle','iDesc','iLabour','iParts'].forEach(id=>document.getElementById(id).value='');
 hideForm('invForm');loadInv();
 }
 async function delInv(id){if(!confirm('Delete?'))return;await fetch('/api/invoices/'+id,{method:'DELETE'});loadInv();}
-function waInv(id){jget('/api/invoices').then(d=>{const i=d.invoices.find(x=>x.id==id);if(!i)return;const txt='💰 *Invoice #'+i.id+'*\n'+i.customer+'\n'+i.description+'\nTotal: R'+i.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+function waInv(id){jget('/api/invoices').then(d=>{const i=d.invoices.find(x=>x.id==id);if(!i)return;const txt='💰 Invoice #'+i.id+'\n'+i.customer+'\nTotal: R'+i.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 
 // INVENTORY
 async function loadInventory(){
 const c=document.getElementById('inventoryList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/inventory');
-c.innerHTML=d.items.length?d.items.map(i=>{
-const cls=i.qty<=i.min_qty?'warn':'ok';
-return '<div class="card"><h3>'+esc(i.name)+' <span class="badge '+cls+'">'+i.qty+' in stock</span></h3><p style="font-family:monospace;font-size:12px">'+esc(i.part_number||'-')+'</p>'+(i.category?'<p>'+esc(i.category)+'</p>':'')+'<div class="list-item">Cost: R'+i.cost_price.toFixed(2)+' | Sell: R'+i.sell_price.toFixed(2)+'</div>'+(i.supplier?'<div class="list-item">Supplier: '+esc(i.supplier)+'</div>':'')+(i.qty<=i.min_qty?'<p style="color:#ef4444;font-size:12px;font-weight:700">⚠ Low stock (min '+i.min_qty+')</p>':'')+'<div style="margin-top:10px"><button class="btn-sm green" onclick="adjInv(\''+i.id+'\',1)">+1</button><button class="btn-sm red" onclick="adjInv(\''+i.id+'\',-1)">-1</button><button class="btn-sm gray" onclick="delInvItem(\''+i.id+'\')">Delete</button></div></div>';
-}).join(''):'<div class="card"><p>No inventory items. Add parts you stock.</p></div>';
+c.innerHTML=d.items.length?d.items.map(i=>{const cls=i.qty<=i.min_qty?'warn':'ok';return '<div class="card"><h3>'+esc(i.name)+' <span class="badge '+cls+'">'+i.qty+'</span></h3><p style="font-family:monospace;font-size:12px">'+esc(i.part_number||'-')+'</p><div class="list-item">Cost: R'+i.cost_price.toFixed(2)+' | Sell: R'+i.sell_price.toFixed(2)+'</div>'+(i.qty<=i.min_qty?'<p style="color:#ef4444;font-size:12px;font-weight:700">⚠ Low stock</p>':'')+'<div style="margin-top:10px"><button class="btn-sm green" onclick="adjInv(\''+i.id+'\',1)">+1</button><button class="btn-sm red" onclick="adjInv(\''+i.id+'\',-1)">-1</button><button class="btn-sm gray" onclick="delInvItem(\''+i.id+'\')">Delete</button></div></div>';}).join(''):'<div class="card"><p>No inventory</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function addInventory(){
 const n=document.getElementById('pName').value.trim();
-if(!n){alert('Part name required');return;}
+if(!n){alert('Name required');return;}
 await jpost('/api/inventory',{part_number:document.getElementById('pNumber').value,name:n,category:document.getElementById('pCategory').value,qty:parseInt(document.getElementById('pQty').value)||0,min_qty:parseInt(document.getElementById('pMinQty').value)||5,cost_price:parseFloat(document.getElementById('pCost').value)||0,sell_price:parseFloat(document.getElementById('pSell').value)||0,supplier:document.getElementById('pSupplier').value});
 ['pNumber','pName','pCategory','pQty','pMinQty','pCost','pSell','pSupplier'].forEach(id=>document.getElementById(id).value='');
 hideForm('invItemForm');loadInventory();
@@ -625,7 +754,7 @@ async function delInvItem(id){if(!confirm('Delete?'))return;await fetch('/api/in
 async function loadStaff(){
 const c=document.getElementById('staffList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/staff');
-c.innerHTML=d.staff.length?d.staff.map(s=>'<div class="card"><h3>👷 '+esc(s.name)+'</h3>'+(s.role?'<p><strong>'+esc(s.role)+'</strong></p>':'')+(s.phone?'<p>📞 '+esc(s.phone)+'</p>':'')+(s.email?'<p>📧 '+esc(s.email)+'</p>':'')+'<p>Rate: R'+s.hourly_rate.toFixed(2)+'/hr</p><div style="margin-top:8px"><button class="btn-sm wa" onclick="waStaff(\''+esc(s.phone||'')+'\')">📱</button><button class="btn-sm red" onclick="delStaff(\''+s.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No staff members yet.</p></div>';
+c.innerHTML=d.staff.length?d.staff.map(s=>'<div class="card"><h3>👷 '+esc(s.name)+'</h3>'+(s.role?'<p><strong>'+esc(s.role)+'</strong></p>':'')+(s.phone?'<p>📞 '+esc(s.phone)+'</p>':'')+'<p>Rate: R'+s.hourly_rate.toFixed(2)+'/hr</p><button class="btn-sm red" onclick="delStaff(\''+s.id+'\')">Delete</button></div>').join(''):'<div class="card"><p>No staff</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function addStaff(){
@@ -636,7 +765,6 @@ await jpost('/api/staff',{name:n,role:document.getElementById('stRole').value,ph
 hideForm('staffForm');loadStaff();
 }
 async function delStaff(id){if(!confirm('Delete?'))return;await fetch('/api/staff/'+id,{method:'DELETE'});loadStaff();}
-function waStaff(p){if(p)window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
 
 // EXPENSES
 async function loadExpenses(){
@@ -645,7 +773,7 @@ try{const d=await jget('/api/expenses');
 const total=d.expenses.reduce((s,x)=>s+parseFloat(x.amount||0),0);
 let h='<div class="card" style="background:linear-gradient(135deg,#ef4444,#f87171);color:white"><h3 style="color:white">Total Expenses</h3><p style="font-size:26px;color:white;font-weight:800">R'+total.toFixed(2)+'</p></div>';
 if(d.expenses.length){h+=d.expenses.map(e=>'<div class="card"><h3>'+esc(e.category)+' <span class="badge new">R'+parseFloat(e.amount).toFixed(2)+'</span></h3>'+(e.note?'<p>'+esc(e.note)+'</p>':'')+'<p style="font-size:11px;color:var(--text2)">'+esc(e.date)+'</p><button class="btn-sm red" onclick="delExpense(\''+e.id+'\')">Delete</button></div>').join('');}
-else{h+='<div class="card"><p>No expenses recorded.</p></div>';}
+else{h+='<div class="card"><p>No expenses</p></div>';}
 c.innerHTML=h;
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
@@ -698,11 +826,29 @@ def codes(search: str = None):
         r = [c for c in r if q in c["code"].lower() or q in c["description"].lower()]
     return {"codes": r}
 
+@app.get("/api/vin/{vin}")
+def decode_vin(vin: str):
+    v = vin.strip().upper()
+    if len(v) != 17:
+        raise HTTPException(400, "VIN must be exactly 17 characters")
+    wmi = v[:3]
+    year_code = v[9]
+    plant_code = v[10]
+    mfr, country = WMI_DB.get(wmi, ("Unknown", "Unknown"))
+    year = YEAR_CODES.get(year_code, "Unknown")
+    plants = {"A":"Ingolstadt","B":"Brussels","C":"Changchun","D":"Dingolfing","E":"Eisenach",
+              "F":"Flint","G":"Graz","H":"Hiroshima","J":"Jakarta","K":"Kuala Lumpur",
+              "L":"Leipzig","M":"Madrid","N":"Nanjing","P":"Paris","R":"Regensburg",
+              "S":"Stuttgart","T":"Toyota City","U":"Ulsan","V":"Valencia","W":"Wolfsburg",
+              "Y":"Yokohama","Z":"Zwickau"}
+    return {"vin":v,"manufacturer":mfr,"country":country,"year":year,
+            "plant":plants.get(plant_code,"Unknown"),"serial":v[11:]}
+
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message","")
     if not msg: raise HTTPException(400,"Message required")
-    if not OPENAI_KEY: return {"reply":"AI not configured"}
+    if not OPENAI_KEY: return {"reply":"AI not configured — set OPENAI_API_KEY"}
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         resp = c.chat.completions.create(model="gpt-3.5-turbo",
@@ -711,6 +857,87 @@ async def chat(r: Request):
         return {"reply": resp.choices[0].message.content}
     except Exception as e:
         return {"reply": f"Error: {str(e)}"}
+
+@app.post("/api/diagnose/photo")
+async def diagnose_photo(r: Request):
+    d = await r.json()
+    img = d.get("image_base64","")
+    vehicle = d.get("vehicle_info","")
+    if not img: raise HTTPException(400,"Image required")
+    if not OPENAI_KEY: return {"success":False,"error":"AI not configured — set OPENAI_API_KEY"}
+    if img.startswith("data:"): img = img.split(",",1)[1]
+    if len(img) > 7_000_000: return {"success":False,"error":"Image too large (max 5MB)"}
+    prompt = f"""You are an expert mechanic analyzing a vehicle photo.
+Vehicle: {vehicle or 'Not specified'}
+
+Identify visible mechanical problems (wear, damage, leaks, corrosion, broken parts, warning lights).
+Respond ONLY with valid JSON in this exact format:
+{{
+  "problem": "Short description of the main issue",
+  "description": "What you see in detail",
+  "confidence": "High|Medium|Low",
+  "possible_causes": ["Cause 1", "Cause 2", "Cause 3"],
+  "diagnostic_steps": ["Step 1", "Step 2", "Step 3"],
+  "safety_warnings": ["Warning 1", "Warning 2"]
+}}"""
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(model="gpt-4o",
+            messages=[{"role":"user","content":[
+                {"type":"text","text":prompt},
+                {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{img}","detail":"high"}}]}],
+            max_tokens=2000, temperature=0.2, response_format={"type":"json_object"})
+        parsed = json.loads(resp.choices[0].message.content)
+        parsed["success"] = True
+        return parsed
+    except Exception as e:
+        return {"success":False,"error":str(e)}
+
+@app.post("/api/paint/match")
+async def match_paint(r: Request):
+    d = await r.json()
+    img = d.get("image_base64","")
+    vehicle = d.get("vehicle_info","")
+    if not img: raise HTTPException(400,"Image required")
+    if not OPENAI_KEY: return {"success":False,"error":"AI not configured"}
+    if img.startswith("data:"): img = img.split(",",1)[1]
+    if len(img) > 7_000_000: return {"success":False,"error":"Image too large (max 5MB)"}
+    prompt = f"""You are an expert automotive paint technician analyzing a vehicle panel.
+Vehicle: {vehicle or 'Not specified'}
+
+Respond ONLY with valid JSON:
+{{
+  "detected_colour": {{
+    "name": "Common colour name",
+    "hex_code": "#RRGGBB",
+    "finish": "Solid|Metallic|Pearl|Matte|Satin",
+    "colour_family": "White|Black|Red|Blue|Silver|Grey|Green|Yellow|Orange|Brown"
+  }},
+  "confidence": "High|Medium|Low",
+  "brand_codes": [
+    {{"brand":"DuPont","code":"example","name":"formula"}},
+    {{"brand":"PPG","code":"example","name":"formula"}},
+    {{"brand":"Sikkens","code":"example","name":"formula"}}
+  ],
+  "mixing_formula": {{
+    "base_colour": "Description",
+    "toners": [{{"name":"Toner","parts":"X"}}],
+    "reducer": "2:1"
+  }},
+  "safety_warnings": ["Warning 1", "Warning 2"]
+}}"""
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(model="gpt-4o",
+            messages=[{"role":"user","content":[
+                {"type":"text","text":prompt},
+                {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{img}","detail":"high"}}]}],
+            max_tokens=2000, temperature=0.2, response_format={"type":"json_object"})
+        parsed = json.loads(resp.choices[0].message.content)
+        parsed["success"] = True
+        return parsed
+    except Exception as e:
+        return {"success":False,"error":str(e)}
 
 @app.get("/api/stats")
 def stats():
@@ -754,11 +981,10 @@ def analytics():
     month_prefix = datetime.now().strftime("%Y-%m")
     month_rev = sum(float(i.get("total",0)) for i in invs if (i.get("created") or "").startswith(month_prefix))
     month_jobs = sum(1 for j in jobs if (j.get("created") or "").startswith(month_prefix))
-    month_custs = sum(1 for c in custs if (c.get("created") or "").startswith(month_prefix))
     return {"total_revenue":total_rev,"avg_invoice":avg_inv,
             "invoices_count":len(invs),"jobs_count":len(jobs),
             "top_services":top_services,"top_customers":top_customers,
-            "month_revenue":month_rev,"month_jobs":month_jobs,"month_customers":month_custs}
+            "month_revenue":month_rev,"month_jobs":month_jobs}
 
 @app.get("/api/warranty")
 def warranty_list():
@@ -784,8 +1010,7 @@ def warranty_list():
 
 @app.get("/api/export/tax")
 def export_tax(from_date: str = None, to_date: str = None):
-    o = io.StringIO()
-    w = csv.writer(o)
+    o = io.StringIO(); w = csv.writer(o)
     w.writerow(["Date","Type","Description","Customer/Note","Amount (R)","VAT (R)"])
     for i in db_list("invoices"):
         d = (i.get("created") or "")[:10]
@@ -803,9 +1028,8 @@ def export_tax(from_date: str = None, to_date: str = None):
     exps = [e for e in db_list("expenses") if (not from_date or e.get("date","") >= from_date) and (not to_date or e.get("date","") <= to_date)]
     total_income = sum(float(i.get("total",0)) for i in invs)
     total_exp = sum(float(e.get("amount",0)) for e in exps)
-    total_vat = sum(float(i.get("vat",0)) for i in invs)
     w.writerow([])
-    w.writerow(["","","TOTAL INCOME","",f"{total_income:.2f}",f"{total_vat:.2f}"])
+    w.writerow(["","","TOTAL INCOME","",f"{total_income:.2f}",""])
     w.writerow(["","","TOTAL EXPENSES","",f"-{total_exp:.2f}",""])
     w.writerow(["","","NET PROFIT","",f"{total_income-total_exp:.2f}",""])
     o.seek(0)
