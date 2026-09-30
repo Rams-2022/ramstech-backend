@@ -24,7 +24,8 @@ def init_db():
 
 init_db()
 
-MEM = {"jobs":{}, "customers":{}, "invoices":{}, "quotes":{}, "appointments":{}}
+MEM = {"jobs":{}, "customers":{}, "invoices":{}, "quotes":{}, "appointments":{},
+       "inventory":{}, "staff":{}, "expenses":{}}
 WORKSHOP = {"name":"My Workshop","phone":"","address":"","logo":"🔧","labour_rate":450}
 
 def db_list(table):
@@ -164,6 +165,9 @@ canvas{max-height:220px}
 <div class="tile" onclick="showTab('appointments',this)"><span class="tile-icon">📅</span><div class="tile-label">Appointments</div></div>
 <div class="tile" onclick="showTab('customers',this)"><span class="tile-icon">👥</span><div class="tile-label">Customers</div></div>
 <div class="tile" onclick="showTab('invoices',this)"><span class="tile-icon">💰</span><div class="tile-label">Invoices</div></div>
+<div class="tile" onclick="showTab('inventory',this)"><span class="tile-icon">📦</span><div class="tile-label">Inventory</div></div>
+<div class="tile" onclick="showTab('staff',this)"><span class="tile-icon">👷</span><div class="tile-label">Staff</div></div>
+<div class="tile" onclick="showTab('expenses',this)"><span class="tile-icon">💸</span><div class="tile-label">Expenses</div></div>
 <div class="tile" onclick="showTab('analytics',this)"><span class="tile-icon">📈</span><div class="tile-label">Analytics</div></div>
 <div class="tile" onclick="showTab('warranty',this)"><span class="tile-icon">🎁</span><div class="tile-label">Warranty</div></div>
 <div class="tile" onclick="showTab('tax',this)"><span class="tile-icon">🧾</span><div class="tile-label">Tax</div></div>
@@ -176,6 +180,7 @@ canvas{max-height:220px}
 <div id="dashStats"><div class="loading">Loading...</div></div>
 <div class="card"><h3>💰 Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
 <div class="card"><h3>📋 Job Status</h3><canvas id="jobChart"></canvas></div>
+<div class="card"><h3>⚠️ Low Stock Alerts</h3><div id="dashLowStock"></div></div>
 </div>
 
 <div id="analytics" class="panel">
@@ -185,7 +190,6 @@ canvas{max-height:220px}
 
 <div id="warranty" class="panel">
 <div class="panel-title">🎁 Warranty Tracker</div>
-<p style="font-size:12px;color:var(--text2);margin-bottom:12px">Warranties on completed jobs. Jobs older than 6 months without a warranty record can be updated in Job Cards.</p>
 <div id="warrantyList"><div class="loading">Loading...</div></div>
 </div>
 
@@ -193,7 +197,6 @@ canvas{max-height:220px}
 <div class="panel-title">🧾 Tax & Reports</div>
 <div class="card">
 <h3>📅 Tax Report Period</h3>
-<p style="font-size:12px;color:var(--text2);margin-bottom:10px">Select date range and download CSV for your accountant.</p>
 <input class="form-input" id="taxFrom" type="date">
 <input class="form-input" id="taxTo" type="date">
 <button class="btn btn-dark" onclick="downloadTax()">📥 Download CSV Report</button>
@@ -236,6 +239,7 @@ canvas{max-height:220px}
 <input class="form-input" id="jVehicle" placeholder="Vehicle">
 <input class="form-input" id="jReg" placeholder="Registration">
 <textarea class="form-input" id="jComplaint" placeholder="Complaint" rows="2"></textarea>
+<select class="form-input" id="jAssigned"><option value="">— Assign staff —</option></select>
 <input class="form-input" id="jWarranty" type="number" placeholder="Warranty (months)" value="6">
 <button class="btn btn-green" onclick="createJob()">Save Job</button>
 <button class="btn btn-dark" onclick="hideForm('jobForm')">Cancel</button>
@@ -311,6 +315,63 @@ canvas{max-height:220px}
 <div id="invList"><div class="loading">Loading...</div></div>
 </div>
 
+<div id="inventory" class="panel">
+<div class="panel-title">📦 Inventory</div>
+<button class="btn btn-green" onclick="showForm('invItemForm')">+ Add Stock Item</button>
+<div id="invItemForm" style="display:none">
+<div class="card">
+<input class="form-input" id="pNumber" placeholder="Part number">
+<input class="form-input" id="pName" placeholder="Part name">
+<input class="form-input" id="pCategory" placeholder="Category">
+<input class="form-input" id="pQty" type="number" placeholder="Quantity">
+<input class="form-input" id="pMinQty" type="number" placeholder="Min qty (low alert)" value="5">
+<input class="form-input" id="pCost" type="number" placeholder="Cost price (R)">
+<input class="form-input" id="pSell" type="number" placeholder="Sell price (R)">
+<input class="form-input" id="pSupplier" placeholder="Supplier">
+<button class="btn btn-green" onclick="addInventory()">Save Item</button>
+<button class="btn btn-dark" onclick="hideForm('invItemForm')">Cancel</button>
+</div>
+</div>
+<div id="inventoryList"><div class="loading">Loading...</div></div>
+</div>
+
+<div id="staff" class="panel">
+<div class="panel-title">👷 Staff</div>
+<button class="btn btn-green" onclick="showForm('staffForm')">+ Add Staff Member</button>
+<div id="staffForm" style="display:none">
+<div class="card">
+<input class="form-input" id="stName" placeholder="Full name">
+<input class="form-input" id="stRole" placeholder="Role (e.g. Mechanic)">
+<input class="form-input" id="stPhone" placeholder="Phone">
+<input class="form-input" id="stEmail" placeholder="Email">
+<input class="form-input" id="stRate" type="number" placeholder="Hourly rate (R)" value="150">
+<button class="btn btn-green" onclick="addStaff()">Save Staff</button>
+<button class="btn btn-dark" onclick="hideForm('staffForm')">Cancel</button>
+</div>
+</div>
+<div id="staffList"><div class="loading">Loading...</div></div>
+</div>
+
+<div id="expenses" class="panel">
+<div class="panel-title">💸 Expenses</div>
+<button class="btn btn-green" onclick="showForm('expForm')">+ Add Expense</button>
+<div id="expForm" style="display:none">
+<div class="card">
+<select class="form-input" id="exCat">
+<option>Rent</option><option>Utilities</option><option>Tools</option>
+<option>Parts</option><option>Salaries</option><option>Fuel</option>
+<option>Marketing</option><option>Other</option>
+</select>
+<input class="form-input" id="exAmount" type="number" placeholder="Amount (R)">
+<input class="form-input" id="exDate" type="date">
+<textarea class="form-input" id="exNote" placeholder="Note" rows="2"></textarea>
+<button class="btn btn-green" onclick="addExpense()">Save Expense</button>
+<button class="btn btn-dark" onclick="hideForm('expForm')">Cancel</button>
+</div>
+</div>
+<div id="expenseList"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ Settings</div>
 <div class="card">
@@ -328,7 +389,7 @@ canvas{max-height:220px}
 <div class="bnav active" onclick="showTab('home',this)"><div class="bnav-icon">🏠</div><div class="bnav-label">Home</div></div>
 <div class="bnav" onclick="showTab('dashboard',this)"><div class="bnav-icon">📊</div><div class="bnav-label">Dash</div></div>
 <div class="bnav" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
-<div class="bnav" onclick="showTab('analytics',this)"><div class="bnav-icon">📈</div><div class="bnav-label">Analytics</div></div>
+<div class="bnav" onclick="showTab('inventory',this)"><div class="bnav-icon">📦</div><div class="bnav-label">Stock</div></div>
 <div class="bnav" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
 </div>
 
@@ -344,11 +405,14 @@ document.getElementById(name).classList.add('active');
 if(el&&el.classList)el.classList.add('active');
 window.scrollTo(0,0);
 if(name==='codes'&&!document.getElementById('codeResults').dataset.loaded)searchCodes();
-if(name==='jobs')loadJobs();
+if(name==='jobs'){loadJobs();loadStaffDropdown();}
 if(name==='quotes')loadQuotes();
 if(name==='appointments')loadAppts();
 if(name==='customers')loadCust();
 if(name==='invoices')loadInv();
+if(name==='inventory')loadInventory();
+if(name==='staff')loadStaff();
+if(name==='expenses')loadExpenses();
 if(name==='settings')loadSettings();
 if(name==='dashboard')loadDash();
 if(name==='analytics')loadAnalytics();
@@ -374,72 +438,60 @@ catch(e){document.getElementById('typ').outerHTML='<div class="msg ai">Error</di
 b.scrollTop=b.scrollHeight;
 }
 
-// ═══ DASHBOARD ═══
+// DASHBOARD
 let rC=null,jC=null;
 async function loadDash(){
 try{const d=await jget('/api/stats');
-document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card purple"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Done</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">'+d.appointments_today+'</div><div class="lbl">Today</div></div></div>';
+document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card purple"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Done</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R'+d.expenses+'</div><div class="lbl">Expenses</div></div></div>';
 if(rC)rC.destroy();const c1=document.getElementById('revenueChart');
 if(c1)rC=new Chart(c1,{type:'line',data:{labels:d.revenue_labels,datasets:[{data:d.revenue_data,borderColor:'#667eea',backgroundColor:'rgba(102,126,234,.15)',tension:.4,fill:true,borderWidth:3}]},options:{responsive:true,plugins:{legend:{display:false}}}});
 if(jC)jC.destroy();const c2=document.getElementById('jobChart');
 if(c2)jC=new Chart(c2,{type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#6b7280','#f59e0b','#10b981'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+const ls=await jget('/api/inventory/low-stock');
+document.getElementById('dashLowStock').innerHTML=ls.items.length?ls.items.map(i=>'<div class="list-item">⚠️ <strong>'+esc(i.name)+'</strong> — '+i.qty+' left (min '+i.min+')</div>').join(''):'<p style="color:var(--text2)">✓ All stock OK</p>';
 }catch(e){}
 }
 
-// ═══ ANALYTICS ═══
+// ANALYTICS
 async function loadAnalytics(){
 try{const d=await jget('/api/analytics');
 let h='<div class="stats-row"><div class="stat-card blue"><div class="num">R'+d.avg_invoice.toFixed(0)+'</div><div class="lbl">Avg Invoice</div></div><div class="stat-card green"><div class="num">R'+d.total_revenue.toFixed(0)+'</div><div class="lbl">Revenue</div></div></div>';
-h+='<div class="stats-row"><div class="stat-card purple"><div class="num">'+d.invoices_count+'</div><div class="lbl">Invoices</div></div><div class="stat-card"><div class="num">'+d.jobs_count+'</div><div class="lbl">Total Jobs</div></div></div>';
+h+='<div class="stats-row"><div class="stat-card purple"><div class="num">'+d.invoices_count+'</div><div class="lbl">Invoices</div></div><div class="stat-card"><div class="num">'+d.jobs_count+'</div><div class="lbl">Jobs</div></div></div>';
 if(d.top_services.length){h+='<div class="card"><h3>🔥 Top Job Types</h3>';d.top_services.forEach(s=>{h+='<div class="list-item"><strong>'+esc(s.name)+'</strong> <span style="color:var(--text2);float:right">'+s.count+'×</span></div>';});h+='</div>';}
-if(d.top_customers.length){h+='<div class="card"><h3>⭐ Top Customers by Revenue</h3>';d.top_customers.forEach(x=>{h+='<div class="list-item"><strong>'+esc(x.name)+'</strong> <span style="color:#10b981;float:right">R'+x.total.toFixed(0)+'</span></div>';});h+='</div>';}
+if(d.top_customers.length){h+='<div class="card"><h3>⭐ Top Customers</h3>';d.top_customers.forEach(x=>{h+='<div class="list-item"><strong>'+esc(x.name)+'</strong> <span style="color:#10b981;float:right">R'+x.total.toFixed(0)+'</span></div>';});h+='</div>';}
 h+='<div class="card"><h3>💼 This Month</h3><div class="list-item">Revenue: <strong>R'+d.month_revenue.toFixed(2)+'</strong></div><div class="list-item">Jobs: <strong>'+d.month_jobs+'</strong></div><div class="list-item">New customers: <strong>'+d.month_customers+'</strong></div></div>';
 document.getElementById('analyticsContent').innerHTML=h;
-}catch(e){document.getElementById('analyticsContent').innerHTML='<div class="card"><p>Error loading</p></div>';}
+}catch(e){document.getElementById('analyticsContent').innerHTML='<div class="card"><p>Error</p></div>';}
 }
 
-// ═══ WARRANTY ═══
+// WARRANTY
 async function loadWarranty(){
 const c=document.getElementById('warrantyList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/warranty');
 c.innerHTML=d.warranties.length?d.warranties.map(w=>{
 const cls=w.status==='active'?'ok':'warn';
-return '<div class="card"><h3>🎁 '+esc(w.vehicle)+' <span class="badge '+cls+'">'+w.status.toUpperCase()+'</span></h3><p><strong>'+esc(w.customer)+'</strong></p>'+(w.phone?'<p>📞 '+esc(w.phone)+'</p>':'')+'<div class="list-item">Job #'+w.id+' on '+esc(w.job_date)+'</div><div class="list-item">Warranty: '+w.months+' months</div><div class="list-item">Expires: <strong>'+esc(w.expiry)+'</strong></div><div class="list-item">'+(w.days_left>0?'<span style="color:#10b981;font-weight:700">'+w.days_left+' days remaining</span>':'<span style="color:#ef4444;font-weight:700">Expired '+Math.abs(w.days_left)+' days ago</span>')+'</div><div style="margin-top:8px">'+(w.phone?'<button class="btn-sm wa" onclick="waWarranty(\''+esc(w.phone)+'\',\''+esc(w.customer)+'\',\''+esc(w.vehicle)+'\',\''+esc(w.expiry)+'\')">📱 Remind</button>':'')+'</div></div>';
-}).join(''):'<div class="card"><p>No warranties found. Complete a job with a warranty to see it here.</p></div>';
+return '<div class="card"><h3>🎁 '+esc(w.vehicle)+' <span class="badge '+cls+'">'+w.status.toUpperCase()+'</span></h3><p><strong>'+esc(w.customer)+'</strong></p>'+(w.phone?'<p>📞 '+esc(w.phone)+'</p>':'')+'<div class="list-item">Job #'+w.id+' on '+esc(w.job_date)+'</div><div class="list-item">Warranty: '+w.months+' months</div><div class="list-item">Expires: <strong>'+esc(w.expiry)+'</strong></div><div class="list-item">'+(w.days_left>0?'<span style="color:#10b981;font-weight:700">'+w.days_left+' days remaining</span>':'<span style="color:#ef4444;font-weight:700">Expired '+Math.abs(w.days_left)+' days ago</span>')+'</div>'+(w.phone?'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waWarranty(\''+esc(w.phone)+'\',\''+esc(w.customer)+'\',\''+esc(w.vehicle)+'\')">📱 Remind</button></div>':'')+'</div>';
+}).join(''):'<div class="card"><p>No warranties. Complete a job with warranty to see it here.</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
-function waWarranty(phone,name,vehicle,expiry){
-const txt='Hi '+name+',\n\nYour '+vehicle+' has an active warranty until '+expiry+'.\n\nIf you notice any issues covered by warranty, please contact us.\n\nThank you!';
-window.open('https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt),'_blank');
-}
+function waWarranty(phone,name,vehicle){const txt='Hi '+name+', your '+vehicle+' has an active warranty. Contact us for any covered issues.';window.open('https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt),'_blank');}
 
-// ═══ TAX ═══
+// TAX
 async function loadTax(){
 try{const d=await jget('/api/workshop');
 document.getElementById('bcLogo').textContent=d.logo||'🔧';
 document.getElementById('bcName').textContent=d.name||'My Workshop';
 document.getElementById('bcPhone').textContent=d.phone||'(no phone set)';
 document.getElementById('bcAddress').textContent=d.address||'(no address set)';
-// Default tax period to current month
-const now=new Date();
-const first=new Date(now.getFullYear(),now.getMonth(),1);
-document.getElementById('taxFrom').value=first.toISOString().slice(0,10);
-document.getElementById('taxTo').value=now.toISOString().slice(0,10);
+const n=new Date();const f=new Date(n.getFullYear(),n.getMonth(),1);
+document.getElementById('taxFrom').value=f.toISOString().slice(0,10);
+document.getElementById('taxTo').value=n.toISOString().slice(0,10);
 }catch(e){}
 }
-function downloadTax(){
-const f=document.getElementById('taxFrom').value;
-const t=document.getElementById('taxTo').value;
-if(!f||!t){alert('Select both dates');return;}
-window.location.href='/api/export/tax?from_date='+f+'&to_date='+t;
-}
-function printBizCard(){
-const w=window.open('','','width=600,height=400');
-w.document.write('<html><head><title>Business Card</title></head><body style="padding:20px;display:flex;justify-content:center;align-items:center;min-height:90vh">'+document.getElementById('bizCard').outerHTML+'</body></html>');
-w.document.close();setTimeout(()=>w.print(),500);
-}
+function downloadTax(){const f=document.getElementById('taxFrom').value;const t=document.getElementById('taxTo').value;if(!f||!t){alert('Select both dates');return;}window.location.href='/api/export/tax?from_date='+f+'&to_date='+t;}
+function printBizCard(){const w=window.open('','','width=600,height=400');w.document.write('<html><head><title>Card</title></head><body style="padding:20px;display:flex;justify-content:center;align-items:center;min-height:90vh">'+document.getElementById('bizCard').outerHTML+'</body></html>');w.document.close();setTimeout(()=>w.print(),500);}
 
-// ═══ CODES ═══
+// CODES
 async function searchCodes(){
 const q=document.getElementById('codeSearch').value;const c=document.getElementById('codeResults');
 c.innerHTML='<div class="loading">Loading...</div>';
@@ -448,11 +500,17 @@ c.innerHTML=d.codes.length?d.codes.map(x=>'<div class="card"><h3>'+x.code+'<span
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 
-// ═══ JOBS ═══
+// JOBS
+async function loadStaffDropdown(){
+try{const d=await jget('/api/staff');
+const sel=document.getElementById('jAssigned');
+if(sel)sel.innerHTML='<option value="">— Assign staff —</option>'+d.staff.map(s=>'<option value="'+esc(s.name)+'">'+esc(s.name)+'</option>').join('');
+}catch(e){}
+}
 async function loadJobs(){
 const c=document.getElementById('jobList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/jobs');
-c.innerHTML=d.jobs.length?d.jobs.map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p>'+(j.warranty_months?'<p style="font-size:11px;color:var(--text2)">Warranty: '+j.warranty_months+' months</p>':'')+'<p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
+c.innerHTML=d.jobs.length?d.jobs.map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p>'+(j.assigned_to?'<p style="color:var(--text2);font-size:12px">👷 '+esc(j.assigned_to)+'</p>':'')+'<p style="color:var(--text2)">'+esc(j.complaint)+'</p>'+(j.warranty_months?'<p style="font-size:11px;color:var(--text2)">Warranty: '+j.warranty_months+' months</p>':'')+'<p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createJob(){
@@ -460,7 +518,7 @@ const c=document.getElementById('jCustomer').value.trim();
 const v=document.getElementById('jVehicle').value.trim();
 const comp=document.getElementById('jComplaint').value.trim();
 if(!c||!v||!comp){alert('Fill customer, vehicle, complaint');return;}
-await jpost('/api/jobs',{customer:c,phone:document.getElementById('jPhone').value,vehicle:v,registration:document.getElementById('jReg').value,complaint:comp,warranty_months:parseInt(document.getElementById('jWarranty').value)||6});
+await jpost('/api/jobs',{customer:c,phone:document.getElementById('jPhone').value,vehicle:v,registration:document.getElementById('jReg').value,complaint:comp,assigned_to:document.getElementById('jAssigned').value,warranty_months:parseInt(document.getElementById('jWarranty').value)||6});
 ['jCustomer','jPhone','jVehicle','jReg','jComplaint'].forEach(id=>document.getElementById(id).value='');
 hideForm('jobForm');loadJobs();
 }
@@ -468,7 +526,7 @@ async function upJob(id,s){await jput('/api/jobs/'+id,{status:s});loadJobs();}
 async function delJob(id){if(!confirm('Delete?'))return;await fetch('/api/jobs/'+id,{method:'DELETE'});loadJobs();}
 function waJob(id){jget('/api/jobs').then(d=>{const j=d.jobs.find(x=>x.id==id);if(!j)return;const txt='🔧 *Job #'+j.id+'*\n'+j.customer+'\n'+j.vehicle+'\nIssue: '+j.complaint+'\nStatus: '+j.status;window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 
-// ═══ QUOTES ═══
+// QUOTES
 async function loadQuotes(){
 const c=document.getElementById('quoteList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/quotes');
@@ -483,15 +541,11 @@ await jpost('/api/quotes',{customer:c,vehicle:document.getElementById('qVehicle'
 ['qCustomer','qVehicle','qDesc','qLabour','qParts'].forEach(id=>document.getElementById(id).value='');
 hideForm('quoteForm');loadQuotes();
 }
-async function acceptQuote(id){
-if(!confirm('Convert to invoice?'))return;
-const r=await jpost('/api/quotes/'+id+'/accept',{});
-if(r.success){alert('Converted to invoice ✓');loadQuotes();}
-}
+async function acceptQuote(id){if(!confirm('Convert to invoice?'))return;const r=await jpost('/api/quotes/'+id+'/accept',{});if(r.success){alert('Converted ✓');loadQuotes();}}
 async function delQuote(id){if(!confirm('Delete?'))return;await fetch('/api/quotes/'+id,{method:'DELETE'});loadQuotes();}
-function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);if(!q)return;const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\n'+q.description+'\nLabour: R'+q.labour.toFixed(2)+'\nParts: R'+q.parts.toFixed(2)+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);if(!q)return;const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\n'+q.description+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 
-// ═══ APPOINTMENTS ═══
+// APPOINTMENTS
 async function loadAppts(){
 const c=document.getElementById('apptList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/appointments');
@@ -503,15 +557,15 @@ async function createAppt(){
 const c=document.getElementById('aCustomer').value.trim();
 const d=document.getElementById('aDate').value;
 const t=document.getElementById('aTime').value;
-if(!c||!d||!t){alert('Customer, date, and time required');return;}
+if(!c||!d||!t){alert('Customer, date, time required');return;}
 await jpost('/api/appointments',{customer:c,phone:document.getElementById('aPhone').value,vehicle:document.getElementById('aVehicle').value,service:document.getElementById('aService').value,date:d,time:t});
 ['aCustomer','aPhone','aVehicle','aService','aDate','aTime'].forEach(id=>document.getElementById(id).value='');
 hideForm('apptForm');loadAppts();
 }
 async function delAppt(id){if(!confirm('Delete?'))return;await fetch('/api/appointments/'+id,{method:'DELETE'});loadAppts();}
-function waAppt(id){jget('/api/appointments').then(d=>{const a=d.appointments.find(x=>x.id==id);if(!a)return;const txt='📅 *Appointment*\n\nCustomer: '+a.customer+'\nVehicle: '+(a.vehicle||'N/A')+'\nService: '+(a.service||'General')+'\nDate: '+a.date+'\nTime: '+a.time;window.open('https://wa.me/'+(a.phone?a.phone.replace(/\D/g,'')+'?text=':'?text=')+encodeURIComponent(txt),'_blank');});}
+function waAppt(id){jget('/api/appointments').then(d=>{const a=d.appointments.find(x=>x.id==id);if(!a)return;const txt='📅 *Appointment*\n'+a.customer+'\nVehicle: '+(a.vehicle||'N/A')+'\nDate: '+a.date+' at '+a.time;window.open('https://wa.me/'+(a.phone?a.phone.replace(/\D/g,'')+'?text=':'?text=')+encodeURIComponent(txt),'_blank');});}
 
-// ═══ CUSTOMERS ═══
+// CUSTOMERS
 async function loadCust(){
 const c=document.getElementById('custList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/customers');
@@ -529,7 +583,7 @@ hideForm('custForm');loadCust();
 async function delCust(id){if(!confirm('Delete?'))return;await fetch('/api/customers/'+id,{method:'DELETE'});loadCust();}
 function waCust(p){window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
 
-// ═══ INVOICES ═══
+// INVOICES
 async function loadInv(){
 const c=document.getElementById('invList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/invoices');
@@ -545,9 +599,66 @@ await jpost('/api/invoices',{customer:c,vehicle:document.getElementById('iVehicl
 hideForm('invForm');loadInv();
 }
 async function delInv(id){if(!confirm('Delete?'))return;await fetch('/api/invoices/'+id,{method:'DELETE'});loadInv();}
-function waInv(id){jget('/api/invoices').then(d=>{const i=d.invoices.find(x=>x.id==id);if(!i)return;const txt='💰 *Invoice #'+i.id+'*\n'+i.customer+'\n'+i.description+'\nLabour: R'+i.labour.toFixed(2)+'\nParts: R'+i.parts.toFixed(2)+'\nVAT: R'+i.vat.toFixed(2)+'\nTotal: R'+i.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+function waInv(id){jget('/api/invoices').then(d=>{const i=d.invoices.find(x=>x.id==id);if(!i)return;const txt='💰 *Invoice #'+i.id+'*\n'+i.customer+'\n'+i.description+'\nTotal: R'+i.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 
-// ═══ SETTINGS ═══
+// INVENTORY
+async function loadInventory(){
+const c=document.getElementById('inventoryList');c.innerHTML='<div class="loading">Loading...</div>';
+try{const d=await jget('/api/inventory');
+c.innerHTML=d.items.length?d.items.map(i=>{
+const cls=i.qty<=i.min_qty?'warn':'ok';
+return '<div class="card"><h3>'+esc(i.name)+' <span class="badge '+cls+'">'+i.qty+' in stock</span></h3><p style="font-family:monospace;font-size:12px">'+esc(i.part_number||'-')+'</p>'+(i.category?'<p>'+esc(i.category)+'</p>':'')+'<div class="list-item">Cost: R'+i.cost_price.toFixed(2)+' | Sell: R'+i.sell_price.toFixed(2)+'</div>'+(i.supplier?'<div class="list-item">Supplier: '+esc(i.supplier)+'</div>':'')+(i.qty<=i.min_qty?'<p style="color:#ef4444;font-size:12px;font-weight:700">⚠ Low stock (min '+i.min_qty+')</p>':'')+'<div style="margin-top:10px"><button class="btn-sm green" onclick="adjInv(\''+i.id+'\',1)">+1</button><button class="btn-sm red" onclick="adjInv(\''+i.id+'\',-1)">-1</button><button class="btn-sm gray" onclick="delInvItem(\''+i.id+'\')">Delete</button></div></div>';
+}).join(''):'<div class="card"><p>No inventory items. Add parts you stock.</p></div>';
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
+}
+async function addInventory(){
+const n=document.getElementById('pName').value.trim();
+if(!n){alert('Part name required');return;}
+await jpost('/api/inventory',{part_number:document.getElementById('pNumber').value,name:n,category:document.getElementById('pCategory').value,qty:parseInt(document.getElementById('pQty').value)||0,min_qty:parseInt(document.getElementById('pMinQty').value)||5,cost_price:parseFloat(document.getElementById('pCost').value)||0,sell_price:parseFloat(document.getElementById('pSell').value)||0,supplier:document.getElementById('pSupplier').value});
+['pNumber','pName','pCategory','pQty','pMinQty','pCost','pSell','pSupplier'].forEach(id=>document.getElementById(id).value='');
+hideForm('invItemForm');loadInventory();
+}
+async function adjInv(id,d){await jpost('/api/inventory/'+id+'/adjust',{delta:d});loadInventory();}
+async function delInvItem(id){if(!confirm('Delete?'))return;await fetch('/api/inventory/'+id,{method:'DELETE'});loadInventory();}
+
+// STAFF
+async function loadStaff(){
+const c=document.getElementById('staffList');c.innerHTML='<div class="loading">Loading...</div>';
+try{const d=await jget('/api/staff');
+c.innerHTML=d.staff.length?d.staff.map(s=>'<div class="card"><h3>👷 '+esc(s.name)+'</h3>'+(s.role?'<p><strong>'+esc(s.role)+'</strong></p>':'')+(s.phone?'<p>📞 '+esc(s.phone)+'</p>':'')+(s.email?'<p>📧 '+esc(s.email)+'</p>':'')+'<p>Rate: R'+s.hourly_rate.toFixed(2)+'/hr</p><div style="margin-top:8px"><button class="btn-sm wa" onclick="waStaff(\''+esc(s.phone||'')+'\')">📱</button><button class="btn-sm red" onclick="delStaff(\''+s.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No staff members yet.</p></div>';
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
+}
+async function addStaff(){
+const n=document.getElementById('stName').value.trim();
+if(!n){alert('Name required');return;}
+await jpost('/api/staff',{name:n,role:document.getElementById('stRole').value,phone:document.getElementById('stPhone').value,email:document.getElementById('stEmail').value,hourly_rate:parseFloat(document.getElementById('stRate').value)||150});
+['stName','stRole','stPhone','stEmail'].forEach(id=>document.getElementById(id).value='');
+hideForm('staffForm');loadStaff();
+}
+async function delStaff(id){if(!confirm('Delete?'))return;await fetch('/api/staff/'+id,{method:'DELETE'});loadStaff();}
+function waStaff(p){if(p)window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
+
+// EXPENSES
+async function loadExpenses(){
+const c=document.getElementById('expenseList');c.innerHTML='<div class="loading">Loading...</div>';
+try{const d=await jget('/api/expenses');
+const total=d.expenses.reduce((s,x)=>s+parseFloat(x.amount||0),0);
+let h='<div class="card" style="background:linear-gradient(135deg,#ef4444,#f87171);color:white"><h3 style="color:white">Total Expenses</h3><p style="font-size:26px;color:white;font-weight:800">R'+total.toFixed(2)+'</p></div>';
+if(d.expenses.length){h+=d.expenses.map(e=>'<div class="card"><h3>'+esc(e.category)+' <span class="badge new">R'+parseFloat(e.amount).toFixed(2)+'</span></h3>'+(e.note?'<p>'+esc(e.note)+'</p>':'')+'<p style="font-size:11px;color:var(--text2)">'+esc(e.date)+'</p><button class="btn-sm red" onclick="delExpense(\''+e.id+'\')">Delete</button></div>').join('');}
+else{h+='<div class="card"><p>No expenses recorded.</p></div>';}
+c.innerHTML=h;
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
+}
+async function addExpense(){
+const a=parseFloat(document.getElementById('exAmount').value)||0;
+if(!a){alert('Amount required');return;}
+await jpost('/api/expenses',{category:document.getElementById('exCat').value,amount:a,date:document.getElementById('exDate').value||new Date().toISOString().slice(0,10),note:document.getElementById('exNote').value});
+['exAmount','exDate','exNote'].forEach(id=>document.getElementById(id).value='');
+hideForm('expForm');loadExpenses();
+}
+async function delExpense(id){if(!confirm('Delete?'))return;await fetch('/api/expenses/'+id,{method:'DELETE'});loadExpenses();}
+
+// SETTINGS
 async function loadSettings(){
 try{const d=await jget('/api/workshop');
 document.getElementById('sLogo').value=d.logo||'🔧';
@@ -604,13 +715,14 @@ async def chat(r: Request):
 @app.get("/api/stats")
 def stats():
     jobs = db_list("jobs"); invs = db_list("invoices"); custs = db_list("customers")
-    appts = db_list("appointments")
+    appts = db_list("appointments"); exps = db_list("expenses")
     total = len(jobs)
     done = sum(1 for j in jobs if j.get("status")=="Completed")
     open_j = sum(1 for j in jobs if j.get("status")!="Completed")
     new_j = sum(1 for j in jobs if j.get("status")=="New")
     prog = sum(1 for j in jobs if j.get("status")=="In Progress")
     rev = sum(float(i.get("total",0)) for i in invs)
+    exp = sum(float(e.get("amount",0)) for e in exps)
     today_str = today()
     appts_today = sum(1 for a in appts if a.get("date")==today_str)
     labels,data = [],[]
@@ -621,6 +733,7 @@ def stats():
     return {"jobs_total":total,"jobs_open":open_j,"jobs_completed":done,
             "jobs_new":new_j,"jobs_progress":prog,"customers":len(custs),
             "appointments_today":appts_today,"revenue":round(rev,2),
+            "expenses":round(exp,2),
             "revenue_labels":labels,"revenue_data":data}
 
 @app.get("/api/analytics")
@@ -628,19 +741,16 @@ def analytics():
     jobs = db_list("jobs"); invs = db_list("invoices"); custs = db_list("customers")
     total_rev = sum(float(i.get("total",0)) for i in invs)
     avg_inv = total_rev/len(invs) if invs else 0
-    # Top job types (from complaints)
     svc = {}
     for j in jobs:
         c = (j.get("complaint") or "").strip()[:30]
         if c: svc[c] = svc.get(c,0)+1
     top_services = [{"name":k,"count":v} for k,v in sorted(svc.items(), key=lambda x:-x[1])[:5]]
-    # Top customers by revenue
     cr = {}
     for i in invs:
         n = i.get("customer","")
         if n: cr[n] = cr.get(n,0)+float(i.get("total",0))
     top_customers = [{"name":k,"total":v} for k,v in sorted(cr.items(), key=lambda x:-x[1])[:5]]
-    # This month
     month_prefix = datetime.now().strftime("%Y-%m")
     month_rev = sum(float(i.get("total",0)) for i in invs if (i.get("created") or "").startswith(month_prefix))
     month_jobs = sum(1 for j in jobs if (j.get("created") or "").startswith(month_prefix))
@@ -677,25 +787,32 @@ def export_tax(from_date: str = None, to_date: str = None):
     o = io.StringIO()
     w = csv.writer(o)
     w.writerow(["Date","Type","Description","Customer/Note","Amount (R)","VAT (R)"])
-    # Invoices (income)
     for i in db_list("invoices"):
         d = (i.get("created") or "")[:10]
         if from_date and d < from_date: continue
         if to_date and d > to_date: continue
         w.writerow([d,"INCOME",i.get("description",""),i.get("customer",""),
                     f"{float(i.get('total',0)):.2f}", f"{float(i.get('vat',0)):.2f}"])
-    # Summary
+    for e in db_list("expenses"):
+        d = e.get("date","")
+        if from_date and d < from_date: continue
+        if to_date and d > to_date: continue
+        w.writerow([d,"EXPENSE",e.get("category",""),e.get("note",""),
+                    f"-{float(e.get('amount',0)):.2f}","0.00"])
     invs = [i for i in db_list("invoices") if (not from_date or (i.get("created") or "")[:10] >= from_date) and (not to_date or (i.get("created") or "")[:10] <= to_date)]
+    exps = [e for e in db_list("expenses") if (not from_date or e.get("date","") >= from_date) and (not to_date or e.get("date","") <= to_date)]
     total_income = sum(float(i.get("total",0)) for i in invs)
+    total_exp = sum(float(e.get("amount",0)) for e in exps)
     total_vat = sum(float(i.get("vat",0)) for i in invs)
     w.writerow([])
     w.writerow(["","","TOTAL INCOME","",f"{total_income:.2f}",f"{total_vat:.2f}"])
-    w.writerow(["","","INVOICES COUNT",len(invs),"",""])
+    w.writerow(["","","TOTAL EXPENSES","",f"-{total_exp:.2f}",""])
+    w.writerow(["","","NET PROFIT","",f"{total_income-total_exp:.2f}",""])
     o.seek(0)
     return StreamingResponse(iter([o.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition":"attachment; filename=tax_report.csv"})
 
-# ═══ JOBS ═══
+# JOBS
 @app.get("/api/jobs")
 def list_jobs(): return {"jobs": db_list("jobs")}
 
@@ -705,7 +822,8 @@ async def create_job(r: Request):
     jid = str(uuid.uuid4())[:6]
     row = {"id":jid,"customer":d.get("customer",""),"phone":d.get("phone",""),
            "vehicle":d.get("vehicle",""),"registration":d.get("registration",""),
-           "complaint":d.get("complaint",""),"warranty_months":int(d.get("warranty_months",6)),
+           "complaint":d.get("complaint",""),"assigned_to":d.get("assigned_to",""),
+           "warranty_months":int(d.get("warranty_months",6)),
            "status":"New","created":now()}
     db_save("jobs", jid, row)
     return {"success":True,"job":row}
@@ -723,7 +841,7 @@ async def update_job(jid: str, r: Request):
 def delete_job(jid: str):
     db_del("jobs", jid); return {"success":True}
 
-# ═══ QUOTES ═══
+# QUOTES
 @app.get("/api/quotes")
 def list_quotes(): return {"quotes": db_list("quotes")}
 
@@ -755,7 +873,7 @@ async def accept_quote(qid: str):
 def delete_quote(qid: str):
     db_del("quotes", qid); return {"success":True}
 
-# ═══ APPOINTMENTS ═══
+# APPOINTMENTS
 @app.get("/api/appointments")
 def list_appts(): return {"appointments": db_list("appointments")}
 
@@ -773,7 +891,7 @@ async def create_appt(r: Request):
 def delete_appt(aid: str):
     db_del("appointments", aid); return {"success":True}
 
-# ═══ CUSTOMERS ═══
+# CUSTOMERS
 @app.get("/api/customers")
 def list_cust(): return {"customers": db_list("customers")}
 
@@ -790,7 +908,7 @@ async def create_cust(r: Request):
 def delete_cust(cid: str):
     db_del("customers", cid); return {"success":True}
 
-# ═══ INVOICES ═══
+# INVOICES
 @app.get("/api/invoices")
 def list_inv(): return {"invoices": db_list("invoices")}
 
@@ -810,7 +928,78 @@ async def create_inv(r: Request):
 def delete_inv(iid: str):
     db_del("invoices", iid); return {"success":True}
 
-# ═══ WORKSHOP ═══
+# INVENTORY
+@app.get("/api/inventory")
+def list_inv_items(): return {"items": db_list("inventory")}
+
+@app.get("/api/inventory/low-stock")
+def low_stock():
+    items = db_list("inventory")
+    return {"items":[{"id":i["id"],"name":i["name"],"qty":int(i.get("qty",0)),"min":int(i.get("min_qty",5))}
+                     for i in items if int(i.get("qty",0)) <= int(i.get("min_qty",5))]}
+
+@app.post("/api/inventory")
+async def add_inv_item(r: Request):
+    d = await r.json()
+    iid = str(uuid.uuid4())[:6]
+    row = {"id":iid,"part_number":d.get("part_number",""),"name":d.get("name",""),
+           "category":d.get("category",""),"qty":int(d.get("qty",0)),
+           "min_qty":int(d.get("min_qty",5)),"cost_price":float(d.get("cost_price",0)),
+           "sell_price":float(d.get("sell_price",0)),"supplier":d.get("supplier",""),
+           "created":today()}
+    db_save("inventory", iid, row)
+    return {"success":True,"item":row}
+
+@app.post("/api/inventory/{iid}/adjust")
+async def adjust_inv(iid: str, r: Request):
+    d = await r.json()
+    item = db_get("inventory", iid)
+    if not item: raise HTTPException(404,"Item not found")
+    item["qty"] = max(0, int(item.get("qty",0)) + int(d.get("delta",0)))
+    db_save("inventory", iid, item)
+    return {"success":True,"item":item}
+
+@app.delete("/api/inventory/{iid}")
+def delete_inv_item(iid: str):
+    db_del("inventory", iid); return {"success":True}
+
+# STAFF
+@app.get("/api/staff")
+def list_staff(): return {"staff": db_list("staff")}
+
+@app.post("/api/staff")
+async def add_staff(r: Request):
+    d = await r.json()
+    sid = str(uuid.uuid4())[:6]
+    row = {"id":sid,"name":d.get("name",""),"role":d.get("role",""),
+           "phone":d.get("phone",""),"email":d.get("email",""),
+           "hourly_rate":float(d.get("hourly_rate",150)),"created":today()}
+    db_save("staff", sid, row)
+    return {"success":True,"staff":row}
+
+@app.delete("/api/staff/{sid}")
+def delete_staff(sid: str):
+    db_del("staff", sid); return {"success":True}
+
+# EXPENSES
+@app.get("/api/expenses")
+def list_exp(): return {"expenses": db_list("expenses")}
+
+@app.post("/api/expenses")
+async def add_exp(r: Request):
+    d = await r.json()
+    eid = str(uuid.uuid4())[:6]
+    row = {"id":eid,"category":d.get("category","Other"),
+           "amount":float(d.get("amount",0)),
+           "date":d.get("date",today()),"note":d.get("note",""),"created":now()}
+    db_save("expenses", eid, row)
+    return {"success":True,"expense":row}
+
+@app.delete("/api/expenses/{eid}")
+def delete_exp(eid: str):
+    db_del("expenses", eid); return {"success":True}
+
+# WORKSHOP
 @app.get("/api/workshop")
 def get_ws(): return ws_get()
 
