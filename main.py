@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from datetime import datetime
+from datetime import datetime, timedelta
 import openai, os, uuid
 
 app = FastAPI()
@@ -9,7 +9,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # ═══════════════════════════════════
-# DATABASE (Supabase with memory fallback)
+# DATABASE
 # ═══════════════════════════════════
 _db = None
 DB_READY = False
@@ -27,11 +27,10 @@ def init_db():
         print("[db] Supabase connected")
     except Exception as e:
         print(f"[db] Failed: {e}")
-        DB_READY = False
 
 init_db()
 
-MEM = {"jobs":{}, "customers":{}, "invoices":{}}
+MEM = {"jobs":{}, "customers":{}, "invoices":{}, "quotes":{}, "appointments":{}}
 WORKSHOP = {"name":"My Workshop","phone":"","address":"","logo":"🔧","labour_rate":450}
 
 def db_list(table):
@@ -112,6 +111,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RamsTech</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#6b7280;--border:#e5e7eb;--primary:#E65100}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -123,7 +123,7 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .panel.active{display:block}
 .panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px}
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:20px 12px;cursor:pointer;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border);transition:all .2s}
+.tile{background:var(--card);border-radius:16px;padding:20px 12px;cursor:pointer;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border)}
 .tile:active{transform:scale(.95)}
 .tile-icon{font-size:36px;margin-bottom:8px;display:block}
 .tile-label{font-size:13px;font-weight:700}
@@ -132,12 +132,12 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .card p{margin:4px 0;font-size:13px;line-height:1.5}
 .form-input{width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:10px;background:#f9fafb;font-family:inherit}
 .form-input:focus{outline:none;border-color:var(--primary)}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;box-shadow:0 4px 12px rgba(102,126,234,.3)}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white}
 .btn:active{transform:scale(.97)}
 .btn-green{background:linear-gradient(135deg,#43e97b,#38f9d7)}
 .btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
 .btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-right:5px;margin-bottom:4px;background:var(--primary);color:white}
-.btn-sm.green{background:#10b981}.btn-sm.red{background:#ef4444}.btn-sm.blue{background:#3b82f6}.btn-sm.gray{background:#6b7280}.btn-sm.wa{background:#25D366}
+.btn-sm.green{background:#10b981}.btn-sm.red{background:#ef4444}.btn-sm.blue{background:#3b82f6}.btn-sm.gray{background:#6b7280}.btn-sm.wa{background:#25D366}.btn-sm.purple{background:#8b5cf6}
 .badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;color:white;margin-left:6px}
 .badge.high{background:#ef4444}.badge.medium{background:#f59e0b}.badge.low,.badge.ok{background:#10b981}
 .badge.new{background:#6b7280}.badge.inprogress{background:#f59e0b}.badge.completed{background:#10b981}
@@ -159,6 +159,15 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .loading{text-align:center;padding:20px;color:var(--text2);font-size:13px}
 .status-online{background:linear-gradient(135deg,#10b981,#34d399);color:white;padding:10px 14px;border-radius:12px;display:inline-block;font-size:13px;font-weight:700}
 .status-offline{background:linear-gradient(135deg,#ef4444,#f87171);color:white;padding:10px 14px;border-radius:12px;display:inline-block;font-size:13px;font-weight:700}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-card{background:var(--card);padding:16px 12px;border-radius:16px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border)}
+.stat-card .num{font-size:22px;font-weight:800;color:var(--primary)}
+.stat-card .lbl{font-size:10px;color:var(--text2);margin-top:4px;font-weight:600;text-transform:uppercase}
+.stat-card.green .num{color:#10b981}
+.stat-card.red .num{color:#ef4444}
+.stat-card.blue .num{color:#3b82f6}
+.stat-card.purple .num{color:#8b5cf6}
+canvas{max-height:220px}
 </style>
 </head><body>
 
@@ -170,13 +179,23 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 <div id="home" class="panel active">
 <div class="card"><div id="status">Checking...</div></div>
 <div class="tile-grid">
+<div class="tile" onclick="showTab('dashboard',this)"><span class="tile-icon">📊</span><div class="tile-label">Dashboard</div></div>
 <div class="tile" onclick="showTab('chat',this)"><span class="tile-icon">🤖</span><div class="tile-label">AI Chat</div></div>
 <div class="tile" onclick="showTab('codes',this)"><span class="tile-icon">📟</span><div class="tile-label">Fault Codes</div></div>
 <div class="tile" onclick="showTab('jobs',this)"><span class="tile-icon">📋</span><div class="tile-label">Jobs</div></div>
+<div class="tile" onclick="showTab('quotes',this)"><span class="tile-icon">💬</span><div class="tile-label">Quotes</div></div>
+<div class="tile" onclick="showTab('appointments',this)"><span class="tile-icon">📅</span><div class="tile-label">Appointments</div></div>
 <div class="tile" onclick="showTab('customers',this)"><span class="tile-icon">👥</span><div class="tile-label">Customers</div></div>
 <div class="tile" onclick="showTab('invoices',this)"><span class="tile-icon">💰</span><div class="tile-label">Invoices</div></div>
 <div class="tile" onclick="showTab('settings',this)"><span class="tile-icon">⚙️</span><div class="tile-label">Settings</div></div>
 </div>
+</div>
+
+<div id="dashboard" class="panel">
+<div class="panel-title">📊 Dashboard</div>
+<div id="dashStats"><div class="loading">Loading...</div></div>
+<div class="card"><h3>💰 Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
+<div class="card"><h3>📋 Job Status</h3><canvas id="jobChart"></canvas></div>
 </div>
 
 <div id="chat" class="panel">
@@ -209,6 +228,41 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 </div>
 </div>
 <div id="jobList"><div class="loading">Loading...</div></div>
+</div>
+
+<div id="quotes" class="panel">
+<div class="panel-title">💬 Quotes</div>
+<button class="btn btn-green" onclick="showForm('quoteForm')">+ New Quote</button>
+<div id="quoteForm" style="display:none">
+<div class="card">
+<input class="form-input" id="qCustomer" placeholder="Customer name">
+<input class="form-input" id="qVehicle" placeholder="Vehicle">
+<textarea class="form-input" id="qDesc" placeholder="Work description" rows="2"></textarea>
+<input class="form-input" id="qLabour" type="number" placeholder="Labour (R)" value="0">
+<input class="form-input" id="qParts" type="number" placeholder="Parts (R)" value="0">
+<button class="btn btn-green" onclick="createQuote()">Save Quote</button>
+<button class="btn btn-dark" onclick="hideForm('quoteForm')">Cancel</button>
+</div>
+</div>
+<div id="quoteList"><div class="loading">Loading...</div></div>
+</div>
+
+<div id="appointments" class="panel">
+<div class="panel-title">📅 Appointments</div>
+<button class="btn btn-green" onclick="showForm('apptForm')">+ New Appointment</button>
+<div id="apptForm" style="display:none">
+<div class="card">
+<input class="form-input" id="aCustomer" placeholder="Customer name">
+<input class="form-input" id="aPhone" placeholder="Phone">
+<input class="form-input" id="aVehicle" placeholder="Vehicle">
+<input class="form-input" id="aService" placeholder="Service type">
+<input class="form-input" id="aDate" type="date">
+<input class="form-input" id="aTime" type="time">
+<button class="btn btn-green" onclick="createAppt()">Book</button>
+<button class="btn btn-dark" onclick="hideForm('apptForm')">Cancel</button>
+</div>
+</div>
+<div id="apptList"><div class="loading">Loading...</div></div>
 </div>
 
 <div id="customers" class="panel">
@@ -258,9 +312,9 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 
 <div class="bottom-nav">
 <div class="bnav active" onclick="showTab('home',this)"><div class="bnav-icon">🏠</div><div class="bnav-label">Home</div></div>
-<div class="bnav" onclick="showTab('chat',this)"><div class="bnav-icon">🤖</div><div class="bnav-label">AI</div></div>
+<div class="bnav" onclick="showTab('dashboard',this)"><div class="bnav-icon">📊</div><div class="bnav-label">Dash</div></div>
 <div class="bnav" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
-<div class="bnav" onclick="showTab('customers',this)"><div class="bnav-icon">👥</div><div class="bnav-label">Clients</div></div>
+<div class="bnav" onclick="showTab('quotes',this)"><div class="bnav-icon">💬</div><div class="bnav-label">Quotes</div></div>
 <div class="bnav" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
 </div>
 
@@ -277,9 +331,12 @@ if(el&&el.classList)el.classList.add('active');
 window.scrollTo(0,0);
 if(name==='codes'&&!document.getElementById('codeResults').dataset.loaded)searchCodes();
 if(name==='jobs')loadJobs();
+if(name==='quotes')loadQuotes();
+if(name==='appointments')loadAppts();
 if(name==='customers')loadCust();
 if(name==='invoices')loadInv();
 if(name==='settings')loadSettings();
+if(name==='dashboard')loadDash();
 }
 function showForm(id){document.getElementById(id).style.display='block';}
 function hideForm(id){document.getElementById(id).style.display='none';}
@@ -289,6 +346,7 @@ const db=d.database==='supabase'?' ✓ DB':' ⚠ Memory';
 document.getElementById('status').innerHTML='<span class="status-online">Backend Online'+db+'</span>';
 }catch(e){document.getElementById('status').innerHTML='<span class="status-offline">Offline</span>';}}
 checkStatus();
+
 async function sendMsg(){
 const i=document.getElementById('chatInput');const m=i.value.trim();if(!m)return;
 const b=document.getElementById('chatBox');
@@ -298,6 +356,20 @@ try{const d=await jpost('/api/chat',{message:m});document.getElementById('typ').
 catch(e){document.getElementById('typ').outerHTML='<div class="msg ai">Error</div>';}
 b.scrollTop=b.scrollHeight;
 }
+
+// ═══ DASHBOARD ═══
+let rC=null,jC=null;
+async function loadDash(){
+try{const d=await jget('/api/stats');
+document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card purple"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Done</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">'+d.appointments_today+'</div><div class="lbl">Today</div></div></div>';
+if(rC)rC.destroy();const c1=document.getElementById('revenueChart');
+if(c1)rC=new Chart(c1,{type:'line',data:{labels:d.revenue_labels,datasets:[{data:d.revenue_data,borderColor:'#667eea',backgroundColor:'rgba(102,126,234,.15)',tension:.4,fill:true,borderWidth:3}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+if(jC)jC.destroy();const c2=document.getElementById('jobChart');
+if(c2)jC=new Chart(c2,{type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#6b7280','#f59e0b','#10b981'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+}catch(e){}
+}
+
+// ═══ CODES ═══
 async function searchCodes(){
 const q=document.getElementById('codeSearch').value;const c=document.getElementById('codeResults');
 c.innerHTML='<div class="loading">Loading...</div>';
@@ -305,10 +377,12 @@ try{const d=await jget('/api/fault-codes?search='+encodeURIComponent(q));c.datas
 c.innerHTML=d.codes.length?d.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join(''):'<div class="card"><p>No matches</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
+
+// ═══ JOBS ═══
 async function loadJobs(){
 const c=document.getElementById('jobList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/jobs');
-c.innerHTML=d.jobs.length?d.jobs.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
+c.innerHTML=d.jobs.length?d.jobs.map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createJob(){
@@ -323,10 +397,55 @@ hideForm('jobForm');loadJobs();
 async function upJob(id,s){await jput('/api/jobs/'+id,{status:s});loadJobs();}
 async function delJob(id){if(!confirm('Delete?'))return;await fetch('/api/jobs/'+id,{method:'DELETE'});loadJobs();}
 function waJob(id){jget('/api/jobs').then(d=>{const j=d.jobs.find(x=>x.id==id);if(!j)return;const txt='🔧 *Job #'+j.id+'*\n'+j.customer+'\n'+j.vehicle+'\nIssue: '+j.complaint+'\nStatus: '+j.status;window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+
+// ═══ QUOTES ═══
+async function loadQuotes(){
+const c=document.getElementById('quoteList');c.innerHTML='<div class="loading">Loading...</div>';
+try{const d=await jget('/api/quotes');
+c.innerHTML=d.quotes.length?d.quotes.map(q=>'<div class="card"><h3>💬 Quote #'+q.id+'</h3><p><strong>'+esc(q.customer)+'</strong></p><p>'+esc(q.description)+'</p><div class="list-item">Labour: R'+q.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+q.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+q.total.toFixed(2)+'</strong></div><div style="margin-top:10px"><button class="btn-sm green" onclick="acceptQuote(\''+q.id+'\')">→ Invoice</button><button class="btn-sm wa" onclick="waQuote(\''+q.id+'\')">📱</button><button class="btn-sm red" onclick="delQuote(\''+q.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No quotes</p></div>';
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
+}
+async function createQuote(){
+const c=document.getElementById('qCustomer').value.trim();
+const d=document.getElementById('qDesc').value.trim();
+if(!c||!d){alert('Customer and description required');return;}
+await jpost('/api/quotes',{customer:c,vehicle:document.getElementById('qVehicle').value,description:d,labour:parseFloat(document.getElementById('qLabour').value)||0,parts:parseFloat(document.getElementById('qParts').value)||0});
+['qCustomer','qVehicle','qDesc','qLabour','qParts'].forEach(id=>document.getElementById(id).value='');
+hideForm('quoteForm');loadQuotes();
+}
+async function acceptQuote(id){
+if(!confirm('Convert to invoice?'))return;
+const r=await jpost('/api/quotes/'+id+'/accept',{});
+if(r.success){alert('Converted to invoice ✓');loadQuotes();}
+}
+async function delQuote(id){if(!confirm('Delete?'))return;await fetch('/api/quotes/'+id,{method:'DELETE'});loadQuotes();}
+function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);if(!q)return;const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\n'+q.description+'\nLabour: R'+q.labour.toFixed(2)+'\nParts: R'+q.parts.toFixed(2)+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+
+// ═══ APPOINTMENTS ═══
+async function loadAppts(){
+const c=document.getElementById('apptList');c.innerHTML='<div class="loading">Loading...</div>';
+try{const d=await jget('/api/appointments');
+const s=d.appointments.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+c.innerHTML=s.length?s.map(a=>'<div class="card"><h3>📅 '+esc(a.date)+' at '+esc(a.time)+'</h3><p><strong>'+esc(a.customer)+'</strong></p>'+(a.phone?'<p>📞 '+esc(a.phone)+'</p>':'')+(a.vehicle?'<p>🚗 '+esc(a.vehicle)+'</p>':'')+(a.service?'<p style="color:var(--text2)">'+esc(a.service)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waAppt(\''+a.id+'\')">📱</button><button class="btn-sm red" onclick="delAppt(\''+a.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No appointments</p></div>';
+}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
+}
+async function createAppt(){
+const c=document.getElementById('aCustomer').value.trim();
+const d=document.getElementById('aDate').value;
+const t=document.getElementById('aTime').value;
+if(!c||!d||!t){alert('Customer, date, and time required');return;}
+await jpost('/api/appointments',{customer:c,phone:document.getElementById('aPhone').value,vehicle:document.getElementById('aVehicle').value,service:document.getElementById('aService').value,date:d,time:t});
+['aCustomer','aPhone','aVehicle','aService','aDate','aTime'].forEach(id=>document.getElementById(id).value='');
+hideForm('apptForm');loadAppts();
+}
+async function delAppt(id){if(!confirm('Delete?'))return;await fetch('/api/appointments/'+id,{method:'DELETE'});loadAppts();}
+function waAppt(id){jget('/api/appointments').then(d=>{const a=d.appointments.find(x=>x.id==id);if(!a)return;const txt='📅 *Appointment Confirmation*\n\nCustomer: '+a.customer+'\nVehicle: '+(a.vehicle||'N/A')+'\nService: '+(a.service||'General')+'\nDate: '+a.date+'\nTime: '+a.time+'\n\nSee you soon!';window.open('https://wa.me/'+(a.phone?a.phone.replace(/\D/g,'')+'?text=':'?text=')+encodeURIComponent(txt),'_blank');});}
+
+// ═══ CUSTOMERS ═══
 async function loadCust(){
 const c=document.getElementById('custList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/customers');
-c.innerHTML=d.customers.length?d.customers.reverse().map(x=>'<div class="card"><h3>👤 '+esc(x.name)+'</h3><p>📞 '+esc(x.phone)+'</p>'+(x.email?'<p>📧 '+esc(x.email)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waCust(\''+esc(x.phone)+'\')">📱 WhatsApp</button><button class="btn-sm red" onclick="delCust(\''+x.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No customers</p></div>';
+c.innerHTML=d.customers.length?d.customers.map(x=>'<div class="card"><h3>👤 '+esc(x.name)+'</h3><p>📞 '+esc(x.phone)+'</p>'+(x.email?'<p>📧 '+esc(x.email)+'</p>':'')+'<div style="margin-top:8px"><button class="btn-sm wa" onclick="waCust(\''+esc(x.phone)+'\')">📱 WhatsApp</button><button class="btn-sm red" onclick="delCust(\''+x.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No customers</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createCustomer(){
@@ -339,10 +458,12 @@ hideForm('custForm');loadCust();
 }
 async function delCust(id){if(!confirm('Delete?'))return;await fetch('/api/customers/'+id,{method:'DELETE'});loadCust();}
 function waCust(p){window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
+
+// ═══ INVOICES ═══
 async function loadInv(){
 const c=document.getElementById('invList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/invoices');
-c.innerHTML=d.invoices.length?d.invoices.reverse().map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p><p>'+esc(i.description)+'</p><div class="list-item">Labour: R'+i.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+i.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+i.total.toFixed(2)+'</strong></div><button class="btn-sm red" onclick="delInv(\''+i.id+'\')">×</button></div>').join(''):'<div class="card"><p>No invoices</p></div>';
+c.innerHTML=d.invoices.length?d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p><strong>'+esc(i.customer)+'</strong></p><p>'+esc(i.description)+'</p><div class="list-item">Labour: R'+i.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+i.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+i.total.toFixed(2)+'</strong></div><div style="margin-top:8px"><button class="btn-sm wa" onclick="waInv(\''+i.id+'\')">📱</button><button class="btn-sm red" onclick="delInv(\''+i.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No invoices</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createInvoice(){
@@ -354,6 +475,9 @@ await jpost('/api/invoices',{customer:c,vehicle:document.getElementById('iVehicl
 hideForm('invForm');loadInv();
 }
 async function delInv(id){if(!confirm('Delete?'))return;await fetch('/api/invoices/'+id,{method:'DELETE'});loadInv();}
+function waInv(id){jget('/api/invoices').then(d=>{const i=d.invoices.find(x=>x.id==id);if(!i)return;const txt='💰 *Invoice #'+i.id+'*\n'+i.customer+'\n'+i.description+'\nLabour: R'+i.labour.toFixed(2)+'\nParts: R'+i.parts.toFixed(2)+'\nVAT: R'+i.vat.toFixed(2)+'\nTotal: R'+i.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
+
+// ═══ SETTINGS ═══
 async function loadSettings(){
 try{const d=await jget('/api/workshop');
 document.getElementById('sLogo').value=d.logo||'🔧';
@@ -407,6 +531,29 @@ async def chat(r: Request):
     except Exception as e:
         return {"reply": f"Error: {str(e)}"}
 
+@app.get("/api/stats")
+def stats():
+    jobs = db_list("jobs"); invs = db_list("invoices"); custs = db_list("customers")
+    appts = db_list("appointments")
+    total = len(jobs)
+    done = sum(1 for j in jobs if j.get("status")=="Completed")
+    open_j = sum(1 for j in jobs if j.get("status")!="Completed")
+    new_j = sum(1 for j in jobs if j.get("status")=="New")
+    prog = sum(1 for j in jobs if j.get("status")=="In Progress")
+    rev = sum(float(i.get("total",0)) for i in invs)
+    today_str = today()
+    appts_today = sum(1 for a in appts if a.get("date")==today_str)
+    labels,data = [],[]
+    for i in range(6,-1,-1):
+        day = (datetime.now()-timedelta(days=i)).strftime("%Y-%m-%d")
+        labels.append(day[5:])
+        data.append(round(sum(float(x.get("total",0)) for x in invs if (x.get("created") or "").startswith(day)),2))
+    return {"jobs_total":total,"jobs_open":open_j,"jobs_completed":done,
+            "jobs_new":new_j,"jobs_progress":prog,"customers":len(custs),
+            "appointments_today":appts_today,"revenue":round(rev,2),
+            "revenue_labels":labels,"revenue_data":data}
+
+# ═══ JOBS ═══
 @app.get("/api/jobs")
 def list_jobs(): return {"jobs": db_list("jobs")}
 
@@ -433,6 +580,57 @@ async def update_job(jid: str, r: Request):
 def delete_job(jid: str):
     db_del("jobs", jid); return {"success":True}
 
+# ═══ QUOTES ═══
+@app.get("/api/quotes")
+def list_quotes(): return {"quotes": db_list("quotes")}
+
+@app.post("/api/quotes")
+async def create_quote(r: Request):
+    d = await r.json()
+    labour = float(d.get("labour",0)); parts = float(d.get("parts",0))
+    subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
+    qid = str(uuid.uuid4())[:6]
+    row = {"id":qid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
+           "description":d.get("description",""),"labour":labour,"parts":parts,
+           "subtotal":subtotal,"vat":vat,"total":total,"created":now()}
+    db_save("quotes", qid, row)
+    return {"success":True,"quote":row}
+
+@app.post("/api/quotes/{qid}/accept")
+async def accept_quote(qid: str):
+    q = db_get("quotes", qid)
+    if not q: raise HTTPException(404,"Quote not found")
+    iid = str(uuid.uuid4())[:6]
+    inv = {"id":iid,"customer":q["customer"],"vehicle":q["vehicle"],
+           "description":q["description"],"labour":q["labour"],"parts":q["parts"],
+           "subtotal":q["subtotal"],"vat":q["vat"],"total":q["total"],"created":now()}
+    db_save("invoices", iid, inv)
+    db_del("quotes", qid)
+    return {"success":True,"invoice":inv}
+
+@app.delete("/api/quotes/{qid}")
+def delete_quote(qid: str):
+    db_del("quotes", qid); return {"success":True}
+
+# ═══ APPOINTMENTS ═══
+@app.get("/api/appointments")
+def list_appts(): return {"appointments": db_list("appointments")}
+
+@app.post("/api/appointments")
+async def create_appt(r: Request):
+    d = await r.json()
+    aid = str(uuid.uuid4())[:6]
+    row = {"id":aid,"customer":d.get("customer",""),"phone":d.get("phone",""),
+           "vehicle":d.get("vehicle",""),"service":d.get("service",""),
+           "date":d.get("date",""),"time":d.get("time",""),"created":now()}
+    db_save("appointments", aid, row)
+    return {"success":True,"appointment":row}
+
+@app.delete("/api/appointments/{aid}")
+def delete_appt(aid: str):
+    db_del("appointments", aid); return {"success":True}
+
+# ═══ CUSTOMERS ═══
 @app.get("/api/customers")
 def list_cust(): return {"customers": db_list("customers")}
 
@@ -449,6 +647,7 @@ async def create_cust(r: Request):
 def delete_cust(cid: str):
     db_del("customers", cid); return {"success":True}
 
+# ═══ INVOICES ═══
 @app.get("/api/invoices")
 def list_inv(): return {"invoices": db_list("invoices")}
 
@@ -468,6 +667,7 @@ async def create_inv(r: Request):
 def delete_inv(iid: str):
     db_del("invoices", iid); return {"success":True}
 
+# ═══ WORKSHOP ═══
 @app.get("/api/workshop")
 def get_ws(): return ws_get()
 
