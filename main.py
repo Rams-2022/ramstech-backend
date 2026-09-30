@@ -1,13 +1,84 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from datetime import datetime
-import openai, os, uuid, json
+import openai, os, uuid
 
 app = FastAPI()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
-JOBS, CUSTOMERS, INVOICES = {}, {}, {}
+# ═══════════════════════════════════
+# DATABASE (Supabase with memory fallback)
+# ═══════════════════════════════════
+_db = None
+DB_READY = False
+
+def init_db():
+    global _db, DB_READY
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[db] Memory mode")
+        return
+    try:
+        from supabase import create_client
+        _db = create_client(SUPABASE_URL, SUPABASE_KEY)
+        _db.table("workshop").select("id").limit(1).execute()
+        DB_READY = True
+        print("[db] Supabase connected")
+    except Exception as e:
+        print(f"[db] Failed: {e}")
+        DB_READY = False
+
+init_db()
+
+MEM = {"jobs":{}, "customers":{}, "invoices":{}}
 WORKSHOP = {"name":"My Workshop","phone":"","address":"","logo":"🔧","labour_rate":450}
+
+def db_list(table):
+    if DB_READY:
+        try: return _db.table(table).select("*").execute().data or []
+        except Exception as e: print(f"[db] list {table}: {e}")
+    return list(MEM[table].values())
+
+def db_get(table, id_val):
+    if DB_READY:
+        try:
+            r = _db.table(table).select("*").eq("id", id_val).execute()
+            return r.data[0] if r.data else None
+        except Exception as e: print(f"[db] get {table}: {e}")
+    return MEM[table].get(id_val)
+
+def db_save(table, id_val, row):
+    if DB_READY:
+        try:
+            if db_get(table, id_val):
+                _db.table(table).update(row).eq("id", id_val).execute()
+            else:
+                _db.table(table).insert(row).execute()
+            return row
+        except Exception as e: print(f"[db] save {table}: {e}")
+    MEM[table][id_val] = row
+    return row
+
+def db_del(table, id_val):
+    if DB_READY:
+        try: _db.table(table).delete().eq("id", id_val).execute(); return True
+        except Exception as e: print(f"[db] del {table}: {e}"); return False
+    MEM[table].pop(id_val, None); return True
+
+def ws_get():
+    if DB_READY:
+        try:
+            r = _db.table("workshop").select("*").eq("id", 1).execute()
+            if r.data: return r.data[0]
+        except Exception as e: print(f"[db] ws: {e}")
+    return WORKSHOP
+
+def ws_save(d):
+    if DB_READY:
+        try: _db.table("workshop").update(d).eq("id", 1).execute(); return d
+        except Exception as e: print(f"[db] ws save: {e}")
+    WORKSHOP.update(d); return WORKSHOP
 
 def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
 def today(): return datetime.now().strftime("%Y-%m-%d")
@@ -52,7 +123,7 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .panel.active{display:block}
 .panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px}
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:20px 12px;cursor:pointer;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border)}
+.tile{background:var(--card);border-radius:16px;padding:20px 12px;cursor:pointer;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border);transition:all .2s}
 .tile:active{transform:scale(.95)}
 .tile-icon{font-size:36px;margin-bottom:8px;display:block}
 .tile-label{font-size:13px;font-weight:700}
@@ -198,7 +269,6 @@ async function jget(u){const r=await fetch(u);return r.json();}
 async function jpost(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return r.json();}
 async function jput(u,b){const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return r.json();}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
-
 function showTab(name,el){
 document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
 document.querySelectorAll('.bnav').forEach(t=>t.classList.remove('active'));
@@ -213,10 +283,12 @@ if(name==='settings')loadSettings();
 }
 function showForm(id){document.getElementById(id).style.display='block';}
 function hideForm(id){document.getElementById(id).style.display='none';}
-
-async function checkStatus(){try{await fetch('/health');document.getElementById('status').innerHTML='<span class="status-online">✓ Backend Online</span>';}catch(e){document.getElementById('status').innerHTML='<span class="status-offline">✗ Backend Offline</span>';}}
+async function checkStatus(){
+try{const r=await fetch('/health');const d=await r.json();
+const db=d.database==='supabase'?' ✓ DB':' ⚠ Memory';
+document.getElementById('status').innerHTML='<span class="status-online">Backend Online'+db+'</span>';
+}catch(e){document.getElementById('status').innerHTML='<span class="status-offline">Offline</span>';}}
 checkStatus();
-
 async function sendMsg(){
 const i=document.getElementById('chatInput');const m=i.value.trim();if(!m)return;
 const b=document.getElementById('chatBox');
@@ -226,7 +298,6 @@ try{const d=await jpost('/api/chat',{message:m});document.getElementById('typ').
 catch(e){document.getElementById('typ').outerHTML='<div class="msg ai">Error</div>';}
 b.scrollTop=b.scrollHeight;
 }
-
 async function searchCodes(){
 const q=document.getElementById('codeSearch').value;const c=document.getElementById('codeResults');
 c.innerHTML='<div class="loading">Loading...</div>';
@@ -234,11 +305,10 @@ try{const d=await jget('/api/fault-codes?search='+encodeURIComponent(q));c.datas
 c.innerHTML=d.codes.length?d.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join(''):'<div class="card"><p>No matches</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
-
 async function loadJobs(){
 const c=document.getElementById('jobList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/jobs');
-c.innerHTML=d.jobs.length?d.jobs.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
+c.innerHTML=d.jobs.length?d.jobs.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+' <span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+j.status+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p><p style="color:var(--text2)">'+esc(j.complaint)+'</p><p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div style="margin-top:8px"><button class="btn-sm blue" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm wa" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm red" onclick="delJob(\''+j.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No jobs yet</p></div>';
 }catch(e){c.innerHTML='<div class="card"><p>Error</p></div>';}
 }
 async function createJob(){
@@ -252,7 +322,7 @@ hideForm('jobForm');loadJobs();
 }
 async function upJob(id,s){await jput('/api/jobs/'+id,{status:s});loadJobs();}
 async function delJob(id){if(!confirm('Delete?'))return;await fetch('/api/jobs/'+id,{method:'DELETE'});loadJobs();}
-
+function waJob(id){jget('/api/jobs').then(d=>{const j=d.jobs.find(x=>x.id==id);if(!j)return;const txt='🔧 *Job #'+j.id+'*\n'+j.customer+'\n'+j.vehicle+'\nIssue: '+j.complaint+'\nStatus: '+j.status;window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');});}
 async function loadCust(){
 const c=document.getElementById('custList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/customers');
@@ -269,7 +339,6 @@ hideForm('custForm');loadCust();
 }
 async function delCust(id){if(!confirm('Delete?'))return;await fetch('/api/customers/'+id,{method:'DELETE'});loadCust();}
 function waCust(p){window.open('https://wa.me/'+p.replace(/\D/g,''),'_blank');}
-
 async function loadInv(){
 const c=document.getElementById('invList');c.innerHTML='<div class="loading">Loading...</div>';
 try{const d=await jget('/api/invoices');
@@ -285,7 +354,6 @@ await jpost('/api/invoices',{customer:c,vehicle:document.getElementById('iVehicl
 hideForm('invForm');loadInv();
 }
 async function delInv(id){if(!confirm('Delete?'))return;await fetch('/api/invoices/'+id,{method:'DELETE'});loadInv();}
-
 async function loadSettings(){
 try{const d=await jget('/api/workshop');
 document.getElementById('sLogo').value=d.logo||'🔧';
@@ -315,7 +383,7 @@ loadSettings();
 async def home(): return HTML
 
 @app.get("/health")
-def health(): return {"status":"healthy"}
+def health(): return {"status":"healthy","database":"supabase" if DB_READY else "memory"}
 
 @app.get("/api/fault-codes")
 def codes(search: str = None):
@@ -329,55 +397,60 @@ def codes(search: str = None):
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message","")
     if not msg: raise HTTPException(400,"Message required")
-    if not OPENAI_KEY: return {"reply":"AI not configured — set OPENAI_API_KEY in Render environment"}
+    if not OPENAI_KEY: return {"reply":"AI not configured"}
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         resp = c.chat.completions.create(model="gpt-3.5-turbo",
-            messages=[{"role":"system","content":"You are RamsTech AI, an expert mechanic assistant. Help with diagnostics, repairs, tools, and fault codes."},
+            messages=[{"role":"system","content":"You are RamsTech AI, an expert mechanic assistant."},
                       {"role":"user","content":msg}], max_tokens=800, temperature=0.3)
         return {"reply": resp.choices[0].message.content}
     except Exception as e:
         return {"reply": f"Error: {str(e)}"}
 
 @app.get("/api/jobs")
-def list_jobs(): return {"jobs": list(JOBS.values())}
+def list_jobs(): return {"jobs": db_list("jobs")}
 
 @app.post("/api/jobs")
 async def create_job(r: Request):
     d = await r.json()
     jid = str(uuid.uuid4())[:6]
-    JOBS[jid] = {"id":jid,"customer":d.get("customer",""),"phone":d.get("phone",""),
-                 "vehicle":d.get("vehicle",""),"registration":d.get("registration",""),
-                 "complaint":d.get("complaint",""),"status":"New","created":now()}
-    return {"success":True,"job":JOBS[jid]}
+    row = {"id":jid,"customer":d.get("customer",""),"phone":d.get("phone",""),
+           "vehicle":d.get("vehicle",""),"registration":d.get("registration",""),
+           "complaint":d.get("complaint",""),"status":"New","created":now()}
+    db_save("jobs", jid, row)
+    return {"success":True,"job":row}
 
 @app.put("/api/jobs/{jid}")
 async def update_job(jid: str, r: Request):
     d = await r.json()
-    if jid in JOBS: JOBS[jid]["status"] = d.get("status", JOBS[jid]["status"])
+    job = db_get("jobs", jid)
+    if job:
+        job["status"] = d.get("status", job["status"])
+        db_save("jobs", jid, job)
     return {"success":True}
 
 @app.delete("/api/jobs/{jid}")
 def delete_job(jid: str):
-    JOBS.pop(jid, None); return {"success":True}
+    db_del("jobs", jid); return {"success":True}
 
 @app.get("/api/customers")
-def list_cust(): return {"customers": list(CUSTOMERS.values())}
+def list_cust(): return {"customers": db_list("customers")}
 
 @app.post("/api/customers")
 async def create_cust(r: Request):
     d = await r.json()
     cid = str(uuid.uuid4())[:6]
-    CUSTOMERS[cid] = {"id":cid,"name":d.get("name",""),"phone":d.get("phone",""),
-                      "email":d.get("email",""),"created":today()}
-    return {"success":True,"customer":CUSTOMERS[cid]}
+    row = {"id":cid,"name":d.get("name",""),"phone":d.get("phone",""),
+           "email":d.get("email",""),"created":today()}
+    db_save("customers", cid, row)
+    return {"success":True,"customer":row}
 
 @app.delete("/api/customers/{cid}")
 def delete_cust(cid: str):
-    CUSTOMERS.pop(cid, None); return {"success":True}
+    db_del("customers", cid); return {"success":True}
 
 @app.get("/api/invoices")
-def list_inv(): return {"invoices": list(INVOICES.values())}
+def list_inv(): return {"invoices": db_list("invoices")}
 
 @app.post("/api/invoices")
 async def create_inv(r: Request):
@@ -385,18 +458,19 @@ async def create_inv(r: Request):
     labour = float(d.get("labour",0)); parts = float(d.get("parts",0))
     subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
     iid = str(uuid.uuid4())[:6]
-    INVOICES[iid] = {"id":iid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
-                     "description":d.get("description",""),"labour":labour,"parts":parts,
-                     "subtotal":subtotal,"vat":vat,"total":total,"created":now()}
-    return {"success":True,"invoice":INVOICES[iid]}
+    row = {"id":iid,"customer":d.get("customer",""),"vehicle":d.get("vehicle",""),
+           "description":d.get("description",""),"labour":labour,"parts":parts,
+           "subtotal":subtotal,"vat":vat,"total":total,"created":now()}
+    db_save("invoices", iid, row)
+    return {"success":True,"invoice":row}
 
 @app.delete("/api/invoices/{iid}")
 def delete_inv(iid: str):
-    INVOICES.pop(iid, None); return {"success":True}
+    db_del("invoices", iid); return {"success":True}
 
 @app.get("/api/workshop")
-def get_ws(): return WORKSHOP
+def get_ws(): return ws_get()
 
 @app.post("/api/workshop")
 async def save_ws(r: Request):
-    d = await r.json(); WORKSHOP.update(d); return {"success":True,"workshop":WORKSHOP}
+    d = await r.json(); ws_save(d); return {"success":True,"workshop":ws_get()}
