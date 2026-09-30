@@ -1,4 +1,5 @@
-# pages.py — HTML frontend for RamsTech
+# pages.py — RamsTech HTML frontend v9.0
+# Includes: Multi-language, Photo compression, Signature, Fuel log, Warranty
 
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
@@ -7,7 +8,6 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RamsTech</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 :root{--bg:#f5f5f5;--card:#fff;--text:#212121;--text2:#666;--border:#ddd;--primary:#E65100;--input-bg:#fff}
 body.dark{--bg:#121212;--card:#1e1e1e;--text:#e0e0e0;--text2:#999;--border:#333;--input-bg:#2a2a2a}
@@ -17,11 +17,13 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 .header h1{font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px}
 .header h1 .logo{font-size:26px}
 .header p{font-size:11px;opacity:.9;margin-top:2px}
-.top-btns{position:absolute;right:8px;top:8px}
+.top-btns{position:absolute;right:8px;top:8px;display:flex;gap:4px}
 .top-btns button{background:rgba(255,255,255,.2);border:none;color:white;padding:6px 9px;border-radius:8px;font-size:15px;cursor:pointer}
+.lang-sel{background:rgba(255,255,255,.2);border:none;color:white;padding:6px;border-radius:8px;font-size:13px;outline:none}
+.lang-sel option{color:#333}
 .tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:99;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
-.tab{padding:12px 10px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-size:11px;color:var(--text)}
+.tab{padding:12px 11px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-size:11px;color:var(--text)}
 .tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:bold}
 .panel{display:none;padding:14px;max-width:800px;margin:0 auto}
 .panel.active{display:block}
@@ -76,7 +78,6 @@ textarea.form-input{font-family:inherit;resize:vertical}
 canvas{max-height:220px}
 .checklist-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px}
 .checklist-item input{width:18px;height:18px}
-#qrcode{display:inline-block;padding:10px;background:white;border-radius:8px}
 @media print{.header,.tabs,.no-print,button,.btn,.btn-sm{display:none!important}.panel{display:block!important;padding:0}.panel:not(.active){display:none!important}body{background:white;color:black}.card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}}
 </style>
 </head>
@@ -84,8 +85,13 @@ canvas{max-height:220px}
 
 <div class="header">
 <h1><span class="logo" id="logoDisplay">🔧</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
-<p id="wsSubtitle">v7.0 — Complete Workshop Platform</p>
-<div class="top-btns"><button onclick="toggleTheme()" id="themeBtn">🌙</button></div>
+<p id="wsSubtitle">v9.0 — Complete Workshop Platform</p>
+<div class="top-btns">
+<select class="lang-sel" id="langSel" onchange="setLang()">
+<option value="en">EN</option><option value="af">AF</option><option value="zu">ZU</option>
+</select>
+<button onclick="toggleTheme()" id="themeBtn">🌙</button>
+</div>
 </div>
 
 <div class="tabs no-print">
@@ -108,6 +114,8 @@ canvas{max-height:220px}
 <div class="tab" onclick="showTab('staff',this)">👷</div>
 <div class="tab" onclick="showTab('clockin',this)">🕐</div>
 <div class="tab" onclick="showTab('expenses',this)">💸</div>
+<div class="tab" onclick="showTab('fuel',this)">⛽</div>
+<div class="tab" onclick="showTab('warranty',this)">🎁</div>
 <div class="tab" onclick="showTab('reminders',this)">🗓️</div>
 <div class="tab" onclick="showTab('wiring',this)">🔌</div>
 <div class="tab" onclick="showTab('obd',this)">⚡</div>
@@ -136,7 +144,7 @@ canvas{max-height:220px}
 <div class="card"><h3>Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
 <div class="card"><h3>Job Status</h3><canvas id="jobChart"></canvas></div>
 <div class="card"><h3>⚠ Low Stock</h3><div id="dashLowStock"></div></div>
-<div class="card"><h3>🗓️ Service Due</h3><div id="dashServiceDue"></div></div>
+<div class="card"><h3>🎁 Warranty Expiring</h3><div id="dashWarranty"></div></div>
 </div>
 
 <div id="chat" class="panel">
@@ -198,6 +206,9 @@ canvas{max-height:220px}
 <label style="font-size:12px;font-weight:bold">📸 Photos</label>
 <input type="file" id="jobPhotos" accept="image/*" multiple capture="environment" class="form-input" onchange="addJobPhotos(event)">
 <div class="thumb-row" id="jobPhotoThumbs"></div>
+<label style="font-size:12px;font-weight:bold;margin-top:8px;display:block">✍️ Signature</label>
+<button class="btn" style="background:#4CAF50" onclick="openSignature()">✍️ Capture Signature</button>
+<div id="sigPreview" style="margin-bottom:10px"></div>
 <button class="btn" style="margin-top:10px" onclick="createJob()">Create Job</button>
 <button class="btn" style="background:#666" onclick="hideJobForm()">Cancel</button>
 </div>
@@ -295,7 +306,7 @@ canvas{max-height:220px}
 </div>
 
 <div id="purchase" class="panel">
-<button class="btn no-print" onclick="showPOForm()">+ New Purchase Order</button>
+<button class="btn no-print" onclick="showPOForm()">+ New PO</button>
 <div id="poForm" style="display:none">
 <div class="card">
 <input class="form-input" id="poSupplier" placeholder="Supplier">
@@ -325,7 +336,7 @@ canvas{max-height:220px}
 </div>
 
 <div id="clockin" class="panel">
-<h3 style="margin-bottom:12px;color:var(--primary)">🕐 Staff Clock In/Out</h3>
+<h3 style="margin-bottom:12px;color:var(--primary)">🕐 Clock In/Out</h3>
 <div id="clockinList"><div class="loading">Loading...</div></div>
 </div>
 
@@ -347,6 +358,30 @@ canvas{max-height:220px}
 <div id="expenseList"><div class="loading">Loading...</div></div>
 </div>
 
+<div id="fuel" class="panel">
+<h3 style="margin-bottom:8px;color:var(--primary)">⛽ Fuel Log</h3>
+<button class="btn no-print" onclick="showFuelForm()">+ Add Fill-Up</button>
+<div id="fuelForm" style="display:none">
+<div class="card">
+<input class="form-input" id="fuelVehicle" placeholder="Vehicle">
+<input class="form-input" id="fuelKm" type="number" placeholder="Odometer (km)">
+<input class="form-input" id="fuelLitres" type="number" step="0.01" placeholder="Litres">
+<input class="form-input" id="fuelCost" type="number" step="0.01" placeholder="Cost R">
+<input class="form-input" id="fuelStation" placeholder="Station (optional)">
+<input class="form-input" id="fuelDate" type="date">
+<button class="btn" onclick="addFuel()">Save</button>
+<button class="btn" style="background:#666" onclick="hideFuelForm()">Cancel</button>
+</div>
+</div>
+<div id="fuelList"><div class="loading">Loading...</div></div>
+</div>
+
+<div id="warranty" class="panel">
+<h3 style="margin-bottom:8px;color:var(--primary)">🎁 Warranty Tracker</h3>
+<p style="font-size:12px;color:var(--text2);margin-bottom:12px">Active warranties on completed jobs</p>
+<div id="warrantyList"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="reminders" class="panel">
 <h3 style="margin-bottom:12px;color:var(--primary)">🗓️ Service Reminders</h3>
 <div id="remindersList"><div class="loading">Loading...</div></div>
@@ -359,7 +394,7 @@ canvas{max-height:220px}
 </div>
 
 <div id="obd" class="panel">
-<h3 style="margin-bottom:8px;color:var(--primary)">⚡ OBD-II PID Reference</h3>
+<h3 style="margin-bottom:8px;color:var(--primary)">⚡ OBD-II PIDs</h3>
 <input type="text" class="form-input" id="obdSearch" placeholder="Search PIDs..." oninput="filterOBD()">
 <div id="obdList"><div class="loading">Loading...</div></div>
 </div>
@@ -383,18 +418,18 @@ canvas{max-height:220px}
 </div>
 
 <div id="fuses" class="panel">
-<h3 style="margin-bottom:8px;color:var(--primary)">🔌 Fuse Box Diagrams</h3>
+<h3 style="margin-bottom:8px;color:var(--primary)">🔌 Fuse Boxes</h3>
 <div id="fuseList"><div class="loading">Loading...</div></div>
 </div>
 
 <div id="service" class="panel">
-<h3 style="margin-bottom:8px;color:var(--primary)">⏰ Service Interval Calculator</h3>
+<h3 style="margin-bottom:8px;color:var(--primary)">⏰ Service Calculator</h3>
 <div class="card">
 <input class="form-input" id="svcKm" type="number" placeholder="Current odometer (km)">
 <select class="form-input" id="svcType">
-<option value="petrol">Petrol Vehicle</option>
-<option value="diesel">Diesel Vehicle</option>
-<option value="truck_diesel">Truck / Heavy Diesel</option>
+<option value="petrol">Petrol</option>
+<option value="diesel">Diesel</option>
+<option value="truck_diesel">Truck Diesel</option>
 <option value="motorcycle">Motorcycle</option>
 </select>
 <button class="btn" onclick="calcService()">Calculate Next Service</button>
@@ -405,11 +440,11 @@ canvas{max-height:220px}
 <div id="inspect" class="panel">
 <h3 style="margin-bottom:8px;color:var(--primary)">✅ Inspection Checklists</h3>
 <select class="form-input" id="inspectType" onchange="loadChecklist()">
-<option value="pre_purchase">Pre-Purchase Inspection (40 points)</option>
+<option value="pre_purchase">Pre-Purchase Inspection</option>
 <option value="roadworthy">Roadworthy Checklist</option>
 </select>
 <div id="inspectList"><div class="loading">Select a checklist</div></div>
-<button class="btn" onclick="printChecklist()">🖨 Print Checklist</button>
+<button class="btn" onclick="printChecklist()">🖨 Print</button>
 </div>
 
 <div id="boltcalc" class="panel">
@@ -476,14 +511,17 @@ canvas{max-height:220px}
 </div>
 
 <script>
+// ═══════════════════════════════════
 // TABS
-const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
+// ═══════════════════════════════════
+const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 const HOME_ITEMS = [
 ['📊','Dashboard',1],['🤖','AI Chat',2],['📟','Codes',3],['📖','Problems',4],['🔍','VIN',5],['🎨','Paint',6],['📸','Photo Diag',7],
 ['📋','Jobs',8],['👥','Customers',9],['📅','Appointments',10],['💬','Quotes',11],['💰','Invoices',12],['🔩','Parts',13],
-['📦','Inventory',14],['🛒','Purchase',15],['👷','Staff',16],['🕐','Clock In/Out',17],['💸','Expenses',18],['🗓️','Reminders',19],
-['🔌','Wiring',20],['⚡','OBD-II',21],['💡','Bulbs',22],['🔋','Batteries',23],['🛞','Tyres',24],['🔌','Fuses',25],
-['⏰','Service Calc',26],['✅','Inspect',27],['🔧','Bolt Calc',28],['⚙️','Torque',29],['🚗','History',30],['📈','Analytics',31],['🧾','Tax',32],['⚙','Settings',33]
+['📦','Inventory',14],['🛒','Purchase',15],['👷','Staff',16],['🕐','Clock In/Out',17],['💸','Expenses',18],
+['⛽','Fuel Log',19],['🎁','Warranty',20],['🗓️','Reminders',21],
+['🔌','Wiring',22],['⚡','OBD-II',23],['💡','Bulbs',24],['🔋','Batteries',25],['🛞','Tyres',26],['🔌','Fuses',27],
+['⏰','Service Calc',28],['✅','Inspect',29],['🔧','Bolt Calc',30],['⚙️','Torque',31],['🚗','History',32],['📈','Analytics',33],['🧾','Tax',34],['⚙','Settings',35]
 ];
 document.getElementById('homeGrid').innerHTML=HOME_ITEMS.map(x=>`<div class="grid-item" onclick="clickTab(${x[2]})"><div class="icon">${x[0]}</div><div class="label">${x[1]}</div></div>`).join('');
 
@@ -498,7 +536,8 @@ jobs:()=>{loadJobs();loadStaffDropdown();},
 customers:loadCustomers,appointments:loadAppts,quotes:loadQuotes,invoices:loadInvoices,
 parts:()=>!document.getElementById('partsList').dataset.loaded&&loadParts(),
 inventory:loadInventory,purchase:loadPOs,staff:loadStaff,clockin:loadClockin,
-expenses:loadExpenses,reminders:loadReminders,wiring:loadWiring,obd:loadOBD,
+expenses:loadExpenses,fuel:loadFuel,warranty:loadWarranty,
+reminders:loadReminders,wiring:loadWiring,obd:loadOBD,
 bulbs:loadBulbs,batteries:loadBatt,tyres:loadTyre,fuses:loadFuses,
 inspect:()=>document.getElementById('inspectType').value==='pre_purchase'&&loadChecklist(),
 boltcalc:()=>{},torque:loadTorque,history:()=>{},analytics:loadAnalytics,
@@ -510,7 +549,84 @@ function clickTab(i){showTab(TABS[i],document.querySelectorAll('.tab')[i]);}
 function toggleTheme(){document.body.classList.toggle('dark');const d=document.body.classList.contains('dark');localStorage.setItem('theme',d?'dark':'light');document.getElementById('themeBtn').textContent=d?'☀️':'🌙';}
 if(localStorage.getItem('theme')==='dark'){document.body.classList.add('dark');document.getElementById('themeBtn').textContent='☀️';}
 
-async function checkStatus(){try{await fetch('/health');document.getElementById('status').innerHTML='<span class="status-online">✓ Online</span>';}catch(e){document.getElementById('status').innerHTML='<span class="status-offline">✗ Offline</span>';}}
+// ═══════════════════════════════════
+// LANGUAGE
+// ═══════════════════════════════════
+let LANG=localStorage.getItem('lang')||'en';
+let STRINGS={};
+async function loadLang(){
+try{const r=await fetch('/api/translations/'+LANG);const d=await r.json();
+STRINGS=d.strings;document.getElementById('langSel').value=LANG;applyLang()}catch(e){}}
+function setLang(){LANG=document.getElementById('langSel').value;localStorage.setItem('lang',LANG);loadLang()}
+function t(k){return STRINGS[k]||k}
+function applyLang(){
+const tabKeys=['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers',
+'appointments','quotes','invoices','parts','inventory','purchase','staff','clockin',
+'expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses',
+'service','inspect','boltcalc','torque','history','analytics','tax','settings'];
+const tabs=document.querySelectorAll('.tab');
+tabKeys.forEach((k,i)=>{if(tabs[i]&&STRINGS[k])tabs[i].title=STRINGS[k]});
+}
+loadLang();
+
+// ═══════════════════════════════════
+// PHOTO COMPRESSION
+// ═══════════════════════════════════
+function compressImage(file,maxWidth,quality){
+return new Promise((resolve)=>{
+const reader=new FileReader();
+reader.onload=(e)=>{
+const img=new Image();
+img.onload=()=>{
+const canvas=document.createElement('canvas');
+let{width,height}=img;
+if(width>maxWidth){height=(height*maxWidth)/width;width=maxWidth}
+canvas.width=width;canvas.height=height;
+canvas.getContext('2d').drawImage(img,0,0,width,height);
+resolve(canvas.toDataURL('image/jpeg',quality));
+};
+img.src=e.target.result;
+};
+reader.readAsDataURL(file);
+});}
+
+// ═══════════════════════════════════
+// SIGNATURE
+// ═══════════════════════════════════
+let sigPad=null,sigCtx=null,sigDrawing=false,sigData='';
+function openSignature(){
+const modal=document.createElement('div');
+modal.id='sigModal';
+modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+modal.innerHTML='<div style="background:white;border-radius:12px;padding:16px;width:100%;max-width:500px"><h3 style="color:#E65100;margin-bottom:8px">✍️ Customer Signature</h3><canvas id="sigPad" width="440" height="200" style="border:2px solid #ddd;border-radius:8px;width:100%;touch-action:none;background:white"></canvas><div style="margin-top:10px;display:flex;gap:8px"><button class="btn-sm gray" onclick="clearSig()" style="flex:1">Clear</button><button class="btn-sm green" onclick="saveSig()" style="flex:1">Confirm</button><button class="btn-sm red" onclick="closeSig()" style="flex:1">Cancel</button></div></div>';
+document.body.appendChild(modal);
+sigPad=document.getElementById('sigPad');
+sigCtx=sigPad.getContext('2d');
+sigCtx.strokeStyle='#000';sigCtx.lineWidth=2;sigCtx.lineCap='round';
+const start=(e)=>{sigDrawing=true;sigCtx.beginPath();const p=getPos(e);sigCtx.moveTo(p.x,p.y);e.preventDefault()};
+const draw=(e)=>{if(!sigDrawing)return;const p=getPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();e.preventDefault()};
+const stop=()=>{sigDrawing=false};
+const getPos=(e)=>{
+const rect=sigPad.getBoundingClientRect();
+const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+return{x:x*(sigPad.width/rect.width),y:y*(sigPad.height/rect.height)};
+};
+sigPad.addEventListener('mousedown',start);
+sigPad.addEventListener('mousemove',draw);
+sigPad.addEventListener('mouseup',stop);
+sigPad.addEventListener('touchstart',start,{passive:false});
+sigPad.addEventListener('touchmove',draw,{passive:false});
+sigPad.addEventListener('touchend',stop);
+}
+function clearSig(){sigCtx.clearRect(0,0,sigPad.width,sigPad.height)}
+function saveSig(){sigData=sigPad.toDataURL('image/png');document.getElementById('sigPreview').innerHTML='<img src="'+sigData+'" style="width:100%;border:1px solid #ddd;border-radius:8px;background:white">';closeSig()}
+function closeSig(){const m=document.getElementById('sigModal');if(m)m.remove()}
+
+// ═══════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════
+async function checkStatus(){try{await fetch('/health');document.getElementById('status').innerHTML='<span class="status-online">✓ Online</span>'}catch(e){document.getElementById('status').innerHTML='<span class="status-offline">✗ Offline</span>'}}
 checkStatus();
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 async function jget(u){const r=await fetch(u);return r.json()}
@@ -529,13 +645,15 @@ async function sendMsg(){const i=document.getElementById('chatInput');const m=i.
 
 // DASHBOARD
 let rC=null,jC=null;
-async function loadDashboard(){try{const d=await jget('/api/stats');document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Done</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R'+d.expenses+'</div><div class="lbl">Expenses</div></div></div>';if(rC)rC.destroy();const c1=document.getElementById('revenueChart');if(c1)rC=new Chart(c1,{type:'line',data:{labels:d.revenue_labels,datasets:[{data:d.revenue_data,borderColor:'#E65100',backgroundColor:'rgba(230,81,0,.15)',tension:.3,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}}}});if(jC)jC.destroy();const c2=document.getElementById('jobChart');if(c2)jC=new Chart(c2,{type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#666','#FF9800','#4CAF50']}]},options:{responsive:true}});
+async function loadDashboard(){try{const d=await jget('/api/stats');document.getElementById('dashStats').innerHTML='<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div><div class="stat-card green"><div class="num">'+d.jobs_completed+'</div><div class="lbl">Done</div></div><div class="stat-card"><div class="num">'+d.customers+'</div><div class="lbl">Customers</div></div><div class="stat-card green"><div class="num">R'+d.revenue+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R'+d.expenses+'</div><div class="lbl">Expenses</div></div></div>';
+if(rC)rC.destroy();const c1=document.getElementById('revenueChart');if(c1)rC=new Chart(c1,{type:'line',data:{labels:d.revenue_labels,datasets:[{data:d.revenue_data,borderColor:'#E65100',backgroundColor:'rgba(230,81,0,.15)',tension:.3,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+if(jC)jC.destroy();const c2=document.getElementById('jobChart');if(c2)jC=new Chart(c2,{type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#666','#FF9800','#4CAF50']}]},options:{responsive:true}});
 const ls=await jget('/api/inventory/low-stock');document.getElementById('dashLowStock').innerHTML=ls.items.length?ls.items.map(i=>'<div class="list-item"><strong>'+esc(i.name)+'</strong> — '+i.qty+' left</div>').join(''):'<p style="color:var(--text2)">All OK</p>';
-const sd=await jget('/api/reminders');document.getElementById('dashServiceDue').innerHTML=sd.reminders.length?sd.reminders.map(r=>'<div class="list-item">'+esc(r.vehicle)+' — '+esc(r.due)+'</div>').join(''):'<p style="color:var(--text2)">None due</p>';
+const w=await jget('/api/warranty');const soon=w.warranties.filter(x=>x.status==='active').slice(0,5);document.getElementById('dashWarranty').innerHTML=soon.length?soon.map(x=>'<div class="list-item">'+esc(x.vehicle)+' — '+x.days_left+' days left</div>').join(''):'<p style="color:var(--text2)">None</p>';
 }catch(e){}}
 
 // CODES
-async function searchCodes(){const q=document.getElementById('codeSearch').value;const c=document.getElementById('codeResults');c.innerHTML='<div class="loading">Loading...</div>';try{const d=await jget('/api/fault-codes?search='+encodeURIComponent(q));c.dataset.loaded='1';c.innerHTML=d.codes.length?d.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join(''):'<div class="card"><p>No matches</p></div>'}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}}
+async function searchCodes(){const q=document.getElementById('codeSearch').value;const c=document.getElementById('codeResults');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/fault-codes?search='+encodeURIComponent(q));c.dataset.loaded='1';c.innerHTML=d.codes.length?d.codes.map(x=>'<div class="card"><h3>'+x.code+'<span class="badge '+x.severity.toLowerCase()+'">'+x.severity+'</span></h3><p><strong>'+esc(x.description)+'</strong></p><p style="color:var(--text2);font-size:12px">'+esc(x.system)+'</p><p><strong>Causes:</strong></p>'+x.causes.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'<p><strong>Steps:</strong></p>'+x.steps.map(y=>'<div class="list-item">• '+esc(y)+'</div>').join('')+'</div>').join(''):'<div class="card"><p>No matches</p></div>'}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}}
 
 // PROBLEMS
 let probData=[];
@@ -547,31 +665,29 @@ async function decodeVin(){const vin=document.getElementById('vinInput').value.t
 
 // PAINT
 let paintB64='';
-function previewPaint(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{paintB64=ev.target.result;document.getElementById('paintPreview').innerHTML='<img class="img-preview" src="'+paintB64+'">'};r.readAsDataURL(f)}
+async function previewPaint(e){const f=e.target.files[0];if(!f)return;paintB64=await compressImage(f,1200,0.75);document.getElementById('paintPreview').innerHTML='<img class="img-preview" src="'+paintB64+'">'}
 async function matchPaint(){const btn=document.getElementById('paintBtn');const c=document.getElementById('paintResult');if(!paintB64){c.innerHTML='<div class="card"><p style="color:red">Select image</p></div>';return}btn.disabled=true;btn.textContent='Analyzing...';c.innerHTML='<div class="loading">Analyzing...</div>';try{const d=await jpost('/api/paint/match',{image_base64:paintB64,vehicle_info:document.getElementById('paintVehicle').value});if(!d.success){c.innerHTML='<div class="card"><p style="color:red">'+(d.error||'Failed')+'</p></div>'}else{const col=d.detected_colour;let h='<div class="card"><div class="swatch" style="background:'+col.hex_code+'"></div><h3>'+esc(col.name)+'</h3><p><strong>'+esc(col.finish)+'</strong> • '+esc(col.colour_family)+'</p><p style="font-family:monospace">'+col.hex_code+'</p><p>Confidence: <strong>'+d.confidence+'</strong></p></div>';if(d.brand_codes){h+='<div class="card"><h3>Brand Codes</h3>';d.brand_codes.forEach(b=>{h+='<div class="list-item"><strong>'+esc(b.brand)+':</strong> '+esc(b.code)+' — '+esc(b.name)+'</div>'});h+='</div>'}c.innerHTML=h}}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}btn.disabled=false;btn.textContent='🎨 Match Paint'}
 
 // PHOTO DIAG
 let diagB64='';
-function previewDiag(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{diagB64=ev.target.result;document.getElementById('photoPreview').innerHTML='<img class="img-preview" src="'+diagB64+'">'};r.readAsDataURL(f)}
+async function previewDiag(e){const f=e.target.files[0];if(!f)return;diagB64=await compressImage(f,1200,0.75);document.getElementById('photoPreview').innerHTML='<img class="img-preview" src="'+diagB64+'">'}
 async function diagnosePhoto(){const btn=document.getElementById('photoBtn');const c=document.getElementById('photoResult');if(!diagB64){c.innerHTML='<div class="card"><p style="color:red">Select image</p></div>';return}btn.disabled=true;btn.textContent='Analyzing...';c.innerHTML='<div class="loading">...</div>';try{const d=await jpost('/api/diagnose/photo',{image_base64:diagB64,vehicle_info:document.getElementById('photoVehicle').value});if(!d.success){c.innerHTML='<div class="card"><p style="color:red">'+(d.error||'Failed')+'</p></div>'}else{let h='<div class="card"><h3>🔍 '+esc(d.problem||'Detected')+'</h3><p><strong>Confidence:</strong> '+d.confidence+'</p><p>'+esc(d.description||'')+'</p></div>';if(d.possible_causes){h+='<div class="card"><h3>Causes</h3>'+d.possible_causes.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'</div>'}if(d.diagnostic_steps){h+='<div class="card"><h3>Steps</h3>'+d.diagnostic_steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'</div>'}if(d.safety_warnings){h+='<div class="card" style="background:#FFEBEE"><h3 style="color:#C62828">⚠ Safety</h3>'+d.safety_warnings.map(x=>'<div class="list-item">⚠ '+esc(x)+'</div>').join('')+'</div>'}c.innerHTML=h}}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}btn.disabled=false;btn.textContent='📸 Analyze'}
 
 // JOBS
 let jobPhotos=[];
-function addJobPhotos(e){Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{jobPhotos.push(ev.target.result);renderJobThumbs()};r.readAsDataURL(f)})}
+async function addJobPhotos(e){for(const f of Array.from(e.target.files)){jobPhotos.push(await compressImage(f,1000,0.7))}renderJobThumbs()}
 function renderJobThumbs(){document.getElementById('jobPhotoThumbs').innerHTML=jobPhotos.map((p,i)=>'<div class="thumb-wrap"><img class="thumb" src="'+p+'"><button class="thumb-del" onclick="removeJobPhoto('+i+')">×</button></div>').join('')}
 function removeJobPhoto(i){jobPhotos.splice(i,1);renderJobThumbs()}
 function showJobForm(){document.getElementById('jobForm').style.display='block'}
-function hideJobForm(){document.getElementById('jobForm').style.display='none';jobPhotos=[];renderJobThumbs()}
+function hideJobForm(){document.getElementById('jobForm').style.display='none';jobPhotos=[];renderJobThumbs();sigData='';document.getElementById('sigPreview').innerHTML=''}
 async function loadStaffDropdown(){try{const d=await jget('/api/staff');const sel=document.getElementById('jobAssigned');sel.innerHTML='<option value="">— Unassigned —</option>'+d.staff.map(s=>'<option value="'+esc(s.name)+'">'+esc(s.name)+'</option>').join('')}catch(e){}}
-async function createJob(){const c=document.getElementById('jobCustomer').value.trim();const v=document.getElementById('jobVehicle').value.trim();const comp=document.getElementById('jobComplaint').value.trim();if(!c||!v||!comp){alert('Fill required fields');return}try{await jpost('/api/jobs',{customer:c,phone:document.getElementById('jobPhone').value,vehicle:v,registration:document.getElementById('jobVehicleReg').value,km:parseInt(document.getElementById('jobKm').value)||0,complaint:comp,assigned_to:document.getElementById('jobAssigned').value,warranty_months:parseInt(document.getElementById('jobWarranty').value)||6,photos:jobPhotos});['jobCustomer','jobPhone','jobVehicle','jobComplaint','jobVehicleReg','jobKm'].forEach(id=>document.getElementById(id).value='');hideJobForm();loadJobs()}catch(e){alert(e.message)}}
-async function loadJobs(){const c=document.getElementById('jobList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/jobs');if(!d.jobs.length){c.innerHTML='<div class="card"><p>No jobs</p></div>';return}c.innerHTML=d.jobs.reverse().map(j=>{const s=j.status.toLowerCase().replace(' ','');let ph=j.photos&&j.photos.length?'<div class="thumb-row">'+j.photos.map(p=>'<img class="thumb" src="'+p+'">').join('')+'</div>':'';let cost=j.total?'<div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;font-size:12px"><strong>Total: R'+j.total.toFixed(2)+'</strong> (warranty '+j.warranty_months+'mo)</div>':'';let as=j.assigned_to?'<p style="color:var(--text2);font-size:12px">👷 '+esc(j.assigned_to)+'</p>':'';let tl=j.timeline&&j.timeline.length?'<div style="margin-top:8px;font-size:11px;color:var(--text2)">'+j.timeline.slice(-3).map(t=>'• '+esc(t)).join('<br>')+'</div>':'';return '<div class="card" id="job-'+j.id+'"><h3>Job #'+j.id+' <span class="badge '+s+'">'+esc(j.status)+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p>'+as+'<p style="color:var(--text2)">'+esc(j.complaint)+'</p>'+ph+cost+tl+'<p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div class="no-print" style="margin-top:8px"><button class="btn-sm" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm blue" onclick="addNote(\''+j.id+'\')">+Note</button><button class="btn-sm" onclick="setCost(\''+j.id+'\')">💰</button><button class="btn-sm whatsapp" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm gray" onclick="showQR(\''+j.id+'\')">QR</button><button class="btn-sm blue" onclick="printJob(\''+j.id+'\')">🖨</button></div></div>'}).join('')}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}}
+async function createJob(){const c=document.getElementById('jobCustomer').value.trim();const v=document.getElementById('jobVehicle').value.trim();const comp=document.getElementById('jobComplaint').value.trim();if(!c||!v||!comp){alert('Fill required fields');return}try{await jpost('/api/jobs',{customer:c,phone:document.getElementById('jobPhone').value,vehicle:v,registration:document.getElementById('jobVehicleReg').value,km:parseInt(document.getElementById('jobKm').value)||0,complaint:comp,assigned_to:document.getElementById('jobAssigned').value,warranty_months:parseInt(document.getElementById('jobWarranty').value)||6,photos:jobPhotos,signature:sigData});['jobCustomer','jobPhone','jobVehicle','jobComplaint','jobVehicleReg','jobKm'].forEach(id=>document.getElementById(id).value='');sigData='';document.getElementById('sigPreview').innerHTML='';hideJobForm();loadJobs()}catch(e){alert(e.message)}}
+async function loadJobs(){const c=document.getElementById('jobList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/jobs');if(!d.jobs.length){c.innerHTML='<div class="card"><p>No jobs</p></div>';return}c.innerHTML=d.jobs.reverse().map(j=>{const s=j.status.toLowerCase().replace(' ','');let ph=j.photos&&j.photos.length?'<div class="thumb-row">'+j.photos.map(p=>'<img class="thumb" src="'+p+'">').join('')+'</div>':'';let cost=j.total?'<div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;font-size:12px"><strong>Total: R'+j.total.toFixed(2)+'</strong></div>':'';let as=j.assigned_to?'<p style="color:var(--text2);font-size:12px">👷 '+esc(j.assigned_to)+'</p>':'';let sig=j.signature?'<div style="margin-top:8px"><strong style="font-size:12px">Customer signature:</strong><br><img src="'+j.signature+'" style="width:200px;border:1px solid #ddd;background:white;border-radius:6px;margin-top:4px"></div>':'';return '<div class="card" id="job-'+j.id+'"><h3>Job #'+j.id+' <span class="badge '+s+'">'+esc(j.status)+'</span></h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+(j.registration?' ('+esc(j.registration)+')':'')+'</p>'+as+'<p style="color:var(--text2)">'+esc(j.complaint)+'</p>'+ph+cost+sig+'<p style="font-size:11px;color:var(--text2);margin-top:6px">'+esc(j.created)+'</p><div class="no-print" style="margin-top:8px"><button class="btn-sm" onclick="upJob(\''+j.id+'\',\'In Progress\')">Progress</button><button class="btn-sm green" onclick="upJob(\''+j.id+'\',\'Completed\')">Done</button><button class="btn-sm" onclick="setCost(\''+j.id+'\')">💰 Cost</button><button class="btn-sm whatsapp" onclick="waJob(\''+j.id+'\')">📱</button><button class="btn-sm blue" onclick="printJob(\''+j.id+'\')">🖨</button></div></div>'}).join('')}catch(e){c.innerHTML='<div class="card"><p>Error</p></div>'}}
 async function upJob(id,s){await jput('/api/jobs/'+id,{status:s,note:'Status → '+s});loadJobs()}
-async function addNote(id){const n=prompt('Note:');if(!n)return;await jput('/api/jobs/'+id,{note:n});loadJobs()}
 async function setCost(id){const h=prompt('Labour hours:','1');if(h===null)return;const p=prompt('Parts cost (R):','0');if(p===null)return;const rate=await getRate();await jpost('/api/jobs/'+id+'/cost',{labour_hours:parseFloat(h),labour_rate:rate,parts_cost:parseFloat(p)});loadJobs()}
 async function getRate(){try{const r=await jget('/api/workshop');return r.labour_rate||450}catch(e){return 450}}
 function waJob(id){jget('/api/jobs').then(d=>{const j=d.jobs.find(x=>x.id==id);if(!j)return;const txt='🔧 *Job #'+j.id+'*\n'+j.customer+'\n'+j.vehicle+'\n'+(j.registration?'Reg: '+j.registration+'\n':'')+'Issue: '+j.complaint+'\nStatus: '+j.status+(j.total?'\nTotal: R'+j.total.toFixed(2):'');window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank')})}
-function showQR(id){const url=window.location.origin+'/job/'+id;const w=window.open('','','width=400,height=500');w.document.write('<html><head><title>Job QR</title></head><body style="text-align:center;font-family:Arial;padding:20px"><h2>Job #'+id+'</h2><div id="q" style="margin:20px"></div><p>Scan to see status</p><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById("q"),{text:"'+url+'",width:200,height:200})<\/script></body></html>');w.document.close()}
-function printJob(id){const el=document.getElementById('job-'+id);const w=window.open('','','width=800,height=600');w.document.write('<html><head><title>Job #'+id+'</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}img{max-width:200px;margin:4px}</style></head><body>');w.document.write('<h1>'+document.getElementById('logoDisplay').textContent+' '+document.getElementById('wsNameDisplay').textContent+' — Job #'+id+'</h1>');w.document.write(el.innerHTML.replace(/<div class="no-print".*?<\/div>/gs,''));w.document.write('</body></html>');w.document.close();setTimeout(()=>w.print(),500)}
+function printJob(id){const el=document.getElementById('job-'+id);const w=window.open('','','width=800,height=600');w.document.write('<html><head><title>Job #'+id+'</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}img{max-width:200px;margin:4px}</style></head><body><h1>'+document.getElementById('logoDisplay').textContent+' '+document.getElementById('wsNameDisplay').textContent+' — Job #'+id+'</h1>');w.document.write(el.innerHTML.replace(/<div class="no-print".*?<\/div>/gs,''));w.document.write('</body></html>');w.document.close();setTimeout(()=>w.print(),500)}
 
 // CUSTOMERS
 function showCustomerForm(){document.getElementById('customerForm').style.display='block'}
@@ -591,9 +707,8 @@ async function delAppt(id){if(!confirm('Delete?'))return;await jdel('/api/appoin
 function showQuoteForm(){document.getElementById('quoteForm').style.display='block'}
 function hideQuoteForm(){document.getElementById('quoteForm').style.display='none'}
 async function createQuote(){const c=document.getElementById('qCustomer').value.trim();const d=document.getElementById('qDesc').value.trim();if(!c||!d){alert('Required');return}await jpost('/api/quotes',{customer:c,vehicle:document.getElementById('qVehicle').value,description:d,labour:parseFloat(document.getElementById('qLabour').value)||0,parts:parseFloat(document.getElementById('qParts').value)||0});['qCustomer','qVehicle','qDesc','qLabour','qParts'].forEach(id=>document.getElementById(id).value='');hideQuoteForm();loadQuotes()}
-async function loadQuotes(){const c=document.getElementById('quoteList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/quotes');c.innerHTML=d.quotes.length?d.quotes.reverse().map(q=>'<div class="card"><h3>💬 Quote #'+q.id+'</h3><p><strong>'+esc(q.customer)+'</strong></p><p>'+esc(q.description)+'</p><div class="list-item">Labour: R'+q.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+q.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+q.total.toFixed(2)+'</strong></div><div style="margin-top:8px"><button class="btn-sm green" onclick="acceptQuote(\''+q.id+'\')">Accept → Invoice</button><button class="btn-sm whatsapp" onclick="waQuote(\''+q.id+'\')">📱</button><button class="btn-sm red" onclick="delQuote(\''+q.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No quotes</p></div>'}catch(e){}}
-async function acceptQuote(id){const r=await jpost('/api/quotes/'+id+'/accept',{});if(r.success){alert('Converted to invoice #'+r.invoice.id);loadQuotes()}}
-function waQuote(id){jget('/api/quotes').then(d=>{const q=d.quotes.find(x=>x.id==id);const txt='💬 *Quote #'+q.id+'*\n'+q.customer+'\n'+q.description+'\nLabour: R'+q.labour+'\nParts: R'+q.parts+'\nTotal: R'+q.total.toFixed(2);window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank')})}
+async function loadQuotes(){const c=document.getElementById('quoteList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/quotes');c.innerHTML=d.quotes.length?d.quotes.reverse().map(q=>'<div class="card"><h3>💬 Quote #'+q.id+'</h3><p><strong>'+esc(q.customer)+'</strong></p><p>'+esc(q.description)+'</p><div class="list-item">Labour: R'+q.labour.toFixed(2)+'</div><div class="list-item">Parts: R'+q.parts.toFixed(2)+'</div><div class="list-item"><strong>Total: R'+q.total.toFixed(2)+'</strong></div><div style="margin-top:8px"><button class="btn-sm green" onclick="acceptQuote(\''+q.id+'\')">Accept → Invoice</button><button class="btn-sm red" onclick="delQuote(\''+q.id+'\')">Delete</button></div></div>').join(''):'<div class="card"><p>No quotes</p></div>'}catch(e){}}
+async function acceptQuote(id){const r=await jpost('/api/quotes/'+id+'/accept',{});if(r.success){alert('Converted to invoice');loadQuotes()}}
 async function delQuote(id){if(!confirm('Delete?'))return;await jdel('/api/quotes/'+id);loadQuotes()}
 
 // INVOICES
@@ -621,7 +736,7 @@ async function delInv(id){if(!confirm('Delete?'))return;await jdel('/api/invento
 // PURCHASE ORDERS
 function showPOForm(){document.getElementById('poForm').style.display='block'}
 function hidePOForm(){document.getElementById('poForm').style.display='none'}
-async function createPO(){const s=document.getElementById('poSupplier').value.trim();const i=document.getElementById('poItems').value.trim();if(!s||!i){alert('Supplier+items required');return}await jpost('/api/purchase-orders',{supplier:s,items:i,total:parseFloat(document.getElementById('poTotal').value)||0});['poSupplier','poItems','poTotal'].forEach(id=>document.getElementById(id).value='');hidePOForm();loadPOs()}
+async function createPO(){const s=document.getElementById('poSupplier').value.trim();const i=document.getElementById('poItems').value.trim();if(!s||!i){alert('Required');return}await jpost('/api/purchase-orders',{supplier:s,items:i,total:parseFloat(document.getElementById('poTotal').value)||0});['poSupplier','poItems','poTotal'].forEach(id=>document.getElementById(id).value='');hidePOForm();loadPOs()}
 async function loadPOs(){const c=document.getElementById('poList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/purchase-orders');c.innerHTML=d.pos.length?d.pos.reverse().map(p=>'<div class="card"><h3>PO #'+p.id+' <span class="badge '+(p.status==='received'?'ok':'new')+'">'+p.status+'</span></h3><p><strong>'+esc(p.supplier)+'</strong></p><p>'+esc(p.items)+'</p><p>Total: R'+p.total.toFixed(2)+'</p><div style="margin-top:8px"><button class="btn-sm green" onclick="markPO(\''+p.id+'\',\'received\')">Received</button><button class="btn-sm red" onclick="delPO(\''+p.id+'\')">×</button></div></div>').join(''):'<div class="card"><p>No POs</p></div>'}catch(e){}}
 async function markPO(id,s){await jput('/api/purchase-orders/'+id,{status:s});loadPOs()}
 async function delPO(id){if(!confirm('Delete?'))return;await jdel('/api/purchase-orders/'+id);loadPOs()}
@@ -633,8 +748,8 @@ async function addStaff(){const n=document.getElementById('staffName').value.tri
 async function loadStaff(){const c=document.getElementById('staffList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/staff');c.innerHTML=d.staff.length?d.staff.map(s=>'<div class="card"><h3>👷 '+esc(s.name)+'</h3><p>'+esc(s.role||'-')+'</p>'+(s.phone?'<p>📞 '+esc(s.phone)+'</p>':'')+'<p>Rate: R'+s.hourly_rate.toFixed(2)+'/hr</p><button class="btn-sm red" onclick="delStaff(\''+s.id+'\')">Delete</button></div>').join(''):'<div class="card"><p>No staff</p></div>'}catch(e){}}
 async function delStaff(id){if(!confirm('Delete?'))return;await jdel('/api/staff/'+id);loadStaff()}
 
-// CLOCK IN/OUT
-async function loadClockin(){const c=document.getElementById('clockinList');c.innerHTML='<div class="loading">...</div>';try{const sd=await jget('/api/staff');const cd=await jget('/api/clockins');c.innerHTML=sd.staff.length?sd.staff.map(s=>{const active=cd.clockins.find(x=>x.staff_id===s.id&&!x.clock_out);return '<div class="card"><h3>👷 '+esc(s.name)+'</h3>'+(active?'<p style="color:#4CAF50">🕐 Clocked in at '+esc(active.clock_in)+'</p><button class="btn-sm red" onclick="clockOut(\''+s.id+'\')">Clock Out</button>':'<button class="btn-sm green" onclick="clockIn(\''+s.id+'\')">Clock In</button>')+'<div style="margin-top:8px;font-size:11px">'+cd.clockins.filter(x=>x.staff_id===s.id).slice(-3).map(x=>'• '+esc(x.clock_in)+' → '+esc(x.clock_out||'active')).join('<br>')+'</div></div>'}).join(''):'<div class="card"><p>Add staff first</p></div>'}catch(e){}}
+// CLOCKIN
+async function loadClockin(){const c=document.getElementById('clockinList');c.innerHTML='<div class="loading">...</div>';try{const sd=await jget('/api/staff');const cd=await jget('/api/clockins');c.innerHTML=sd.staff.length?sd.staff.map(s=>{const active=cd.clockins.find(x=>x.staff_id===s.id&&!x.clock_out);return '<div class="card"><h3>👷 '+esc(s.name)+'</h3>'+(active?'<p style="color:#4CAF50">🕐 In since '+esc(active.clock_in)+'</p><button class="btn-sm red" onclick="clockOut(\''+s.id+'\')">Clock Out</button>':'<button class="btn-sm green" onclick="clockIn(\''+s.id+'\')">Clock In</button>')+'</div>'}).join(''):'<div class="card"><p>Add staff first</p></div>'}catch(e){}}
 async function clockIn(id){await jpost('/api/clockins',{staff_id:id});loadClockin()}
 async function clockOut(id){await jpost('/api/clockins/'+id+'/out',{});loadClockin()}
 
@@ -642,32 +757,42 @@ async function clockOut(id){await jpost('/api/clockins/'+id+'/out',{});loadClock
 function showExpenseForm(){document.getElementById('expenseForm').style.display='block'}
 function hideExpenseForm(){document.getElementById('expenseForm').style.display='none'}
 async function addExpense(){const a=parseFloat(document.getElementById('expAmount').value)||0;if(!a){alert('Amount required');return}await jpost('/api/expenses',{category:document.getElementById('expCat').value,amount:a,date:document.getElementById('expDate').value||new Date().toISOString().slice(0,10),note:document.getElementById('expNote').value});['expAmount','expDate','expNote'].forEach(id=>document.getElementById(id).value='');hideExpenseForm();loadExpenses()}
-async function loadExpenses(){const c=document.getElementById('expenseList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/expenses');const total=d.expenses.reduce((s,x)=>s+x.amount,0);c.innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Total Expenses</h3><p style="font-size:24px;color:white;font-weight:bold">R'+total.toFixed(2)+'</p></div>'+(d.expenses.length?d.expenses.reverse().map(e=>'<div class="card"><h3>'+esc(e.category)+' <span class="badge new">R'+e.amount.toFixed(2)+'</span></h3><p>'+esc(e.note||'-')+'</p><p style="font-size:11px;color:var(--text2)">'+esc(e.date)+'</p><button class="btn-sm red" onclick="delExp(\''+e.id+'\')">×</button></div>').join(''):'<div class="card"><p>No expenses</p></div>')}catch(e){}}
+async function loadExpenses(){const c=document.getElementById('expenseList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/expenses');const total=d.expenses.reduce((s,x)=>s+x.amount,0);c.innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Total</h3><p style="font-size:24px;color:white;font-weight:bold">R'+total.toFixed(2)+'</p></div>'+(d.expenses.length?d.expenses.reverse().map(e=>'<div class="card"><h3>'+esc(e.category)+' <span class="badge new">R'+e.amount.toFixed(2)+'</span></h3><p>'+esc(e.note||'-')+'</p><p style="font-size:11px;color:var(--text2)">'+esc(e.date)+'</p><button class="btn-sm red" onclick="delExp(\''+e.id+'\')">×</button></div>').join(''):'<div class="card"><p>No expenses</p></div>')}catch(e){}}
 async function delExp(id){if(!confirm('Delete?'))return;await jdel('/api/expenses/'+id);loadExpenses()}
 
+// FUEL
+function showFuelForm(){document.getElementById('fuelForm').style.display='block'}
+function hideFuelForm(){document.getElementById('fuelForm').style.display='none'}
+async function addFuel(){const v=document.getElementById('fuelVehicle').value.trim();const km=parseInt(document.getElementById('fuelKm').value)||0;const l=parseFloat(document.getElementById('fuelLitres').value)||0;if(!v||!km||!l){alert('Vehicle, km and litres required');return}await jpost('/api/fuel',{vehicle:v,km:km,litres:l,cost:parseFloat(document.getElementById('fuelCost').value)||0,station:document.getElementById('fuelStation').value,date:document.getElementById('fuelDate').value||new Date().toISOString().slice(0,10)});['fuelVehicle','fuelKm','fuelLitres','fuelCost','fuelStation','fuelDate'].forEach(id=>document.getElementById(id).value='');hideFuelForm();loadFuel()}
+async function loadFuel(){const c=document.getElementById('fuelList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/fuel');c.innerHTML=d.logs.length?d.logs.reverse().map(f=>'<div class="card"><h3>⛽ '+esc(f.vehicle)+'</h3><div class="list-item">Odometer: <strong>'+f.km+' km</strong></div><div class="list-item">Litres: <strong>'+f.litres+' L</strong></div><div class="list-item">Cost: <strong>R'+f.cost.toFixed(2)+'</strong></div>'+(f.consumption>0?'<div class="list-item">Consumption: <strong>'+f.consumption+' L/100km</strong></div>':'')+(f.station?'<div class="list-item">Station: '+esc(f.station)+'</div>':'')+'<p style="font-size:11px;color:var(--text2)">'+esc(f.date)+'</p><button class="btn-sm red" onclick="delFuel(\''+f.id+'\')">Delete</button></div>').join(''):'<div class="card"><p>No fuel logs</p></div>'}catch(e){}}
+async function delFuel(id){if(!confirm('Delete?'))return;await jdel('/api/fuel/'+id);loadFuel()}
+
+// WARRANTY
+async function loadWarranty(){const c=document.getElementById('warrantyList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/warranty');c.innerHTML=d.warranties.length?d.warranties.map(w=>{const cls=w.status==='active'?'ok':'warn';return '<div class="card"><h3>🎁 '+esc(w.vehicle)+' <span class="badge '+cls+'">'+w.status.toUpperCase()+'</span></h3><p><strong>'+esc(w.customer)+'</strong></p>'+(w.phone?'<p>📞 '+esc(w.phone)+'</p>':'')+'<div class="list-item">Job: #'+w.id+' on '+esc(w.job_date)+'</div><div class="list-item">Warranty: '+w.months+' months</div><div class="list-item">Expires: <strong>'+esc(w.expiry)+'</strong></div><div class="list-item">'+(w.days_left>0?'Expires in '+w.days_left+' days':'Expired '+Math.abs(w.days_left)+' days ago')+'</div></div>'}).join(''):'<div class="card"><p>No warranties</p></div>'}catch(e){}}
+
 // REMINDERS
-async function loadReminders(){const c=document.getElementById('remindersList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/reminders');c.innerHTML=d.reminders.length?d.reminders.map(r=>'<div class="card"><h3>🗓️ '+esc(r.vehicle)+'</h3><p>'+esc(r.customer)+'</p><p>Due: <strong>'+esc(r.due)+'</strong></p><p style="color:var(--text2);font-size:12px">Last service: '+esc(r.last_service)+' ('+r.last_km+' km)</p><button class="btn-sm whatsapp" onclick="remindWA(\''+esc(r.phone||'')+'\',\''+esc(r.customer)+'\',\''+esc(r.vehicle)+'\')">📱 Remind</button></div>').join(''):'<div class="card"><p>No reminders due</p></div>'}catch(e){}}
-function remindWA(phone,name,vehicle){const txt='Hi '+name+', your '+vehicle+' is due for service. Please book an appointment.';window.open(phone?'https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt):'https://wa.me/?text='+encodeURIComponent(txt),'_blank')}
+async function loadReminders(){const c=document.getElementById('remindersList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/reminders');c.innerHTML=d.reminders.length?d.reminders.map(r=>'<div class="card"><h3>🗓️ '+esc(r.vehicle)+'</h3><p>'+esc(r.customer)+'</p><p>Due: <strong>'+esc(r.due)+'</strong></p><p style="color:var(--text2);font-size:12px">Last: '+esc(r.last_service)+' ('+r.last_km+' km)</p><button class="btn-sm whatsapp" onclick="remindWA(\''+esc(r.phone||'')+'\',\''+esc(r.customer)+'\',\''+esc(r.vehicle)+'\')">📱 Remind</button></div>').join(''):'<div class="card"><p>No reminders due</p></div>'}catch(e){}}
+function remindWA(phone,name,vehicle){const txt='Hi '+name+', your '+vehicle+' is due for service. Please book.';window.open(phone?'https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(txt):'https://wa.me/?text='+encodeURIComponent(txt),'_blank')}
 
 // WIRING
 let wiringData=[];
 async function loadWiring(){const d=await jget('/api/wiring');wiringData=d.circuits;filterWiring()}
-function filterWiring(){const q=(document.getElementById('wiringSearch').value||'').toLowerCase();const f=wiringData.filter(x=>!q||x.name.toLowerCase().includes(q)||x.system.toLowerCase().includes(q));document.getElementById('wiringList').innerHTML=f.map(w=>'<div class="card"><h3>🔌 '+esc(w.name)+'</h3><p style="font-size:12px;color:var(--text2)">'+esc(w.system)+' — '+esc(w.description)+'</p><p><strong>Components:</strong></p>'+w.components.map(c=>'<div class="list-item">• '+esc(c)+'</div>').join('')+'<p><strong>Connections:</strong></p>'+w.connections.map(c=>'<div class="list-item" style="font-family:monospace;font-size:11px">'+esc(c)+'</div>').join('')+'<p><strong>Notes:</strong></p>'+w.notes.map(n=>'<div class="list-item">• '+esc(n)+'</div>').join('')+'</div>').join('')||'<div class="card"><p>None</p></div>'}
+function filterWiring(){const q=(document.getElementById('wiringSearch').value||'').toLowerCase();const f=wiringData.filter(x=>!q||x.name.toLowerCase().includes(q)||x.system.toLowerCase().includes(q));document.getElementById('wiringList').innerHTML=f.map(w=>'<div class="card"><h3>🔌 '+esc(w.name)+'</h3><p style="font-size:12px;color:var(--text2)">'+esc(w.system)+' — '+esc(w.description)+'</p><p><strong>Components:</strong></p>'+w.components.map(c=>'<div class="list-item">• '+esc(c)+'</div>').join('')+'<p><strong>Connections:</strong></p>'+w.connections.map(c=>'<div class="list-item" style="font-family:monospace;font-size:11px">'+esc(c)+'</div>').join('')+'</div>').join('')||'<div class="card"><p>None</p></div>'}
 
 // OBD
 let obdData=[];
 async function loadOBD(){const d=await jget('/api/obd-pids');obdData=d.pids;filterOBD()}
-function filterOBD(){const q=(document.getElementById('obdSearch').value||'').toLowerCase();const f=obdData.filter(x=>!q||x.name.toLowerCase().includes(q)||x.pid.includes(q));document.getElementById('obdList').innerHTML='<table class="torque-table"><tr><th>PID</th><th>Name</th><th>Description</th></tr>'+f.map(x=>'<tr><td><strong>'+x.pid+'</strong></td><td>'+esc(x.name)+'</td><td style="font-size:11px">'+esc(x.desc)+'</td></tr>').join('')+'</table>'}
+function filterOBD(){const q=(document.getElementById('obdSearch').value||'').toLowerCase();const f=obdData.filter(x=>!q||x.name.toLowerCase().includes(q)||x.pid.includes(q));document.getElementById('obdList').innerHTML='<table class="torque-table"><tr><th>PID</th><th>Name</th><th>Desc</th></tr>'+f.map(x=>'<tr><td><strong>'+x.pid+'</strong></td><td>'+esc(x.name)+'</td><td style="font-size:11px">'+esc(x.desc)+'</td></tr>').join('')+'</table>'}
 
 // BULBS
 let bulbsData=[];
 async function loadBulbs(){const d=await jget('/api/bulbs');bulbsData=d.bulbs;filterBulbs()}
-function filterBulbs(){const q=(document.getElementById('bulbSearch').value||'').toLowerCase();const f=bulbsData.filter(x=>!q||x.vehicle.toLowerCase().includes(q));document.getElementById('bulbList').innerHTML=f.map(b=>'<div class="card"><h3>💡 '+esc(b.vehicle)+'</h3><div class="list-item">Low: <strong>'+esc(b.headlight_low)+'</strong></div><div class="list-item">High: <strong>'+esc(b.headlight_high)+'</strong></div><div class="list-item">Fog: <strong>'+esc(b.fog)+'</strong></div><div class="list-item">Interior: <strong>'+esc(b.interior)+'</strong></div><div class="list-item">Reverse: <strong>'+esc(b.reverse)+'</strong></div></div>').join('')||'<div class="card"><p>None</p></div>'}
+function filterBulbs(){const q=(document.getElementById('bulbSearch').value||'').toLowerCase();const f=bulbsData.filter(x=>!q||x.vehicle.toLowerCase().includes(q));document.getElementById('bulbList').innerHTML=f.map(b=>'<div class="card"><h3>💡 '+esc(b.vehicle)+'</h3><div class="list-item">Low: <strong>'+esc(b.headlight_low)+'</strong></div><div class="list-item">High: <strong>'+esc(b.headlight_high)+'</strong></div><div class="list-item">Fog: <strong>'+esc(b.fog)+'</strong></div></div>').join('')||'<div class="card"><p>None</p></div>'}
 
 // BATTERIES
 let battData=[];
 async function loadBatt(){const d=await jget('/api/batteries');battData=d.batteries;filterBatt()}
-function filterBatt(){const q=(document.getElementById('battSearch').value||'').toLowerCase();const f=battData.filter(x=>!q||x.vehicle.toLowerCase().includes(q));document.getElementById('battList').innerHTML=f.map(b=>'<div class="card"><h3>🔋 '+esc(b.vehicle)+'</h3><div class="list-item">Group: <strong>'+esc(b.group)+'</strong></div><div class="list-item">CCA: <strong>'+b.cca+'</strong></div><div class="list-item">Ah: <strong>'+b.ah+'</strong></div><div class="list-item">Terminal: <strong>'+esc(b.terminal)+'</strong></div></div>').join('')||'<div class="card"><p>None</p></div>'}
+function filterBatt(){const q=(document.getElementById('battSearch').value||'').toLowerCase();const f=battData.filter(x=>!q||x.vehicle.toLowerCase().includes(q));document.getElementById('battList').innerHTML=f.map(b=>'<div class="card"><h3>🔋 '+esc(b.vehicle)+'</h3><div class="list-item">Group: <strong>'+esc(b.group)+'</strong></div><div class="list-item">CCA: <strong>'+b.cca+'</strong></div><div class="list-item">Ah: <strong>'+b.ah+'</strong></div></div>').join('')||'<div class="card"><p>None</p></div>'}
 
 // TYRES
 let tyreData=[];
@@ -678,34 +803,34 @@ function filterTyre(){const q=(document.getElementById('tyreSearch').value||'').
 async function loadFuses(){const c=document.getElementById('fuseList');c.innerHTML='<div class="loading">...</div>';try{const d=await jget('/api/fuses');c.innerHTML=d.fuses.map(f=>'<div class="card"><h3>🔌 '+esc(f.vehicle)+'</h3><p style="font-size:12px;color:var(--text2)">'+esc(f.location)+'</p>'+f.common.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'</div>').join('')}catch(e){}}
 
 // SERVICE CALC
-async function calcService(){const km=parseInt(document.getElementById('svcKm').value)||0;const t=document.getElementById('svcType').value;if(!km){alert('Enter km');return}const d=await jpost('/api/service-calc',{current_km:km,vehicle_type:t});document.getElementById('svcResult').innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Next Service</h3><p style="font-size:24px;font-weight:bold;color:white">at '+d.next_service_km+' km</p><p style="color:white">or in '+d.months_interval+' months</p></div><div class="card"><h3>Items to check</h3>'+d.items.map(i=>'<div class="list-item">• '+esc(i)+'</div>').join('')+'</div>'}
+async function calcService(){const km=parseInt(document.getElementById('svcKm').value)||0;const t=document.getElementById('svcType').value;if(!km){alert('Enter km');return}const d=await jpost('/api/service-calc',{current_km:km,vehicle_type:t});document.getElementById('svcResult').innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Next Service</h3><p style="font-size:24px;font-weight:bold;color:white">at '+d.next_service_km+' km</p><p style="color:white">or in '+d.months_interval+' months</p></div><div class="card"><h3>Items</h3>'+d.items.map(i=>'<div class="list-item">• '+esc(i)+'</div>').join('')+'</div>'}
 
 // INSPECT
 async function loadChecklist(){const t=document.getElementById('inspectType').value;const d=await jget('/api/checklists/'+t);document.getElementById('inspectList').innerHTML='<div class="card"><h3>'+esc(d.name)+'</h3>'+d.items.map((x,i)=>'<div class="checklist-item"><input type="checkbox" id="chk'+i+'"><label for="chk'+i+'">'+esc(x)+'</label></div>').join('')+'</div>'}
-function printChecklist(){const t=document.getElementById('inspectType').value;const w=window.open('','','width=800,height=600');w.document.write('<html><head><title>Checklist</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}div{padding:4px 0}</style></head><body>');w.document.write('<h1>'+document.getElementById('wsNameDisplay').textContent+'</h1>');w.document.write(document.getElementById('inspectList').innerHTML);w.document.write('</body></html>');w.document.close();setTimeout(()=>w.print(),500)}
+function printChecklist(){const w=window.open('','','width=800,height=600');w.document.write('<html><head><title>Checklist</title><style>body{font-family:Arial;padding:20px}h1{color:#E65100}div{padding:4px 0}</style></head><body><h1>'+document.getElementById('wsNameDisplay').textContent+'</h1>');w.document.write(document.getElementById('inspectList').innerHTML);w.document.write('</body></html>');w.document.close();setTimeout(()=>w.print(),500)}
 
 // BOLT CALC
-async function calcTorque(){const d=await jpost('/api/bolt-calc',{size:document.getElementById('boltSize').value,grade:document.getElementById('boltGrade').value,condition:document.getElementById('boltCondition').value});document.getElementById('boltResult').innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Recommended</h3><p style="font-size:30px;font-weight:bold;color:white">'+d.nm.toFixed(1)+' Nm</p><p style="color:white">'+d.ftlb.toFixed(1)+' ft·lb</p></div><div class="card"><p><strong>Clamp:</strong> '+d.clamp_kn.toFixed(1)+' kN</p></div>'}
+async function calcTorque(){const d=await jpost('/api/bolt-calc',{size:document.getElementById('boltSize').value,grade:document.getElementById('boltGrade').value,condition:document.getElementById('boltCondition').value});document.getElementById('boltResult').innerHTML='<div class="card" style="background:var(--primary);color:white"><h3 style="color:white">Recommended</h3><p style="font-size:30px;font-weight:bold;color:white">'+d.nm.toFixed(1)+' Nm</p><p style="color:white">'+d.ftlb.toFixed(1)+' ft·lb</p></div>'}
 
 // TORQUE
 let torqueData=[],seqData=[];
 async function loadTorque(){if(!torqueData.length){const d=await jget('/api/torque');torqueData=d.bolts;seqData=d.sequences}filterTorque()}
-function filterTorque(){const q=(document.getElementById('torqueSearch').value||'').toLowerCase();const f=torqueData.filter(x=>!q||x.size.toLowerCase().includes(q)||x.grade.toLowerCase().includes(q));document.getElementById('torqueTable').innerHTML='<table class="torque-table"><tr><th>Size</th><th>Grade</th><th>Nm</th><th>ft·lb</th><th>Use</th></tr>'+f.map(x=>'<tr><td><strong>'+esc(x.size)+'</strong></td><td>'+esc(x.grade)+'</td><td>'+x.nm+'</td><td>'+x.ftlb+'</td><td>'+esc(x.use)+'</td></tr>').join('')+'</table>';document.getElementById('torqueSeq').innerHTML=seqData.map(s=>'<div class="card"><h3>'+esc(s.component)+'</h3><p style="font-size:11px;color:var(--text2)">'+esc(s.pattern)+'</p>'+s.steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'<p style="font-size:12px;font-style:italic;margin-top:6px">'+esc(s.note)+'</p></div>').join('')}
+function filterTorque(){const q=(document.getElementById('torqueSearch').value||'').toLowerCase();const f=torqueData.filter(x=>!q||x.size.toLowerCase().includes(q)||x.grade.toLowerCase().includes(q));document.getElementById('torqueTable').innerHTML='<table class="torque-table"><tr><th>Size</th><th>Grade</th><th>Nm</th><th>ft·lb</th><th>Use</th></tr>'+f.map(x=>'<tr><td><strong>'+esc(x.size)+'</strong></td><td>'+esc(x.grade)+'</td><td>'+x.nm+'</td><td>'+x.ftlb+'</td><td>'+esc(x.use)+'</td></tr>').join('')+'</table>';document.getElementById('torqueSeq').innerHTML=seqData.map(s=>'<div class="card"><h3>'+esc(s.component)+'</h3>'+s.steps.map(x=>'<div class="list-item">• '+esc(x)+'</div>').join('')+'<p style="font-size:12px;font-style:italic;margin-top:6px">'+esc(s.note)+'</p></div>').join('')}
 
 // HISTORY
-async function searchVehicleHistory(){const q=document.getElementById('vehicleSearch').value.trim().toLowerCase();const c=document.getElementById('vehicleHistory');if(!q){c.innerHTML='<div class="loading">Enter term</div>';return}const d=await jget('/api/jobs');const m=d.jobs.filter(j=>j.vehicle.toLowerCase().includes(q)||(j.registration||'').toLowerCase().includes(q));c.innerHTML=m.length?'<p style="margin-bottom:12px;color:var(--text2)">'+m.length+' record(s)</p>'+m.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+'</h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+'</p><p>'+esc(j.complaint)+'</p><p><span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+esc(j.status)+'</span></p><p style="font-size:11px;color:var(--text2)">'+esc(j.created)+'</p></div>').join(''):'<div class="card"><p>No history</p></div>'}
+async function searchVehicleHistory(){const q=document.getElementById('vehicleSearch').value.trim().toLowerCase();const c=document.getElementById('vehicleHistory');if(!q){c.innerHTML='<div class="loading">Enter term</div>';return}const d=await jget('/api/jobs');const m=d.jobs.filter(j=>j.vehicle.toLowerCase().includes(q)||(j.registration||'').toLowerCase().includes(q));c.innerHTML=m.length?'<p style="margin-bottom:12px;color:var(--text2)">'+m.length+' record(s)</p>'+m.reverse().map(j=>'<div class="card"><h3>Job #'+j.id+'</h3><p><strong>'+esc(j.customer)+'</strong></p><p>🚗 '+esc(j.vehicle)+'</p><p>'+esc(j.complaint)+'</p><p><span class="badge '+j.status.toLowerCase().replace(' ','')+'">'+esc(j.status)+'</span></p></div>').join(''):'<div class="card"><p>No history</p></div>'}
 
 // ANALYTICS
-async function loadAnalytics(){const d=await jget('/api/analytics');let h='<div class="stats-row"><div class="stat-card blue"><div class="num">R'+d.avg_invoice.toFixed(0)+'</div><div class="lbl">Avg Invoice</div></div><div class="stat-card green"><div class="num">R'+d.total_revenue.toFixed(0)+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R'+d.total_expenses.toFixed(0)+'</div><div class="lbl">Expenses</div></div><div class="stat-card"><div class="num">R'+d.net_profit.toFixed(0)+'</div><div class="lbl">Net Profit</div></div></div>';if(d.top_services.length)h+='<div class="card"><h3>🔥 Top Services</h3>'+d.top_services.map(s=>'<div class="list-item"><strong>'+esc(s.name)+'</strong> — '+s.count+'×</div>').join('')+'</div>';if(d.top_customers.length)h+='<div class="card"><h3>⭐ Top Customers</h3>'+d.top_customers.map(x=>'<div class="list-item"><strong>'+esc(x.name)+'</strong> — R'+x.total.toFixed(0)+'</div>').join('')+'</div>';document.getElementById('analyticsContent').innerHTML=h}
+async function loadAnalytics(){const d=await jget('/api/analytics');let h='<div class="stats-row"><div class="stat-card blue"><div class="num">R'+d.avg_invoice.toFixed(0)+'</div><div class="lbl">Avg Invoice</div></div><div class="stat-card green"><div class="num">R'+d.total_revenue.toFixed(0)+'</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R'+d.total_expenses.toFixed(0)+'</div><div class="lbl">Expenses</div></div><div class="stat-card"><div class="num">R'+d.net_profit.toFixed(0)+'</div><div class="lbl">Net</div></div></div>';if(d.top_services.length)h+='<div class="card"><h3>🔥 Top Services</h3>'+d.top_services.map(s=>'<div class="list-item"><strong>'+esc(s.name)+'</strong> — '+s.count+'×</div>').join('')+'</div>';if(d.top_customers.length)h+='<div class="card"><h3>⭐ Top Customers</h3>'+d.top_customers.map(x=>'<div class="list-item"><strong>'+esc(x.name)+'</strong> — R'+x.total.toFixed(0)+'</div>').join('')+'</div>';document.getElementById('analyticsContent').innerHTML=h}
 
-// TAX / BIZ CARD
+// TAX
 async function loadBizCard(){const d=await jget('/api/workshop');document.getElementById('bcLogo').textContent=d.logo||'🔧';document.getElementById('bcName').textContent=d.name||'My Workshop';document.getElementById('bcPhone').textContent=d.phone||'';document.getElementById('bcAddress').textContent=d.address||''}
 function downloadTax(){const f=document.getElementById('taxFrom').value;const t=document.getElementById('taxTo').value;window.location.href='/api/export/tax?from_date='+f+'&to_date='+t}
 function printBizCard(){const w=window.open('','','width=600,height=400');w.document.write('<html><head><title>Biz Card</title></head><body style="padding:20px">'+document.getElementById('bizCard').outerHTML+'</body></html>');w.document.close();setTimeout(()=>w.print(),500)}
 
 // SETTINGS
 async function loadSettings(){const d=await jget('/api/workshop');document.getElementById('wsLogo').value=d.logo||'🔧';document.getElementById('wsName').value=d.name||'';document.getElementById('wsPhone').value=d.phone||'';document.getElementById('wsAddress').value=d.address||'';document.getElementById('wsEmail').value=d.email||'';document.getElementById('wsRate').value=d.labour_rate||450;applyBranding(d)}
-function applyBranding(d){document.getElementById('logoDisplay').textContent=d.logo||'🔧';document.getElementById('wsNameDisplay').textContent=(d.name||'RAMSTECH').toUpperCase();const sub=[d.phone,d.address].filter(Boolean).join(' • ');document.getElementById('wsSubtitle').textContent=sub||'v7.0 — Complete Workshop Platform'}
+function applyBranding(d){document.getElementById('logoDisplay').textContent=d.logo||'🔧';document.getElementById('wsNameDisplay').textContent=(d.name||'RAMSTECH').toUpperCase();const sub=[d.phone,d.address].filter(Boolean).join(' • ');document.getElementById('wsSubtitle').textContent=sub||'v9.0 — Complete Workshop Platform'}
 async function saveSettings(){const p={logo:document.getElementById('wsLogo').value||'🔧',name:document.getElementById('wsName').value,phone:document.getElementById('wsPhone').value,address:document.getElementById('wsAddress').value,email:document.getElementById('wsEmail').value,labour_rate:parseFloat(document.getElementById('wsRate').value)||450};await jpost('/api/workshop',p);applyBranding(p);alert('Saved')}
 loadSettings();
 
