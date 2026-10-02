@@ -93,5 +93,10 @@ def save_workshop(data: dict) -> dict:
         _client.table("workshop").update(data).eq("id", 1).execute()
         return data
     except Exception as e:
+
         print(f"[db] save_workshop error: {e}")
         return data
+
+def get_client():
+    """Return the raw Supabase client. Used by workshop_routes.py."""
+    return _client
