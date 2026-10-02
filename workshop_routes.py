@@ -276,12 +276,3 @@ async def ai_ask(r: Request):
 
     return {"answer": answer, "provider": provider, "sources": sources[:5]}
 
-@router.get("/admin/seed-dtc")
-def admin_seed_dtc():
-    import workshop_seed
-    return workshop_seed.seed_dtc()
-
-@router.get("/admin/seed-procedures")
-def admin_seed_procedures():
-    import workshop_seed
-    return workshop_seed.seed_procedures()
