@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io
 from workshop_routes import router as workshop_router
 from workshop_api import router as workshop_api_router
+import os
 
 import db
 from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
@@ -52,6 +53,18 @@ def save_workshop_data(d):
 async def home(): return HTML_PAGE
 
 @app.get("/health")
+@app.get("/debug/env")
+def debug_env():
+    return {
+        "SUPABASE_URL_set": bool(os.getenv("SUPABASE_URL", "").strip()),
+        "SUPABASE_URL_starts_with_https": os.getenv("SUPABASE_URL", "").strip().startswith("https://"),
+        "SUPABASE_URL_length": len(os.getenv("SUPABASE_URL", "").strip()),
+        "SUPABASE_SERVICE_KEY_set": bool(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
+        "SUPABASE_SERVICE_KEY_length": len(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
+        "OPENAI_API_KEY_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY", "").strip()),
+        "OLP_API_KEY_set": bool(os.getenv("OLP_API_KEY", "").strip()),
+    }
 def health():
     return {"status":"healthy","database":("supabase" if db.is_ready() else "memory"),
             "time":datetime.now().isoformat()}
