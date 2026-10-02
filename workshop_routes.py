@@ -204,25 +204,27 @@ async def ai_ask(r: Request):
     context_parts = []
     sources = []
 
-    # 1. If a DTC code appears in the question, look it up
-    codes = re.findall(r"\b[PBCU]\d{4}\b", question.upper())
-    if codes and _is_ready():
-        c = _client()
+    # 1. DTC lookup via OLP API instead of Supabase
+codes = re.findall(r"\b[PBCU]\d{4}\b", question.upper())
+olp_key = os.getenv("OLP_API_KEY", "").strip()
+if codes and olp_key:
+    import httpx
+    async with httpx.AsyncClient(timeout=10.0) as client:
         for code in codes[:3]:
-            r2 = c.table("dtc_codes").select("*, dtc_repairs(*)")\
-                .eq("code", code).execute()
-            if r2.data:
-                row = r2.data[0]
-                top = ""
-                if row.get("dtc_repairs"):
-                    top_rep = sorted(row["dtc_repairs"],
-                                     key=lambda x: x.get("likelihood_rank") or 99)[0]
-                    top = f" Most likely fix: {top_rep.get('title')}."
-                context_parts.append(
-                    f"DTC {row['code']}: {row['description']}. "
-                    f"Severity: {row['severity']}.{top}"
+            try:
+                resp = await client.get(
+                    f"https://openlaborproject.com/api/v1/dtc/{code}",
+                    headers={"x-api-key": olp_key}
                 )
-                sources.append(f"DTC {code}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    context_parts.append(
+                        f"DTC {code}: {data.get('description', 'N/A')}. "
+                        f"Severity: {data.get('severity', 'N/A')}."
+                    )
+                    sources.append(f"OLP DTC {code}")
+            except Exception as e:
+                print(f"[ai] OLP lookup failed for {code}: {e}")
 
     # 2. Semantic search on procedures
     if _is_ready():
