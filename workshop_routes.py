@@ -1,5 +1,7 @@
 """Workshop Assistant: parts, DTC codes, repair procedures, and AI assistant."""
+import os
 import re
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 import db
@@ -9,7 +11,7 @@ router = APIRouter(prefix="/workshop", tags=["Workshop Assistant"])
 
 
 def _client():
-    return db._client
+    return db.get_client()
 
 
 def _is_ready():
@@ -17,7 +19,7 @@ def _is_ready():
 
 
 # ═══════════════════════════════════════════
-# PARTS
+# PARTS (Supabase local)
 # ═══════════════════════════════════════════
 @router.get("/parts/search")
 def search_parts(
@@ -101,7 +103,7 @@ async def add_price(r: Request):
 
 
 # ═══════════════════════════════════════════
-# DIAGNOSTIC CODES
+# DTC CODES (Supabase local — cache)
 # ═══════════════════════════════════════════
 @router.get("/dtc/{code}")
 def get_dtc(code: str):
@@ -174,7 +176,6 @@ async def add_procedure(r: Request):
 
 @router.post("/procedures/embed-all")
 def embed_all_procedures():
-    """Embed any procedures missing an embedding. Run once after bulk import."""
     if not _is_ready():
         raise HTTPException(503, "Database not configured")
     c = _client()
@@ -192,7 +193,7 @@ def embed_all_procedures():
 
 
 # ═══════════════════════════════════════════
-# UNIFIED AI ASSISTANT
+# UNIFIED AI ASSISTANT (OLP + Supabase procedures)
 # ═══════════════════════════════════════════
 @router.post("/ai/ask")
 async def ai_ask(r: Request):
@@ -204,29 +205,31 @@ async def ai_ask(r: Request):
     context_parts = []
     sources = []
 
-    # 1. DTC lookup via OLP API instead of Supabase
-codes = re.findall(r"\b[PBCU]\d{4}\b", question.upper())
-olp_key = os.getenv("OLP_API_KEY", "").strip()
-if codes and olp_key:
-    import httpx
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        for code in codes[:3]:
-            try:
-                resp = await client.get(
-                    f"https://openlaborproject.com/api/v1/dtc/{code}",
-                    headers={"x-api-key": olp_key}
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    context_parts.append(
-                        f"DTC {code}: {data.get('description', 'N/A')}. "
-                        f"Severity: {data.get('severity', 'N/A')}."
-                    )
-                    sources.append(f"OLP DTC {code}")
-            except Exception as e:
-                print(f"[ai] OLP lookup failed for {code}: {e}")
+    # 1. DTC lookup via OLP API (synchronous httpx — no async needed)
+    codes = re.findall(r"\b[PBCU]\d{4}\b", question.upper())
+    olp_key = os.getenv("OLP_API_KEY", "").strip()
+    if codes and olp_key:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                for code in codes[:3]:
+                    try:
+                        resp = client.get(
+                            f"https://openlaborproject.com/api/v1/dtc/{code}",
+                            headers={"x-api-key": olp_key}
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            context_parts.append(
+                                f"DTC {code}: {data.get('description', 'N/A')}. "
+                                f"Severity: {data.get('severity', 'N/A')}."
+                            )
+                            sources.append(f"OLP DTC {code}")
+                    except Exception as e:
+                        print(f"[ai] OLP lookup failed for {code}: {e}")
+        except Exception as e:
+            print(f"[ai] OLP client error: {e}")
 
-    # 2. Semantic search on procedures
+    # 2. Semantic search on procedures (Supabase)
     if _is_ready():
         try:
             vec = embed(question)
@@ -247,7 +250,7 @@ if codes and olp_key:
         except Exception as e:
             print(f"[ai/ask] procedure search failed: {e}")
 
-    # 3. Basic parts lookup if vehicle_make was provided
+    # 3. Basic parts lookup if vehicle_make provided
     if d.get("vehicle_make") and _is_ready():
         try:
             c = _client()
@@ -278,3 +281,17 @@ if codes and olp_key:
 
     return {"answer": answer, "provider": provider, "sources": sources[:5]}
 
+
+# ═══════════════════════════════════════════
+# TEMPORARY SEED ROUTES (remove after use)
+# ═══════════════════════════════════════════
+@router.get("/admin/seed-dtc")
+def admin_seed_dtc():
+    import workshop_seed
+    return workshop_seed.seed_dtc()
+
+
+@router.get("/admin/seed-procedures")
+def admin_seed_procedures():
+    import workshop_seed
+    return workshop_seed.seed_procedures()
