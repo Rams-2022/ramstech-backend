@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io
+from workshop_routes import router as workshop_router
 
 import db
 from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
@@ -11,6 +12,7 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
 from pages import HTML_PAGE
 
 app = FastAPI(title="RamsTech")
+app.include_router(workshop_router)
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
 
