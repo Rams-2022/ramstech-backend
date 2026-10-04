@@ -124,6 +124,162 @@ async def save_workshop(r: Request):
 
 # STATIC
 @app.get("/api/fault-codes")
+# ═══════════════════════════════════════════
+# AI CONTEXT-AWARE CHAT
+# Knows which diagnostic tab the user is on, injects local data as context
+# ═══════════════════════════════════════════
+@app.post("/api/ai-context")
+async def ai_context(r: Request):
+    d = await r.json()
+    message = (d.get("message") or "").strip()
+    active_tab = (d.get("active_tab") or "").strip()
+    vehicle = (d.get("vehicle") or "").strip()
+    if not message:
+        raise HTTPException(400, "message is required")
+
+    # ─── Build tab-specific context from data.py ───
+    context_lines = []
+
+    def trim(obj, max_chars=3000):
+        """Convert dict/list to a compact string, safely truncated."""
+        try:
+            import json as _json
+            s = _json.dumps(obj, default=str)
+            return s[:max_chars]
+        except Exception:
+            return str(obj)[:max_chars]
+
+    if active_tab in ("fault_codes", "faults", "dtc"):
+        # Only inject codes that match keywords in the user's question
+        q = message.lower()
+        hits = {}
+        for code, info in FAULT_CODES.items():
+            text = (code + " " + str(info.get("description", ""))).lower()
+            if code.lower() in q or any(w in text for w in q.split() if len(w) > 3):
+                hits[code] = info.get("description", "")
+            if len(hits) >= 15:
+                break
+        if hits:
+            context_lines.append("Fault codes matching the question: " + trim(hits))
+
+    if active_tab in ("obd", "obd_pids", "pids"):
+        context_lines.append("OBD-II PIDs (reference): " + trim(OBD_PIDS))
+
+    if active_tab in ("wiring", "circuits"):
+        context_lines.append("Wiring library circuits: " + trim(WIRING_LIBRARY))
+
+    if active_tab in ("torque", "torque_specs"):
+        q = message.lower()
+        hits = {k: v for k, v in TORQUE_SPECS.items()
+                if any(w in k.lower() for w in q.split() if len(w) > 3)}
+        if not hits:
+            # If no keyword match, send a small sample so AI knows the data format
+            sample = dict(list(TORQUE_SPECS.items())[:20])
+            context_lines.append("Torque specs (sample of local database): " + trim(sample))
+        else:
+            context_lines.append("Torque specs matching the question: " + trim(hits))
+        context_lines.append("Torque sequences: " + trim(TORQUE_SEQUENCES))
+
+    if active_tab in ("bulbs", "bulb_chart"):
+        context_lines.append("Bulb chart: " + trim(BULB_CHART))
+
+    if active_tab in ("batteries", "battery_sizes"):
+        context_lines.append("Battery sizes: " + trim(BATTERY_SIZES))
+
+    if active_tab in ("tyres", "tyre_sizes"):
+        context_lines.append("Tyre sizes: " + trim(TYRE_SIZES))
+
+    if active_tab in ("fuses", "fuse_boxes"):
+        context_lines.append("Fuse boxes: " + trim(FUSE_BOXES))
+
+    if active_tab in ("service", "service_calc", "service_intervals"):
+        context_lines.append("Service intervals: " + trim(SERVICE_INTERVALS))
+
+    if active_tab in ("checklists", "inspection"):
+        context_lines.append("Inspection categories: " + trim(INSPECTION_CATEGORIES))
+
+    if active_tab in ("problems", "common_problems"):
+        context_lines.append("Common problems: " + trim(COMMON_PROBLEMS))
+
+    if active_tab in ("parts", "parts_catalog"):
+        context_lines.append("Parts catalog: " + trim(PARTS_CATALOG))
+
+    if active_tab in ("vin", "vin_decoder"):
+        context_lines.append("WMI database: " + trim(WMI_DB))
+        context_lines.append("Year codes: " + trim(YEAR_CODES))
+
+    # If on fault codes tab, and the message contains a fault code, use the fault endpoint logic too
+    fault_hint = ""
+    import re
+    codes = re.findall(r"\b[PBCU]\d{4}\b", message.upper())
+    if codes:
+        olp_key = os.getenv("OLP_API_KEY", "").strip()
+        for code in codes[:2]:
+            local = FAULT_CODES.get(code) or {}
+            if local.get("description"):
+                fault_hint += f"\n{code}: {local['description']}"
+            elif olp_key:
+                try:
+                    import httpx
+                    with httpx.Client(timeout=8.0) as client:
+                        resp = client.get(
+                            f"https://openlaborproject.com/api/v1/dtc/{code}",
+                            headers={"x-api-key": olp_key}
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            fault_hint += f"\n{code}: {data.get('description','')}"
+                except Exception:
+                    pass
+
+    # ─── Assemble final prompt ───
+    tab_label = active_tab.replace("_", " ").title() if active_tab else "General"
+    context_block = "\n\n".join(context_lines) if context_lines else "No tab-specific data."
+
+    system_msg = (
+        "You are RamsTech AI, a master mechanic and diagnostic expert for South African "
+        "workshops. The user is currently on the '" + tab_label + "' diagnostic tab. "
+        "Use any LOCAL DATA provided below as authoritative — quote exact numbers, part "
+        "codes, torque specs, PIDs, fuse ratings, etc. from it. If local data does not "
+        "cover the question, use your own expert knowledge but say clearly that the value "
+        "is from general knowledge, not from the local database. Never invent torque "
+        "specs, fuse ratings, or part numbers. Use ZAR for costs. Include safety warnings "
+        "where relevant."
+    )
+
+    user_msg = (
+        f"Active diagnostic tab: {tab_label}\n"
+        f"Vehicle: {vehicle or 'not specified'}"
+        + (f"\n\nLocal data:\n{context_block}" if context_lines else "")
+        + (f"\n\nFault code references:{fault_hint}" if fault_hint else "")
+        + f"\n\nQuestion: {message}"
+    )
+
+    if not OPENAI_KEY and not os.getenv("GROQ_API_KEY", "").strip():
+        return {
+            "success": False,
+            "reply": "AI not configured. Add OPENAI_API_KEY or GROQ_API_KEY in Render.",
+        }
+
+    try:
+        import workshop_ai
+        reply, provider = workshop_ai.chat(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.2,
+            max_tokens=1100,
+        )
+        return {
+            "success": True,
+            "reply": reply,
+            "provider": provider,
+            "tab": tab_label,
+            "context_items": len(context_lines),
+        }
+    except Exception as e:
+        return {"success": False, "reply": f"AI error: {str(e)}"}
 def list_codes(search: str = None):
     res=list(FAULT_CODES.values())
     if search:
