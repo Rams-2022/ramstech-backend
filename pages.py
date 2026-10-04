@@ -2056,79 +2056,101 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
   }
 
   // ─── Submit ───
-  async function submitAiPanel() {
-    const vehicle = document.getElementById('aiPanelVehicle').value.trim();
-    const replyBox = document.getElementById('aiPanelReply');
-    const chipsBox = document.getElementById('aiPanelChips');
-    const btn = document.getElementById('aiPanelSubmit');
-
-    let endpoint, body;
-
-    if (_aiMode === 'code') {
-      const code = document.getElementById('aiPanelCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (!code) { alert('Type a fault code first.'); return; }
-      endpoint = '/api/fault-codes/ai';
-      body = {code: code, vehicle: vehicle};
-
-    } else if (_aiMode === 'symptom') {
-      const q = document.getElementById('aiPanelSymptom').value.trim();
-      if (!q) { alert('Describe the symptom first.'); return; }
-      endpoint = '/api/fault-codes/ai-search';
-      body = {query: q, vehicle: vehicle};
-
-    } else {
-      const q = document.getElementById('aiPanelAsk').value.trim();
-      if (!q) { alert('Type your question first.'); return; }
-      endpoint = '/api/chat';
-      body = {message: q};
-    }
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Thinking…';
-    replyBox.style.display = 'none';
-    chipsBox.style.display = 'none';
-    replyBox.textContent = '';
-
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-
-      // Local code chips (symptom mode only)
-      if (_aiMode === 'symptom' && data.local_matches && data.local_matches.length) {
-        chipsBox.innerHTML = '';
-        data.local_matches.forEach(m => {
-          const chip = document.createElement('button');
-          chip.className = 'aiChip';
-          chip.textContent = m.code;
-          chip.title = m.description;
-          chip.onclick = () => {
-            setAiMode('code');
-            document.getElementById('aiPanelCode').value = m.code;
-            document.getElementById('aiPanelVehicle').value = vehicle;
-            submitAiPanel();
-          };
-          chipsBox.appendChild(chip);
-        });
-        chipsBox.style.display = 'flex';
-      }
-
-      // The reply
-      const text = data.reply || data.answer || 'No reply.';
-      replyBox.textContent = text + (data.provider ? `\n\n— via ${data.provider}` : '');
-      replyBox.style.display = 'block';
-
-    } catch (e) {
-      replyBox.textContent = '⚠️ Network error: ' + e.message;
-      replyBox.style.display = 'block';
-    }
-
-    btn.disabled = false;
-    btn.textContent = {code:'🤖 Explain Again', symptom:'🩺 Search Again', ask:'💬 Ask Again'}[_aiMode];
+  // ─── Detect which diagnostic tab is active ───
+function getActiveDiagnosticTab() {
+  // Try common patterns for your tab system:
+  // 1. Look for an element with class "active" inside a diagnostics container
+  const candidates = document.querySelectorAll(
+    '.tab.active, .tab-btn.active, .nav-tab.active, [data-tab].active, .diagnostic-tab.active'
+  );
+  for (const el of candidates) {
+    const t = (el.dataset.tab || el.dataset.target || el.textContent || '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (t) return t;
   }
+  // 2. Fall back to any visible heading in a diagnostics section
+  const heading = document.querySelector('.diagnostic-section h2, #diagnostics h2');
+  if (heading) {
+    return heading.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  }
+  return '';
+}
+
+// ─── Submit (updated to include active tab) ───
+async function submitAiPanel() {
+  const vehicle = document.getElementById('aiPanelVehicle').value.trim();
+  const replyBox = document.getElementById('aiPanelReply');
+  const chipsBox = document.getElementById('aiPanelChips');
+  const btn = document.getElementById('aiPanelSubmit');
+  const activeTab = getActiveDiagnosticTab();
+
+  let endpoint, body;
+
+  if (_aiMode === 'code') {
+    const code = document.getElementById('aiPanelCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!code) { alert('Type a fault code first.'); return; }
+    endpoint = '/api/fault-codes/ai';
+    body = {code: code, vehicle: vehicle};
+
+  } else if (_aiMode === 'symptom') {
+    const q = document.getElementById('aiPanelSymptom').value.trim();
+    if (!q) { alert('Describe the symptom first.'); return; }
+    endpoint = '/api/fault-codes/ai-search';
+    body = {query: q, vehicle: vehicle};
+
+  } else {
+    const q = document.getElementById('aiPanelAsk').value.trim();
+    if (!q) { alert('Type your question first.'); return; }
+    // ─── NEW: use the context-aware endpoint ───
+    endpoint = '/api/ai-context';
+    body = {message: q, vehicle: vehicle, active_tab: activeTab};
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Thinking…';
+  replyBox.style.display = 'none';
+  chipsBox.style.display = 'none';
+  replyBox.textContent = '';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+
+    if (_aiMode === 'symptom' && data.local_matches && data.local_matches.length) {
+      chipsBox.innerHTML = '';
+      data.local_matches.forEach(m => {
+        const chip = document.createElement('button');
+        chip.className = 'aiChip';
+        chip.textContent = m.code;
+        chip.title = m.description;
+        chip.onclick = () => {
+          setAiMode('code');
+          document.getElementById('aiPanelCode').value = m.code;
+          document.getElementById('aiPanelVehicle').value = vehicle;
+          submitAiPanel();
+        };
+        chipsBox.appendChild(chip);
+      });
+      chipsBox.style.display = 'flex';
+    }
+
+    const text = data.reply || data.answer || 'No reply.';
+    const ctxInfo = data.context_items ? `\n\n📊 Used ${data.context_items} local data source(s) from the ${data.tab} tab.` : '';
+    replyBox.textContent = text + (data.provider ? `\n\n— via ${data.provider}` : '') + ctxInfo;
+    replyBox.style.display = 'block';
+
+  } catch (e) {
+    replyBox.textContent = '⚠️ Network error: ' + e.message;
+    replyBox.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = {code:'🤖 Explain Again', symptom:'🩺 Search Again', ask:'💬 Ask Again'}[_aiMode];
+}
 
   // ─── Enter to submit ───
   document.addEventListener('keydown', (e) => {
