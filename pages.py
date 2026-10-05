@@ -2753,5 +2753,27 @@ async function submitAiPanel() {
     if (symptom) setTimeout(submitAiPanel, 200);
   };
 </script>
+<button id="aiFab" onclick="toggleAiPanel()" style="position:fixed;bottom:24px;right:18px;width:60px;height:60px;border-radius:50%;background:#00a8e8;color:#fff;border:none;font-size:26px;cursor:pointer;z-index:9997;">🤖</button>
+<div id="aiPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;padding:12px;">
+<div style="max-width:600px;margin:24px auto;background:#0f1520;color:#fff;padding:20px;border-radius:12px;">
+<button onclick="toggleAiPanel()" style="float:right;background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>
+<h3 style="margin:0 0 12px 0;color:#00a8e8;">🤖 RamsTech AI</h3>
+<input id="aiCodeIn" placeholder="Type a code e.g. P0301" style="width:100%;padding:12px;margin-bottom:8px;background:#0a1018;color:#fff;border:1px solid #1e2938;border-radius:8px;box-sizing:border-box;">
+<button onclick="askAI()" style="width:100%;padding:12px;background:#00a8e8;color:#03121c;font-weight:700;border:none;border-radius:8px;cursor:pointer;">Get Answer</button>
+<pre id="aiReply" style="white-space:pre-wrap;margin-top:12px;color:#e6edf5;font-family:inherit;"></pre>
+</div>
+</div>
+<script>
+function toggleAiPanel(){var p=document.getElementById('aiPanel');p.style.display=p.style.display==='block'?'none':'block';}
+function askAI(){
+  var c=document.getElementById('aiCodeIn').value.trim();
+  var r=document.getElementById('aiReply');
+  r.textContent='Thinking...';
+  fetch('/api/fault-codes/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:c,vehicle:''})})
+  .then(function(res){return res.json();})
+  .then(function(d){r.textContent=(d.reply||d.answer||'No reply')+(d.provider?'\n\n— via '+d.provider:'');})
+  .catch(function(e){r.textContent='Error: '+e.message;});
+}
+</script>
 </body>
 </html>"""
