@@ -154,16 +154,39 @@ async def ai_context(r: Request):
         raise HTTPException(400, "message is required")
 
     context_parts = []
-    try:
-        from data import (FAULT_CODES, TORQUE_SPECS, OBD_PIDS, WIRING_LIBRARY,
-                          BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES)
-        import json as _j
-
-        def _c(o, n=2500):
-            try:
-                return _j.dumps(o, default=str)[:n]
-            except Exception:
-                return str(o)[:n]
+   try:
+    if image_b64:
+        if len(image_b64) > 7_000_000:
+            raise HTTPException(413, "Image too large")
+        import openai
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        r = c.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": [
+                    {"type": "text", "text": user_msg},
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_b64}",
+                        "detail": "high"
+                    }},
+                ]},
+            ],
+            max_tokens=1100,
+            temperature=0.2,
+        )
+        reply = r.choices[0].message.content
+        provider = "openai-vision"
+    else:
+        reply, provider = _chat(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=1100,
+        )
+except Exception as e:
+    return {"success": False, "reply": f"AI error: {e}"} 
 
         q = message.lower()
         if any(w in q for w in ["fault", "code", "p0", "b1", "c0", "u0", "dtc"]):
