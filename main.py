@@ -5,6 +5,7 @@ import openai, os, json, uuid, csv, io
 from workshop_routes import router as workshop_router
 from workshop_api import router as workshop_api_router
 import os
+from ai_panel import AI_PANEL_HTML
 
 import db
 from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
@@ -50,7 +51,7 @@ def save_workshop_data(d):
     WORKSHOP.update(d); return d
 
 @app.get("/", response_class=HTMLResponse)
-async def home(): return HTML_PAGE
+async def home(): return HTML_PAGE.replace("</body>", AI_PANEL_HTML + "</body>")
 
 @app.get("/health")
 @app.get("/debug/env")
