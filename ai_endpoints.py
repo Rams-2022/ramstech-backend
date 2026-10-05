@@ -148,6 +148,7 @@ async def ai_context(r: Request):
     d = await r.json()
     message = (d.get("message") or "").strip()
     image_b64 = (d.get("image_base64") or "").strip()
+    image_b64 = (d.get("image_base64") or "").strip()
     vehicle = (d.get("vehicle") or "").strip()
     active_tab = (d.get("active_tab") or "").strip()
     if not message:
