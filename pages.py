@@ -2185,5 +2185,573 @@ async function submitAiPanel() {
     if (symptom) setTimeout(submitAiPanel, 200);
   };
 </script>
+<!-- ═══════════════════════════════════════════ -->
+<!-- RAMSTECH AI — FLOATING PANEL (photo + voice) -->
+<!-- ═══════════════════════════════════════════ -->
+<style>
+  #aiFab{position:fixed;bottom:24px;right:18px;width:60px;height:60px;border-radius:50%;
+    background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
+    cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
+    display:flex;align-items:center;justify-content:center;transition:transform .15s ease;}
+  #aiFab:active{transform:scale(.92);}
+  #aiFabLabel{position:fixed;bottom:32px;right:86px;background:#0f1520;color:#00a8e8;
+    padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;z-index:9997;
+    border:1px solid #1e2938;pointer-events:none;}
+  #aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+    padding:12px;overflow:auto;}
+  #aiPanelInner{max-width:680px;margin:20px auto;background:#0f1520;color:#e6edf5;
+    border-radius:16px;padding:20px;border:1px solid #1e2938;}
+  #aiPanelTabs{display:flex;gap:4px;margin-bottom:14px;background:#0a1018;padding:4px;
+    border-radius:10px;border:1px solid #1e2938;}
+  .aiPanelTab{flex:1;padding:10px 6px;background:transparent;color:#7b8da3;border:none;
+    border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .aiPanelTab.active{background:#00a8e8;color:#03121c;}
+  .aiPanelInput{width:100%;padding:12px 14px;background:#0a1018;border:1px solid #1e2938;
+    border-radius:10px;color:#e6edf5;font-size:15px;box-sizing:border-box;font-family:inherit;
+    margin-bottom:10px;}
+  #aiPanelSubmit{background:#00a8e8;color:#03121c;border:none;border-radius:10px;
+    padding:14px 18px;font-weight:700;font-size:15px;cursor:pointer;width:100%;}
+  #aiPanelSubmit:disabled{opacity:.55;}
+  #aiPanelReply{display:none;font-size:14px;line-height:1.65;white-space:pre-wrap;
+    background:#0a1018;border:1px solid #1e2938;border-radius:12px;padding:14px;margin-top:14px;}
+  #aiPanelChips{display:none;flex-wrap:wrap;gap:6px;margin-top:12px;}
+  .aiChip{background:#0a1018;color:#00a8e8;border:1px solid #00a8e8;border-radius:16px;
+    padding:6px 12px;font-size:13px;cursor:pointer;font-weight:600;}
+</style>
+
+<button id="aiFab" onclick="toggleAiPanel()" title="AI Assistant">🤖</button>
+<div id="aiFabLabel">AI Assistant</div>
+
+<div id="aiPanel">
+  <div id="aiPanelInner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px;color:#7b8da3;letter-spacing:.5px;">RAMSTECH AI</div>
+        <div style="font-size:17px;font-weight:700;color:#00a8e8;">Diagnostic Assistant</div>
+      </div>
+      <button onclick="toggleAiPanel()" style="background:#1e2938;color:#e6edf5;border:none;
+        border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;">✕</button>
+    </div>
+
+    <div id="aiPanelTabs">
+      <button class="aiPanelTab active" data-mode="code" onclick="setAiMode('code')">🔤 Code</button>
+      <button class="aiPanelTab" data-mode="symptom" onclick="setAiMode('symptom')">🩺 Symptom</button>
+      <button class="aiPanelTab" data-mode="ask" onclick="setAiMode('ask')">💬 Ask</button>
+    </div>
+
+    <!-- PHOTO + VOICE -->
+    <div style="margin-bottom:10px;">
+      <input type="file" id="aiPhotoInput" accept="image/*" capture="environment"
+        style="display:none;" onchange="handleAiPhoto(event)">
+      <div style="display:flex;gap:8px;">
+        <button type="button" onclick="document.getElementById('aiPhotoInput').click()"
+          style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;
+          border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-weight:600;">
+          📷 Photo
+        </button>
+        <button type="button" onclick="startVoiceInput()"
+          style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;
+          border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-weight:600;">
+          🎤 Speak
+        </button>
+      </div>
+      <div id="aiPhotoPreview" style="display:none;margin-top:8px;position:relative;">
+        <img id="aiPhotoImg" style="max-width:100%;border-radius:10px;border:1px solid #1e2938;">
+        <button onclick="clearAiPhoto()" style="position:absolute;top:6px;right:6px;
+          background:#0a1018cc;color:#fff;border:none;border-radius:50%;width:30px;height:30px;
+          font-size:15px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+
+    <input id="aiPanelVehicle" class="aiPanelInput" placeholder="Vehicle (optional) — e.g. Toyota Hilux 2015" autocomplete="off">
+    <input id="aiPanelCode" class="aiPanelInput" placeholder="e.g. P0301, B1318, U0100"
+      autocomplete="off" autocapitalize="characters"
+      style="font-family:monospace;font-size:16px;letter-spacing:1px;">
+    <textarea id="aiPanelSymptom" class="aiPanelInput" rows="3"
+      placeholder="Describe the symptom — e.g. rough idle when cold, black smoke"
+      style="display:none;resize:vertical;"></textarea>
+    <textarea id="aiPanelAsk" class="aiPanelInput" rows="3"
+      placeholder="Ask anything — e.g. how do I test a camshaft sensor?"
+      style="display:none;resize:vertical;"></textarea>
+
+    <button id="aiPanelSubmit" onclick="submitAiPanel()">🤖 Get Answer</button>
+    <div id="aiPanelChips"></div>
+    <div id="aiPanelReply"></div>
+  </div>
+</div>
+
+<script>
+  let _aiMode = 'code';
+  let _aiPhotoBase64 = null;
+  let _recognition = null;
+
+  function toggleAiPanel() {
+    const p = document.getElementById('aiPanel');
+    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    if (p.style.display === 'block') {
+      setTimeout(() => document.getElementById('aiPanelCode').focus(), 150);
+    }
+  }
+
+  function setAiMode(mode) {
+    _aiMode = mode;
+    document.querySelectorAll('.aiPanelTab').forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === mode);
+    });
+    document.getElementById('aiPanelCode').style.display    = (mode === 'code')    ? 'block' : 'none';
+    document.getElementById('aiPanelSymptom').style.display = (mode === 'symptom') ? 'block' : 'none';
+    document.getElementById('aiPanelAsk').style.display     = (mode === 'ask')     ? 'block' : 'none';
+    const ph = {code:'🤖 Explain Code', symptom:'🩺 Find Codes', ask:'💬 Ask AI'};
+    document.getElementById('aiPanelSubmit').textContent = ph[mode];
+    const f = {code:'aiPanelCode', symptom:'aiPanelSymptom', ask:'aiPanelAsk'}[mode];
+    setTimeout(() => document.getElementById(f).focus(), 100);
+  }
+
+  function getActiveDiagnosticTab() {
+    const candidates = document.querySelectorAll(
+      '.tab.active, .tab-btn.active, .nav-tab.active, [data-tab].active, .diagnostic-tab.active'
+    );
+    for (const el of candidates) {
+      const t = (el.dataset.tab || el.dataset.target || el.textContent || '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      if (t) return t;
+    }
+    return '';
+  }
+
+  async function submitAiPanel() {
+    const vehicle = document.getElementById('aiPanelVehicle').value.trim();
+    const replyBox = document.getElementById('aiPanelReply');
+    const chipsBox = document.getElementById('aiPanelChips');
+    const btn = document.getElementById('aiPanelSubmit');
+    const activeTab = getActiveDiagnosticTab();
+
+    let endpoint, body;
+
+    if (_aiMode === 'code') {
+      const code = document.getElementById('aiPanelCode').value.trim()
+        .toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!code) { alert('Type a fault code first.'); return; }
+      endpoint = '/api/fault-codes/ai';
+      body = {code: code, vehicle: vehicle};
+
+    } else if (_aiMode === 'symptom') {
+      const q = document.getElementById('aiPanelSymptom').value.trim();
+      if (!q) { alert('Describe the symptom first.'); return; }
+      endpoint = '/api/fault-codes/ai-search';
+      body = {query: q, vehicle: vehicle};
+
+    } else {
+      const q = document.getElementById('aiPanelAsk').value.trim();
+      if (!q && !_aiPhotoBase64) { alert('Type a question or attach a photo.'); return; }
+      endpoint = '/api/ai-context';
+      body = {
+        message: q || 'Diagnose what you see in this photo.',
+        vehicle: vehicle,
+        active_tab: activeTab,
+        image_base64: _aiPhotoBase64 || null
+      };
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Thinking…';
+    replyBox.style.display = 'none';
+    chipsBox.style.display = 'none';
+    replyBox.textContent = '';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (_aiMode === 'symptom' && data.local_matches && data.local_matches.length) {
+        chipsBox.innerHTML = '';
+        data.local_matches.forEach(m => {
+          const chip = document.createElement('button');
+          chip.className = 'aiChip';
+          chip.textContent = m.code;
+          chip.title = m.description;
+          chip.onclick = () => {
+            setAiMode('code');
+            document.getElementById('aiPanelCode').value = m.code;
+            document.getElementById('aiPanelVehicle').value = vehicle;
+            submitAiPanel();
+          };
+          chipsBox.appendChild(chip);
+        });
+        chipsBox.style.display = 'flex';
+      }
+
+      const text = data.reply || data.answer || 'No reply.';
+      const ctxInfo = data.context_items ? `\n\n📊 Used ${data.context_items} local source(s) from ${data.tab}.` : '';
+      replyBox.textContent = text + (data.provider ? `\n\n— via ${data.provider}` : '') + ctxInfo;
+      replyBox.style.display = 'block';
+
+    } catch (e) {
+      replyBox.textContent = '⚠️ Network error: ' + e.message;
+      replyBox.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.textContent = {code:'🤖 Explain Again', symptom:'🩺 Search Again', ask:'💬 Ask Again'}[_aiMode];
+  }
+
+  function handleAiPhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Photo must be under 5 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      _aiPhotoBase64 = ev.target.result.split(',')[1];
+      document.getElementById('aiPhotoImg').src = ev.target.result;
+      document.getElementById('aiPhotoPreview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearAiPhoto() {
+    _aiPhotoBase64 = null;
+    document.getElementById('aiPhotoInput').value = '';
+    document.getElementById('aiPhotoPreview').style.display = 'none';
+  }
+
+  function startVoiceInput() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Voice input needs Chrome on Android.'); return; }
+    if (_recognition) { try { _recognition.stop(); } catch(_) {} _recognition = null; }
+    _recognition = new SR();
+    _recognition.lang = 'en-ZA';
+    _recognition.interimResults = false;
+    _recognition.maxAlternatives = 1;
+    _recognition.onresult = (e) => {
+      let text = e.results[0][0].transcript;
+      text = text.replace(/\bp\s*zero\s*/gi, 'P0')
+                 .replace(/\bb\s*one\s*/gi, 'B1')
+                 .replace(/\bc\s*zero\s*/gi, 'C0')
+                 .replace(/\bu\s*zero\s*/gi, 'U0');
+      const field = {code:'aiPanelCode', symptom:'aiPanelSymptom', ask:'aiPanelAsk'}[_aiMode];
+      const el = document.getElementById(field);
+      el.value = (el.value ? el.value + ' ' : '') + text;
+    };
+    _recognition.onerror = (e) => alert('Voice error: ' + e.error);
+    _recognition.start();
+  }
+
+  document.getElementById('aiPanel').addEventListener('click', function(e) {
+    if (e.target === this) toggleAiPanel();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const a = document.activeElement;
+      if (a && (a.id === 'aiPanelCode' || a.id === 'aiPanelVehicle')) {
+        e.preventDefault();
+        submitAiPanel();
+      }
+    }
+  });
+
+  window.aiOpenWithCode = function(code, vehicle) {
+    document.getElementById('aiPanel').style.display = 'block';
+    setAiMode('code');
+    document.getElementById('aiPanelCode').value = code || '';
+    document.getElementById('aiPanelVehicle').value = vehicle || '';
+    if (code) setTimeout(submitAiPanel, 200);
+  };
+
+  window.aiOpenWithSymptom = function(symptom, vehicle) {
+    document.getElementById('aiPanel').style.display = 'block';
+    setAiMode('symptom');
+    document.getElementById('aiPanelSymptom').value = symptom || '';
+    document.getElementById('aiPanelVehicle').value = vehicle || '';
+    if (symptom) setTimeout(submitAiPanel, 200);
+  };
+</script>
+<!-- ═══════════════════════════════════════════ -->
+<!-- RAMSTECH AI — FLOATING PANEL (photo + voice) -->
+<!-- ═══════════════════════════════════════════ -->
+<style>
+  #aiFab{position:fixed;bottom:24px;right:18px;width:60px;height:60px;border-radius:50%;
+    background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
+    cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
+    display:flex;align-items:center;justify-content:center;transition:transform .15s ease;}
+  #aiFab:active{transform:scale(.92);}
+  #aiFabLabel{position:fixed;bottom:32px;right:86px;background:#0f1520;color:#00a8e8;
+    padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;z-index:9997;
+    border:1px solid #1e2938;pointer-events:none;}
+  #aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;
+    padding:12px;overflow:auto;}
+  #aiPanelInner{max-width:680px;margin:20px auto;background:#0f1520;color:#e6edf5;
+    border-radius:16px;padding:20px;border:1px solid #1e2938;}
+  #aiPanelTabs{display:flex;gap:4px;margin-bottom:14px;background:#0a1018;padding:4px;
+    border-radius:10px;border:1px solid #1e2938;}
+  .aiPanelTab{flex:1;padding:10px 6px;background:transparent;color:#7b8da3;border:none;
+    border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .aiPanelTab.active{background:#00a8e8;color:#03121c;}
+  .aiPanelInput{width:100%;padding:12px 14px;background:#0a1018;border:1px solid #1e2938;
+    border-radius:10px;color:#e6edf5;font-size:15px;box-sizing:border-box;font-family:inherit;
+    margin-bottom:10px;}
+  #aiPanelSubmit{background:#00a8e8;color:#03121c;border:none;border-radius:10px;
+    padding:14px 18px;font-weight:700;font-size:15px;cursor:pointer;width:100%;}
+  #aiPanelSubmit:disabled{opacity:.55;}
+  #aiPanelReply{display:none;font-size:14px;line-height:1.65;white-space:pre-wrap;
+    background:#0a1018;border:1px solid #1e2938;border-radius:12px;padding:14px;margin-top:14px;}
+  #aiPanelChips{display:none;flex-wrap:wrap;gap:6px;margin-top:12px;}
+  .aiChip{background:#0a1018;color:#00a8e8;border:1px solid #00a8e8;border-radius:16px;
+    padding:6px 12px;font-size:13px;cursor:pointer;font-weight:600;}
+</style>
+
+<button id="aiFab" onclick="toggleAiPanel()" title="AI Assistant">🤖</button>
+<div id="aiFabLabel">AI Assistant</div>
+
+<div id="aiPanel">
+  <div id="aiPanelInner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px;color:#7b8da3;letter-spacing:.5px;">RAMSTECH AI</div>
+        <div style="font-size:17px;font-weight:700;color:#00a8e8;">Diagnostic Assistant</div>
+      </div>
+      <button onclick="toggleAiPanel()" style="background:#1e2938;color:#e6edf5;border:none;
+        border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;">✕</button>
+    </div>
+
+    <div id="aiPanelTabs">
+      <button class="aiPanelTab active" data-mode="code" onclick="setAiMode('code')">🔤 Code</button>
+      <button class="aiPanelTab" data-mode="symptom" onclick="setAiMode('symptom')">🩺 Symptom</button>
+      <button class="aiPanelTab" data-mode="ask" onclick="setAiMode('ask')">💬 Ask</button>
+    </div>
+
+    <!-- PHOTO + VOICE -->
+    <div style="margin-bottom:10px;">
+      <input type="file" id="aiPhotoInput" accept="image/*" capture="environment"
+        style="display:none;" onchange="handleAiPhoto(event)">
+      <div style="display:flex;gap:8px;">
+        <button type="button" onclick="document.getElementById('aiPhotoInput').click()"
+          style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;
+          border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-weight:600;">
+          📷 Photo
+        </button>
+        <button type="button" onclick="startVoiceInput()"
+          style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;
+          border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-weight:600;">
+          🎤 Speak
+        </button>
+      </div>
+      <div id="aiPhotoPreview" style="display:none;margin-top:8px;position:relative;">
+        <img id="aiPhotoImg" style="max-width:100%;border-radius:10px;border:1px solid #1e2938;">
+        <button onclick="clearAiPhoto()" style="position:absolute;top:6px;right:6px;
+          background:#0a1018cc;color:#fff;border:none;border-radius:50%;width:30px;height:30px;
+          font-size:15px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+
+    <input id="aiPanelVehicle" class="aiPanelInput" placeholder="Vehicle (optional) — e.g. Toyota Hilux 2015" autocomplete="off">
+    <input id="aiPanelCode" class="aiPanelInput" placeholder="e.g. P0301, B1318, U0100"
+      autocomplete="off" autocapitalize="characters"
+      style="font-family:monospace;font-size:16px;letter-spacing:1px;">
+    <textarea id="aiPanelSymptom" class="aiPanelInput" rows="3"
+      placeholder="Describe the symptom — e.g. rough idle when cold, black smoke"
+      style="display:none;resize:vertical;"></textarea>
+    <textarea id="aiPanelAsk" class="aiPanelInput" rows="3"
+      placeholder="Ask anything — e.g. how do I test a camshaft sensor?"
+      style="display:none;resize:vertical;"></textarea>
+
+    <button id="aiPanelSubmit" onclick="submitAiPanel()">🤖 Get Answer</button>
+    <div id="aiPanelChips"></div>
+    <div id="aiPanelReply"></div>
+  </div>
+</div>
+
+<script>
+  let _aiMode = 'code';
+  let _aiPhotoBase64 = null;
+  let _recognition = null;
+
+  function toggleAiPanel() {
+    const p = document.getElementById('aiPanel');
+    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    if (p.style.display === 'block') {
+      setTimeout(() => document.getElementById('aiPanelCode').focus(), 150);
+    }
+  }
+
+  function setAiMode(mode) {
+    _aiMode = mode;
+    document.querySelectorAll('.aiPanelTab').forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === mode);
+    });
+    document.getElementById('aiPanelCode').style.display    = (mode === 'code')    ? 'block' : 'none';
+    document.getElementById('aiPanelSymptom').style.display = (mode === 'symptom') ? 'block' : 'none';
+    document.getElementById('aiPanelAsk').style.display     = (mode === 'ask')     ? 'block' : 'none';
+    const ph = {code:'🤖 Explain Code', symptom:'🩺 Find Codes', ask:'💬 Ask AI'};
+    document.getElementById('aiPanelSubmit').textContent = ph[mode];
+    const f = {code:'aiPanelCode', symptom:'aiPanelSymptom', ask:'aiPanelAsk'}[mode];
+    setTimeout(() => document.getElementById(f).focus(), 100);
+  }
+
+  function getActiveDiagnosticTab() {
+    const candidates = document.querySelectorAll(
+      '.tab.active, .tab-btn.active, .nav-tab.active, [data-tab].active, .diagnostic-tab.active'
+    );
+    for (const el of candidates) {
+      const t = (el.dataset.tab || el.dataset.target || el.textContent || '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      if (t) return t;
+    }
+    return '';
+  }
+
+  async function submitAiPanel() {
+    const vehicle = document.getElementById('aiPanelVehicle').value.trim();
+    const replyBox = document.getElementById('aiPanelReply');
+    const chipsBox = document.getElementById('aiPanelChips');
+    const btn = document.getElementById('aiPanelSubmit');
+    const activeTab = getActiveDiagnosticTab();
+
+    let endpoint, body;
+
+    if (_aiMode === 'code') {
+      const code = document.getElementById('aiPanelCode').value.trim()
+        .toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!code) { alert('Type a fault code first.'); return; }
+      endpoint = '/api/fault-codes/ai';
+      body = {code: code, vehicle: vehicle};
+
+    } else if (_aiMode === 'symptom') {
+      const q = document.getElementById('aiPanelSymptom').value.trim();
+      if (!q) { alert('Describe the symptom first.'); return; }
+      endpoint = '/api/fault-codes/ai-search';
+      body = {query: q, vehicle: vehicle};
+
+    } else {
+      const q = document.getElementById('aiPanelAsk').value.trim();
+      if (!q && !_aiPhotoBase64) { alert('Type a question or attach a photo.'); return; }
+      endpoint = '/api/ai-context';
+      body = {
+        message: q || 'Diagnose what you see in this photo.',
+        vehicle: vehicle,
+        active_tab: activeTab,
+        image_base64: _aiPhotoBase64 || null
+      };
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Thinking…';
+    replyBox.style.display = 'none';
+    chipsBox.style.display = 'none';
+    replyBox.textContent = '';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (_aiMode === 'symptom' && data.local_matches && data.local_matches.length) {
+        chipsBox.innerHTML = '';
+        data.local_matches.forEach(m => {
+          const chip = document.createElement('button');
+          chip.className = 'aiChip';
+          chip.textContent = m.code;
+          chip.title = m.description;
+          chip.onclick = () => {
+            setAiMode('code');
+            document.getElementById('aiPanelCode').value = m.code;
+            document.getElementById('aiPanelVehicle').value = vehicle;
+            submitAiPanel();
+          };
+          chipsBox.appendChild(chip);
+        });
+        chipsBox.style.display = 'flex';
+      }
+
+      const text = data.reply || data.answer || 'No reply.';
+      const ctxInfo = data.context_items ? `\n\n📊 Used ${data.context_items} local source(s) from ${data.tab}.` : '';
+      replyBox.textContent = text + (data.provider ? `\n\n— via ${data.provider}` : '') + ctxInfo;
+      replyBox.style.display = 'block';
+
+    } catch (e) {
+      replyBox.textContent = '⚠️ Network error: ' + e.message;
+      replyBox.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.textContent = {code:'🤖 Explain Again', symptom:'🩺 Search Again', ask:'💬 Ask Again'}[_aiMode];
+  }
+
+  function handleAiPhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Photo must be under 5 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      _aiPhotoBase64 = ev.target.result.split(',')[1];
+      document.getElementById('aiPhotoImg').src = ev.target.result;
+      document.getElementById('aiPhotoPreview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearAiPhoto() {
+    _aiPhotoBase64 = null;
+    document.getElementById('aiPhotoInput').value = '';
+    document.getElementById('aiPhotoPreview').style.display = 'none';
+  }
+
+  function startVoiceInput() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Voice input needs Chrome on Android.'); return; }
+    if (_recognition) { try { _recognition.stop(); } catch(_) {} _recognition = null; }
+    _recognition = new SR();
+    _recognition.lang = 'en-ZA';
+    _recognition.interimResults = false;
+    _recognition.maxAlternatives = 1;
+    _recognition.onresult = (e) => {
+      let text = e.results[0][0].transcript;
+      text = text.replace(/\bp\s*zero\s*/gi, 'P0')
+                 .replace(/\bb\s*one\s*/gi, 'B1')
+                 .replace(/\bc\s*zero\s*/gi, 'C0')
+                 .replace(/\bu\s*zero\s*/gi, 'U0');
+      const field = {code:'aiPanelCode', symptom:'aiPanelSymptom', ask:'aiPanelAsk'}[_aiMode];
+      const el = document.getElementById(field);
+      el.value = (el.value ? el.value + ' ' : '') + text;
+    };
+    _recognition.onerror = (e) => alert('Voice error: ' + e.error);
+    _recognition.start();
+  }
+
+  document.getElementById('aiPanel').addEventListener('click', function(e) {
+    if (e.target === this) toggleAiPanel();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const a = document.activeElement;
+      if (a && (a.id === 'aiPanelCode' || a.id === 'aiPanelVehicle')) {
+        e.preventDefault();
+        submitAiPanel();
+      }
+    }
+  });
+
+  window.aiOpenWithCode = function(code, vehicle) {
+    document.getElementById('aiPanel').style.display = 'block';
+    setAiMode('code');
+    document.getElementById('aiPanelCode').value = code || '';
+    document.getElementById('aiPanelVehicle').value = vehicle || '';
+    if (code) setTimeout(submitAiPanel, 200);
+  };
+
+  window.aiOpenWithSymptom = function(symptom, vehicle) {
+    document.getElementById('aiPanel').style.display = 'block';
+    setAiMode('symptom');
+    document.getElementById('aiPanelSymptom').value = symptom || '';
+    document.getElementById('aiPanelVehicle').value = vehicle || '';
+    if (symptom) setTimeout(submitAiPanel, 200);
+  };
+</script>
 </body>
 </html>"""
