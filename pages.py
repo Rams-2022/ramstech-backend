@@ -1,6 +1,6 @@
 # pages.py — RamsTech v10.0 — Beautiful categorized UI
 # Includes: Category navigation, gradient colors, animations, all features
-
+# TEST-MARKER-XYZ-987
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
