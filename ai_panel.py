@@ -24,6 +24,15 @@ AI_PANEL_HTML = r"""
 <button class="aiTab" data-m="symptom" onclick="aiMode('symptom')">🩺 Symptom</button>
 <button class="aiTab" data-m="ask" onclick="aiMode('ask')">💬 Ask</button>
 </div>
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+<input type="file" id="aiPic" accept="image/*" capture="environment" style="display:none;" onchange="aiPicLoad(event)">
+<button type="button" onclick="document.getElementById('aiPic').click()" style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;border-radius:9px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;">📷 Photo</button>
+<button type="button" onclick="aiVoice()" style="flex:1;background:#0a1018;color:#00a8e8;border:1px dashed #00a8e8;border-radius:9px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;">🎤 Speak</button>
+</div>
+<div id="aiPicPrev" style="display:none;position:relative;margin-bottom:8px;">
+<img id="aiPicImg" style="max-width:100%;border-radius:9px;">
+<button onclick="aiPicClear()" style="position:absolute;top:5px;right:5px;background:#0a1018cc;color:#fff;border:none;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;">✕</button>
+</div>
 <input id="aiVeh" class="aiIn" placeholder="Vehicle (optional)">
 <input id="aiCode" class="aiIn" placeholder="e.g. P0301" style="font-family:monospace;">
 <textarea id="aiSym" class="aiIn" rows="3" placeholder="Describe the symptom" style="display:none;"></textarea>
