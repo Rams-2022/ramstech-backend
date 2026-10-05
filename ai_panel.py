@@ -44,6 +44,18 @@ AI_PANEL_HTML = r"""
 </div>
 <script>
 var _m='code';
+var _pic=null;
+var _rec=null;
+function aiPicLoad(e){var f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024){alert('Max 5MB');return;}
+var r=new FileReader();r.onload=function(ev){_pic=ev.target.result.split(',')[1];document.getElementById('aiPicImg').src=ev.target.result;document.getElementById('aiPicPrev').style.display='block';};r.readAsDataURL(f);}
+function aiPicClear(){_pic=null;document.getElementById('aiPic').value='';document.getElementById('aiPicPrev').style.display='none';}
+function aiVoice(){var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Voice needs Chrome on Android');return;}
+if(_rec){try{_rec.stop();}catch(_){}}
+_rec=new SR();_rec.lang='en-ZA';_rec.interimResults=false;_rec.maxAlternatives=1;
+_rec.onresult=function(e){var t=e.results[0][0].transcript;
+t=t.replace(/\bp\s*zero\s*/gi,'P0').replace(/\bb\s*one\s*/gi,'B1').replace(/\bc\s*zero\s*/gi,'C0').replace(/\bu\s*zero\s*/gi,'U0');
+var f={code:'aiCode',symptom:'aiSym',ask:'aiAsk'}[_m];var el=document.getElementById(f);el.value=(el.value?el.value+' ':'')+t;};
+_rec.onerror=function(e){alert('Voice: '+e.error);};_rec.start();}
 function aiToggle(){var p=document.getElementById('aiPanel');p.style.display=p.style.display==='block'?'none':'block';}
 function aiMode(m){_m=m;document.querySelectorAll('.aiTab').forEach(function(t){t.classList.toggle('active',t.dataset.m===m);});
 document.getElementById('aiCode').style.display=m==='code'?'block':'none';
