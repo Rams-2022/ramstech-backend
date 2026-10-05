@@ -6,6 +6,7 @@ from workshop_routes import router as workshop_router
 from workshop_api import router as workshop_api_router
 import os
 from ai_panel import AI_PANEL_HTML
+from ai_endpoints import router as ai_router
 
 import db
 from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
@@ -15,6 +16,7 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
 from pages import HTML_PAGE
 
 app = FastAPI(title="RamsTech")
+app.include_router(ai_router)
 app.include_router(workshop_api_router)
 app.include_router(workshop_router)
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
