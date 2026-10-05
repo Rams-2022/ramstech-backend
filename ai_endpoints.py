@@ -227,6 +227,27 @@ except Exception as e:
     )
 
     try:
+    if image_b64:
+        import openai
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        r = c.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": [
+                    {"type": "text", "text": user_msg},
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_b64}",
+                        "detail": "high"
+                    }},
+                ]},
+            ],
+            max_tokens=1100,
+            temperature=0.2,
+        )
+        reply = r.choices[0].message.content
+        provider = "openai-vision"
+    else:
         reply, provider = _chat(
             messages=[
                 {"role": "system", "content": system_msg},
@@ -234,8 +255,5 @@ except Exception as e:
             ],
             max_tokens=1100,
         )
-    except Exception as e:
-        return {"success": False, "reply": f"AI error: {e}"}
-
-    return {"success": True, "reply": reply, "provider": provider,
-            "tab": active_tab, "context_items": len(context_parts)}
+except Exception as e:
+    return {"success": False, "reply": f"AI error: {e}"}
