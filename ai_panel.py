@@ -66,8 +66,8 @@ function aiSubmit(){
 var v=document.getElementById('aiVeh').value.trim();
 var b=document.getElementById('aiBtn'),r=document.getElementById('aiReply'),c=document.getElementById('aiChips');
 var ep,body;
-if(_m==='code'){var cd=document.getElementById('aiCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(!cd){alert('Type a code');return;}ep='/api/fault-codes/ai';body={code:cd,vehicle:v};}
-else if(_m==='symptom'){var q=document.getElementById('aiSym').value.trim();if(!q){alert('Describe symptom');return;}ep='/api/fault-codes/ai-search';body={query:q,vehicle:v};}
+if(_m==='code'){var cd=document.getElementById('aiCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(!cd){alert('Type a code');return;}ep='/api/fault-codes/ai';body={code:cd,vehicle:v};
+else{var q=document.getElementById('aiAsk').value.trim();if(!q&&!_pic){alert('Type a question or attach photo');return;}ep='/api/ai-context';body={message:q||'Diagnose this photo.',vehicle:v,active_tab:'',image_base64:_pic||null};}
 else{var q=document.getElementById('aiAsk').value.trim();if(!q){alert('Type a question');return;}ep='/api/ai-context';body={message:q,vehicle:v,active_tab:''};}
 b.disabled=true;b.textContent='⏳ Thinking…';r.style.display='none';c.style.display='none';
 fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
