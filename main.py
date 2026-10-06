@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io
 from workshop_routes import router as workshop_router
 from workshop_api import router as workshop_api_router
+from ai_panel import AI_PANEL_HTML
+from ai_endpoints import router as ai_router
 import os
 
 import db
