@@ -90,10 +90,15 @@ def save_workshop_data(d):
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
-    if AI_PANEL_HTML:
-        html = html.replace("</body>", AI_PANEL_HTML + "</body>")
-    if JOB_STATUS_HTML:
-        html = html.replace("</body>", JOB_STATUS_HTML + "</body>")
+    # Only inject at the LAST </body> (true page end), not every </body>
+    idx = html.rfind("</body>")
+    if idx != -1:
+        inject = ""
+        if JOB_STATUS_HTML:
+            inject += JOB_STATUS_HTML
+        if AI_PANEL_HTML:
+            inject += AI_PANEL_HTML
+        html = html[:idx] + inject + html[idx:]
     return html
 
 
