@@ -125,11 +125,7 @@ async def save_workshop(r: Request):
     d=await r.json(); save_workshop_data(d)
     return {"success":True,"workshop":get_workshop_data()}
 
-# STATIC
-@app.get("/api/fault-codes")
-# ═══════════════════════════════════════════
 # AI CONTEXT-AWARE CHAT
-# Knows which diagnostic tab the user is on, injects local data as context
 # ═══════════════════════════════════════════
 @app.post("/api/ai-context")
 async def ai_context(r: Request):
