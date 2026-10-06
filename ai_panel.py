@@ -33,7 +33,7 @@ border-radius:10px;padding:10px;font-size:13px;cursor:pointer;font-weight:600;}
 border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;}
 </style>
 
-<button id="aiFab" onclick="aiToggle()" style="display:none;">&#129302;</button>
+<button id="aiFab" onclick="aiToggle()">&#129302;</button>
 
 <div id="aiPanel">
   <div id="aiInner">
@@ -73,6 +73,7 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 <script>
 var _m='code', _pic=null, _rec=null;
 var _DIAG_TABS=['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
+
 function aiToggle(){var p=document.getElementById('aiPanel');p.style.display=p.style.display==='block'?'none':'block';}
 function aiMode(m){_m=m;document.querySelectorAll('.aiTab').forEach(function(t){t.classList.toggle('active',t.dataset.m===m);});
 document.getElementById('aiCode').style.display=m==='code'?'block':'none';
@@ -88,6 +89,7 @@ _rec=new SR();_rec.lang='en-ZA';_rec.interimResults=false;
 _rec.onresult=function(e){var t=e.results[0][0].transcript;t=t.replace(/\bp\s*zero\s*/gi,'P0').replace(/\bb\s*one\s*/gi,'B1');
 var f={code:'aiCode',symptom:'aiSym',ask:'aiAsk'}[_m];var el=document.getElementById(f);el.value=(el.value?el.value+' ':'')+t;};
 _rec.onerror=function(e){alert('Voice: '+e.error);};_rec.start();}
+
 async function aiSubmit(){
 var v=document.getElementById('aiVeh').value.trim();
 var b=document.getElementById('aiBtn'),r=document.getElementById('aiReply'),c=document.getElementById('aiChips');
@@ -102,13 +104,19 @@ if(_m==='symptom'&&d.local_matches&&d.local_matches.length){c.innerHTML='';d.loc
 r.textContent=(d.reply||d.answer||'No reply')+(d.provider?'\n\n— via '+d.provider:'');
 r.style.display='block';}catch(e){r.textContent='Error: '+e.message;r.style.display='block';}
 b.disabled=false;b.textContent='Get Answer';}
+
 function aiUpdateFab(){
+try{
 var fab=document.getElementById('aiFab');if(!fab)return;
-var active=document.querySelector('.panel.active');var id=active?active.id:'';
-fab.style.display=_DIAG_TABS.indexOf(id)>=0?'flex':'none';}
-setTimeout(aiUpdateFab,200);
+var active=document.querySelector('.panel.active');
+var id=active?active.id:'';
+var show=_DIAG_TABS.indexOf(id)>=0;
+fab.style.display=show?'flex':'none';
+}catch(e){}
+}
+setTimeout(aiUpdateFab,300);
 document.addEventListener('click',function(e){
-if(e.target.closest('.bnav-item')||e.target.closest('.tile')||e.target.closest('.cat-card')||e.target.closest('.back-btn')){setTimeout(aiUpdateFab,60);}});
+if(e.target.closest('.bnav-item')||e.target.closest('.tile')||e.target.closest('.cat-card')||e.target.closest('.back-btn')){setTimeout(aiUpdateFab,80);}});
 document.getElementById('aiPanel').addEventListener('click',function(e){if(e.target===this)aiToggle();});
 </script>
 """
