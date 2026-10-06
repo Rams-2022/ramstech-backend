@@ -261,22 +261,24 @@ async def ai_context(r: Request):
         }
 
     try:
-        import workshop_ai
-        reply, provider = workshop_ai.chat(
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg},
-            ],
-            temperature=0.2,
-            max_tokens=1100,
-        )
-        return {
-            "success": True,
-            "reply": reply,
-            "provider": provider,
-            "tab": tab_label,
-            "context_items": len(context_lines),
-        }
+    import workshop_ai
+    reply, provider = workshop_ai.chat(
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.2,
+        max_tokens=1100,
+    )
+    return {
+        "success": True,
+        "reply": reply,
+        "provider": provider,
+        "tab": tab_label,
+        "context_items": len(context_lines),
+    }
+except Exception as e:
+    return {"success": False, "reply": f"AI error: {str(e)}"}
      except Exception as e:
     return {"success": False, "reply": f"AI error: {str(e)}"} 
   
