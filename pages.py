@@ -2026,37 +2026,6 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
   </div>
 </div>
 
-<script>
-  // ─── Panel open/close ───
-      if (e.key === 'Enter' && !e.shiftKey) {
-      const active = document.activeElement;
-      if (active && (active.id === 'aiPanelCode' || active.id === 'aiPanelVehicle')) {
-        e.preventDefault();
-        submitAiPanel();
-      }
-    }
-  });
-
-  // ─── Backdrop close ───
-  document.getElementById('aiPanel').addEventListener('click', function(e) {
-    if (e.target === this) toggleAiPanel();
-  });
-
-  // ─── Auto-open with pre-filled data (optional) ───
-  window.aiOpenWithCode = function(code, vehicle) {
-    document.getElementById('aiPanel').style.display = 'block';
-    setAiMode('code');
-    document.getElementById('aiPanelCode').value = code || '';
-    document.getElementById('aiPanelVehicle').value = vehicle || '';
-    if (code) setTimeout(submitAiPanel, 200);
-  };
-
-  window.aiOpenWithSymptom = function(symptom, vehicle) {
-    document.getElementById('aiPanel').style.display = 'block';
-    setAiMode('symptom');
-    document.getElementById('aiPanelSymptom').value = symptom || '';
-    document.getElementById('aiPanelVehicle').value = vehicle || '';
-    if (symptom) setTimeout(submitAiPanel, 200);
   };
 </script>
 </body>
