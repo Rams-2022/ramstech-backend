@@ -10,7 +10,6 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
                   INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
 from pages import HTML_PAGE
 
-# ── Optional AI modules (fail-safe) ──
 AI_PANEL_HTML = ""
 try:
     from ai_panel import AI_PANEL_HTML
@@ -20,9 +19,15 @@ except Exception as _e:
 ai_router = None
 try:
     from ai_endpoints import router as ai_router
-from job_status import router as job_status_router, JOB_STATUS_HTML  
 except Exception as _e:
     print(f"[main] ai_endpoints unavailable: {_e}")
+
+job_status_router = None
+JOB_STATUS_HTML = ""
+try:
+    from job_status import router as job_status_router, JOB_STATUS_HTML
+except Exception as _e:
+    print(f"[main] job_status unavailable: {_e}")
 
 workshop_router = None
 try:
