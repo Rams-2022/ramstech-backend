@@ -20,6 +20,7 @@ except Exception as _e:
 ai_router = None
 try:
     from ai_endpoints import router as ai_router
+from job_status import router as job_status_router, JOB_STATUS_HTML  
 except Exception as _e:
     print(f"[main] ai_endpoints unavailable: {_e}")
 
@@ -38,6 +39,8 @@ except Exception as _e:
 app = FastAPI(title="RamsTech")
 if ai_router:
     app.include_router(ai_router)
+if job_status_router:
+    app.include_router(job_status_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -84,6 +87,8 @@ async def home():
     html = HTML_PAGE
     if AI_PANEL_HTML:
         html = html.replace("</body>", AI_PANEL_HTML + "</body>")
+    if JOB_STATUS_HTML:
+        html = html.replace("</body>", JOB_STATUS_HTML + "</body>")
     return html
 
 
