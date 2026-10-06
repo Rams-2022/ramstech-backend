@@ -1,10 +1,55 @@
 import os
+import hashlib
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 GROQ_KEY = os.getenv("GROQ_API_KEY", "").strip()
+
+
+def _client():
+    try:
+        import db
+        return db.get_client() if db.is_ready() else None
+    except Exception:
+        return None
+
+
+def _cache_key(endpoint, parts):
+    raw = endpoint + "|" + "|".join(str(p or "") for p in parts)
+    return hashlib.sha256(raw.lower().encode()).hexdigest()[:32]
+
+
+def _cache_get(key):
+    c = _client()
+    if not c:
+        return None
+    try:
+        r = c.table("ai_cache").select("reply, provider").eq("cache_key", key).execute()
+        if r.data:
+            return r.data[0]
+    except Exception as e:
+        print(f"[cache] get fail: {e}")
+    return None
+
+
+def _cache_set(key, endpoint, active_tab, vehicle, question, reply, provider):
+    c = _client()
+    if not c:
+        return
+    try:
+        c.table("ai_cache").insert({
+            "cache_key": key,
+            "endpoint": endpoint,
+            "active_tab": active_tab,
+            "vehicle": vehicle,
+            "question": (question or "")[:500],
+            "reply": reply,
+            "provider": provider,
+        }).execute()
+    except Exception as e:
+        print(f"[cache] set fail: {e}")
 
 
 def _chat(messages, max_tokens=900, temperature=0.2):
@@ -48,6 +93,19 @@ async def fault_code_ai(r: Request):
     vehicle = (d.get("vehicle") or "").strip()
     if not code:
         raise HTTPException(400, "code is required")
+
+    # ── Cache lookup ──
+    key = _cache_key("code", [code, vehicle])
+    hit = _cache_get(key)
+    if hit:
+        return {
+            "success": True,
+            "code": code,
+            "provider": "cache",
+            "reply": hit["reply"],
+            "cached": True,
+        }
+
     local_desc = ""
     try:
         from data import FAULT_CODES
@@ -72,6 +130,8 @@ async def fault_code_ai(r: Request):
         )
     except Exception as e:
         return {"success": False, "code": code, "reply": f"AI error: {e}"}
+
+    _cache_set(key, "code", "", vehicle, f"code:{code}", reply, provider)
     return {"success": True, "code": code, "description": local_desc,
             "provider": provider, "reply": reply}
 
@@ -83,6 +143,19 @@ async def fault_code_ai_search(r: Request):
     vehicle = (d.get("vehicle") or "").strip()
     if not query:
         raise HTTPException(400, "query is required")
+
+    key = _cache_key("search", [query, vehicle])
+    hit = _cache_get(key)
+    if hit:
+        return {
+            "success": True,
+            "query": query,
+            "provider": "cache",
+            "local_matches": [],
+            "reply": hit["reply"],
+            "cached": True,
+        }
+
     local_matches = []
     try:
         from data import FAULT_CODES
@@ -117,6 +190,8 @@ async def fault_code_ai_search(r: Request):
     except Exception as e:
         return {"success": False, "query": query,
                 "local_matches": local_matches, "reply": f"AI error: {e}"}
+
+    _cache_set(key, "search", "", vehicle, query, reply, provider)
     return {"success": True, "query": query, "provider": provider,
             "local_matches": local_matches, "reply": reply}
 
@@ -132,6 +207,19 @@ async def ai_context(r: Request):
         raise HTTPException(400, "message or image required")
     if not message:
         message = "Diagnose what you see in this photo."
+
+    # ── Cache lookup (skip for photos) ──
+    key = _cache_key("context", [active_tab, vehicle, message])
+    if not image_b64:
+        hit = _cache_get(key)
+        if hit:
+            return {
+                "success": True,
+                "reply": hit["reply"],
+                "provider": "cache",
+                "tab": active_tab,
+                "cached": True,
+            }
 
     context_parts = []
     try:
@@ -203,6 +291,9 @@ async def ai_context(r: Request):
             )
     except Exception as e:
         return {"success": False, "reply": f"AI error: {e}"}
+
+    if not image_b64:
+        _cache_set(key, "context", active_tab, vehicle, message, reply, provider)
 
     return {"success": True, "reply": reply, "provider": provider,
             "tab": active_tab, "context_items": len(context_parts)}
