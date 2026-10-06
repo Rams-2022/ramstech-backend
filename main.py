@@ -277,6 +277,9 @@ async def ai_context(r: Request):
             "tab": tab_label,
             "context_items": len(context_lines),
         }
+     except Exception as e:
+    return {"success": False, "reply": f"AI error: {str(e)}"} 
+  
     @app.get("/api/fault-codes")
 def list_codes(search: str = None):
     res=list(FAULT_CODES.values())
