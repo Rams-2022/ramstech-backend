@@ -18,6 +18,7 @@ except Exception as _e:
 
 ai_router = None
 try:
+    from ai_panel import AI_PANEL_HTML
     from ai_endpoints import router as ai_router
     from workflow import router as workflow_router
     from workflow_ui import WORKFLOW_HTML
