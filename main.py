@@ -19,8 +19,8 @@ except Exception as _e:
 ai_router = None
 try:
     from ai_endpoints import router as ai_router
-  from workflow import router as workflow_router
-from workflow_ui import WORKFLOW_HTML
+    from workflow import router as workflow_router
+    from workflow_ui import WORKFLOW_HTML
 except Exception as _e:
     print(f"[main] ai_endpoints unavailable: {_e}")
 
