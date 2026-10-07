@@ -77,26 +77,38 @@ def quotes_pending():
 
 @router.post("/quote-create")
 async def quote_create(r: Request):
-    d = await r.json()
-    qid = str(uuid.uuid4())[:8]
-    labour = float(d.get("labour", 0) or 0)
-    parts = float(d.get("parts", 0) or 0)
-    sub = round(labour + parts, 2)
-    vat = round(sub * 0.15, 2)
-    row = {
-        "id": qid, "customer": d.get("customer", ""),
-        "phone": d.get("phone", ""),
-        "vehicle": (d.get("make", "") + " " + d.get("model", "")).strip(),
-        "registration": (d.get("registration") or "").upper(),
-        "make": d.get("make", ""), "model": d.get("model", ""),
-        "km": int(d.get("km") or 0),
-        "description": d.get("description", ""),
-        "labour": labour, "parts": parts,
-        "subtotal": sub, "vat": vat, "total": round(sub + vat, 2),
-        "status": "draft", "created": _now(),
-    }
-    _ins("quotes", row)
-    return {"success": True, "quote_id": qid, "quote": row}
+    try:
+        d = await r.json()
+        qid = str(uuid.uuid4())[:8]
+        labour = float(d.get("labour", 0) or 0)
+        parts = float(d.get("parts", 0) or 0)
+        sub = round(labour + parts, 2)
+        vat = round(sub * 0.15, 2)
+        row = {
+            "id": qid,
+            "customer": d.get("customer", "") or "",
+            "phone": d.get("phone", "") or "",
+            "vehicle": ((d.get("make", "") or "") + " " + (d.get("model", "") or "")).strip(),
+            "registration": (d.get("registration") or "").upper(),
+            "make": d.get("make", "") or "",
+            "model": d.get("model", "") or "",
+            "km": int(d.get("km") or 0),
+            "description": d.get("description", "") or "",
+            "labour": labour,
+            "parts": parts,
+            "subtotal": sub,
+            "vat": vat,
+            "total": round(sub + vat, 2),
+            "status": "draft",
+            "created": _now(),
+        }
+        result = _c().table("quotes").insert(row).execute()
+        return {"success": True, "quote_id": qid, "quote": row}
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[quote-create ERROR]\n{tb}")
+        return {"success": False, "detail": f"{type(e).__name__}: {str(e)}"}
 
 
 @router.post("/quote-customer-sign/{qid}")
