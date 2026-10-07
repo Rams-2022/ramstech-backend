@@ -17,6 +17,7 @@ job_status_router = None
 JOB_STATUS_HTML = ""
 workflow_router = None
 WORKFLOW_HTML = ""
+invoice_router = None
 workshop_router = None
 workshop_api_router = None
 
@@ -38,6 +39,7 @@ except Exception as _e:
 try:
     from workflow import router as workflow_router
     from workflow_ui import WORKFLOW_HTML
+    from invoice_pdf import router as invoice_router
 except Exception as _e:
     print(f"[main] workflow unavailable: {_e}")
 
@@ -59,6 +61,8 @@ if job_status_router:
     app.include_router(job_status_router)
 if workflow_router:
     app.include_router(workflow_router)
+if invoice_router:
+    app.include_router(invoice_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -154,9 +158,6 @@ def debug_env():
     }
 
 
-# ═══════════════════════════════════
-# TRANSLATIONS / STATS / WORKSHOP
-# ═══════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str):
     return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
@@ -216,9 +217,6 @@ async def save_workshop(r: Request):
     return {"success": True, "workshop": get_workshop_data()}
 
 
-# ═══════════════════════════════════
-# STATIC REFERENCE DATA
-# ═══════════════════════════════════
 @app.get("/api/fault-codes")
 def list_codes(search: str = None):
     res = list(FAULT_CODES.values())
@@ -319,9 +317,6 @@ def decode_vin(vin: str):
             "year": YEAR_CODES.get(v[9], "Unknown")}
 
 
-# ═══════════════════════════════════
-# AI
-# ═══════════════════════════════════
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json()
@@ -408,9 +403,6 @@ Respond ONLY valid JSON:
         return {"success": False, "error": str(e)}
 
 
-# ═══════════════════════════════════
-# JOBS
-# ═══════════════════════════════════
 @app.get("/api/jobs")
 def list_jobs():
     return {"jobs": store_list("jobs")}
@@ -476,9 +468,6 @@ async def set_cost(jid: str, r: Request):
     return {"success": True, "job": job}
 
 
-# ═══════════════════════════════════
-# CUSTOMERS
-# ═══════════════════════════════════
 @app.get("/api/customers")
 def list_customers():
     return {"customers": store_list("customers")}
@@ -495,9 +484,6 @@ async def create_customer(r: Request):
     return {"success": True, "customer": c}
 
 
-# ═══════════════════════════════════
-# APPOINTMENTS
-# ═══════════════════════════════════
 @app.get("/api/appointments")
 def list_appts():
     return {"appointments": store_list("appointments")}
@@ -519,9 +505,6 @@ def del_appt(aid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# QUOTES
-# ═══════════════════════════════════
 @app.get("/api/quotes")
 def list_quotes():
     return {"quotes": store_list("quotes")}
@@ -565,9 +548,6 @@ def del_quote(qid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# INVOICES
-# ═══════════════════════════════════
 @app.get("/api/invoices")
 def list_invoices():
     return {"invoices": store_list("invoices")}
@@ -604,9 +584,6 @@ async def record_payment(iid: str, r: Request):
     return {"success": True, "invoice": inv}
 
 
-# ═══════════════════════════════════
-# INVENTORY
-# ═══════════════════════════════════
 @app.get("/api/inventory")
 def list_inv():
     return {"items": store_list("inventory")}
@@ -651,9 +628,6 @@ def del_inv(iid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# PURCHASE ORDERS
-# ═══════════════════════════════════
 @app.get("/api/purchase-orders")
 def list_pos():
     return {"pos": store_list("purchase_orders")}
@@ -687,9 +661,6 @@ def del_po(pid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# STAFF
-# ═══════════════════════════════════
 @app.get("/api/staff")
 def list_staff():
     return {"staff": store_list("staff")}
@@ -712,9 +683,6 @@ def del_staff(sid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# CLOCKINS
-# ═══════════════════════════════════
 @app.get("/api/clockins")
 def list_clockins():
     return {"clockins": store_list("clockins")}
@@ -740,9 +708,6 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 
-# ═══════════════════════════════════
-# EXPENSES
-# ═══════════════════════════════════
 @app.get("/api/expenses")
 def list_exp():
     return {"expenses": store_list("expenses")}
@@ -766,9 +731,6 @@ def del_exp(eid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# REMINDERS
-# ═══════════════════════════════════
 @app.get("/api/reminders")
 def get_reminders():
     reminders = []
@@ -784,9 +746,6 @@ def get_reminders():
     return {"reminders": reminders[:20]}
 
 
-# ═══════════════════════════════════
-# FUEL LOG
-# ═══════════════════════════════════
 @app.get("/api/fuel")
 def list_fuel():
     return {"logs": store_list("fuel_logs")}
@@ -819,9 +778,6 @@ def del_fuel(fid: str):
     return {"success": True}
 
 
-# ═══════════════════════════════════
-# WARRANTY TRACKER
-# ═══════════════════════════════════
 @app.get("/api/warranty")
 def get_warranty():
     from datetime import datetime as dt
@@ -848,9 +804,6 @@ def get_warranty():
     return {"warranties": items}
 
 
-# ═══════════════════════════════════
-# CSV EXPORTS
-# ═══════════════════════════════════
 @app.get("/api/export/jobs")
 def exp_jobs():
     o = io.StringIO()
