@@ -1,246 +1,309 @@
 WORKFLOW_HTML = r"""
 <style>
-#wfFab{position:fixed;bottom:170px;left:18px;width:60px;height:60px;border-radius:50%;
-background:linear-gradient(135deg,#10b981,#047857);color:#fff;border:none;font-size:26px;
-cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(16,185,129,.5);
-display:none;align-items:center;justify-content:center;}
-#wfPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;
-padding:12px;overflow:auto;}
-#wfInner{max-width:680px;margin:16px auto;background:#0f1520;color:#e6edf5;
-border-radius:14px;padding:18px;border:1px solid #1e2938;}
-.wfTabs{display:flex;gap:4px;margin-bottom:12px;background:#0a1018;padding:4px;border-radius:10px;}
-.wfTab{flex:1;padding:9px 4px;background:transparent;color:#7b8da3;border:none;
-border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;}
-.wfTab.active{background:#10b981;color:#03121c;}
-.wfIn{width:100%;padding:11px 12px;background:#0a1018;border:1px solid #1e2938;
-border-radius:9px;color:#e6edf5;font-size:14px;box-sizing:border-box;
-font-family:inherit;margin-bottom:8px;}
-.wfBtn{width:100%;padding:13px;background:#10b981;color:#fff;border:none;
-border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;}
+#wfModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;padding:12px;overflow:auto;}
+#wfBox{max-width:640px;margin:16px auto;background:#0f1520;color:#e6edf5;border-radius:14px;padding:18px;border:1px solid #1e2938;}
+.wfIn{width:100%;padding:11px;background:#0a1018;border:1px solid #1e2938;border-radius:9px;color:#e6edf5;font-size:14px;box-sizing:border-box;font-family:inherit;margin-bottom:8px;}
+.wfBtn{width:100%;padding:12px;background:#10b981;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:6px;}
 .wfBtn:disabled{opacity:.5;}
 .wfBtn.dark{background:#1e2938;}
-.wfBtn.red{background:#ef4444;}
 .wfBtn.blue{background:#00a8e8;color:#03121c;}
+.wfBtn.purple{background:#8b5cf6;}
+.wfBtn.red{background:#ef4444;}
 .wfRow{display:flex;gap:8px;}
 .wfRow .wfIn{flex:1;}
-#wfResult{display:none;background:#0a1018;border:1px solid #1e2938;border-radius:10px;
-padding:12px;margin-top:10px;font-size:13px;white-space:pre-wrap;line-height:1.5;}
-#wfSigWrap{display:none;margin:10px 0;}
-#wfSigPad{border:2px dashed #334155;border-radius:10px;width:100%;height:160px;
-background:#fff;touch-action:none;}
-.wfNote{font-size:11px;color:#7b8da3;margin-bottom:10px;}
-#wfStage{font-size:12px;color:#10b981;font-weight:700;margin-bottom:6px;}
+.wfSig{border:2px dashed #334155;border-radius:10px;width:100%;height:150px;background:#fff;touch-action:none;}
+#wfRes{display:none;background:#0a1018;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-top:10px;font-size:13px;white-space:pre-wrap;}
+#wfBadge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff;margin-left:6px;}
+.badge-draft{background:#6b7280;}
+.badge-csigned{background:#f59e0b;}
+.badge-approved{background:#10b981;}
+#wfQuoteList{margin-bottom:16px;}
+.wfQuoteCard{background:#0a1018;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;}
+.wfQuoteCard:active{background:#1e2938;}
 </style>
 
-<button id="wfFab" onclick="wfToggle()">&#9881;</button>
-
-<div id="wfPanel">
-  <div id="wfInner">
+<div id="wfModal">
+  <div id="wfBox">
     <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-      <div>
-        <div style="font-size:11px;color:#7b8da3;letter-spacing:.5px;">WORKSHOP</div>
-        <div style="font-size:17px;font-weight:700;color:#10b981;">Workflow</div>
-      </div>
-      <button onclick="wfToggle()" style="background:#1e2938;color:#e6edf5;border:none;
-        border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;">&#10005;</button>
+      <div id="wfTitle" style="font-size:17px;font-weight:700;color:#10b981;">New Quote</div>
+      <button onclick="wfClose()" style="background:#1e2938;color:#e6edf5;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
     </div>
 
-    <div class="wfTabs">
-      <button class="wfTab active" data-t="quote" onclick="wfMode('quote')">New Quote</button>
-      <button class="wfTab" data-t="vehicle" onclick="wfMode('vehicle')">Vehicle</button>
-      <button class="wfTab" data-t="job" onclick="wfMode('job')">Job</button>
-    </div>
-
-    <!-- ═══ QUOTE TAB ═══ -->
-    <div id="wfQuote">
-      <div class="wfNote">Customer signs → job created automatically</div>
+    <div id="wfQuoteCreate">
       <input id="wqCust" class="wfIn" placeholder="Customer name">
       <input id="wqPhone" class="wfIn" placeholder="Phone">
       <div class="wfRow">
-        <input id="wqReg" class="wfIn" placeholder="Registration" autocapitalize="characters" style="text-transform:uppercase">
-        <input id="wqKm" class="wfIn" type="number" placeholder="Odometer km">
+        <input id="wqReg" class="wfIn" placeholder="Registration" style="text-transform:uppercase">
+        <input id="wqKm" class="wfIn" type="number" placeholder="km">
       </div>
       <div class="wfRow">
-        <input id="wqMake" class="wfIn" placeholder="Make (Toyota)">
-        <input id="wqModel" class="wfIn" placeholder="Model (Hilux)">
+        <input id="wqMake" class="wfIn" placeholder="Make">
+        <input id="wqModel" class="wfIn" placeholder="Model">
       </div>
       <textarea id="wqDesc" class="wfIn" rows="2" placeholder="Work description"></textarea>
       <div class="wfRow">
         <input id="wqLabour" class="wfIn" type="number" placeholder="Labour R" value="0">
         <input id="wqParts" class="wfIn" type="number" placeholder="Parts R" value="0">
       </div>
-      <button class="wfBtn dark" onclick="wfOpenSig()">&#9997; Customer Signature</button>
-      <div id="wfSigWrap">
-        <canvas id="wfSigPad" width="600" height="160"></canvas>
-        <div class="wfRow" style="margin-top:8px;">
-          <button class="wfBtn dark" onclick="wfSigClear()">Clear</button>
-          <button class="wfBtn" onclick="wfSigSave()">Confirm</button>
-        </div>
-      </div>
-      <div id="wfSigPreview" style="margin-bottom:8px;"></div>
-      <button id="wfQuoteBtn" class="wfBtn" onclick="wfSubmitQuote()" disabled>Approve &amp; Create Job</button>
-      <div id="wfResult"></div>
+      <button class="wfBtn" onclick="wfCreateQuote()">Save Quote (Draft)</button>
     </div>
 
-    <!-- ═══ VEHICLE TAB ═══ -->
-    <div id="wfVehicle" style="display:none;">
-      <div class="wfNote">Look up a vehicle by registration</div>
-      <div class="wfRow">
-        <input id="wvReg" class="wfIn" placeholder="Registration" autocapitalize="characters" style="text-transform:uppercase">
-        <button class="wfBtn" style="width:auto;padding:11px 16px;" onclick="wfLookupVehicle()">Search</button>
-      </div>
-      <div id="wvResult"></div>
+    <div id="wfQuoteView" style="display:none;">
+      <div id="wfQuoteInfo" style="font-size:13px;color:#94a3b8;margin-bottom:12px;"></div>
+      <div id="wfQuoteActions"></div>
+      <div id="wfSigArea"></div>
     </div>
 
-    <!-- ═══ JOB TAB ═══ -->
-    <div id="wfJob" style="display:none;">
-      <div class="wfNote">Manage an existing job (enter job id)</div>
-      <input id="wjId" class="wfIn" placeholder="Job ID (e.g. a4f2c8d1)">
-      <div class="wfRow">
-        <button class="wfBtn blue" onclick="wfLoadJob()">Load</button>
-        <button class="wfBtn dark" onclick="wfAssign()">Assign</button>
+    <div id="wfJobView" style="display:none;">
+      <div id="wfJobInfo" style="font-size:13px;color:#94a3b8;margin-bottom:12px;"></div>
+      <div id="wfJobActions"></div>
+      <div class="wfRow" style="margin-top:10px;">
+        <input id="wfProgIn" class="wfIn" type="number" placeholder="Progress %" min="0" max="100">
+        <button class="wfBtn blue" onclick="wfSetProgress()" style="width:auto;padding:11px 16px;">Update %</button>
       </div>
-      <div class="wfRow">
-        <button class="wfBtn" onclick="wfPinAction('start')">Start (PIN)</button>
-        <button class="wfBtn" onclick="wfPinAction('complete')">Complete (PIN)</button>
-      </div>
-      <div class="wfRow">
-        <button class="wfBtn" onclick="wfPinAction('qc')">QC (PIN)</button>
-        <button class="wfBtn blue" onclick="wfInvoice()">Invoice</button>
-      </div>
-      <div class="wfRow">
-        <input id="wjPct" class="wfIn" type="number" placeholder="Progress %" min="0" max="100">
-        <button class="wfBtn blue" onclick="wfSetProgress()">Update</button>
-      </div>
-      <div id="wjResult"></div>
     </div>
+
+    <div id="wfRes"></div>
   </div>
 </div>
 
 <script>
-var _wfMode='quote', _wfSigData='', _wfSigPad=null, _wfSigCtx=null, _wfDraw=false;
+var _wfJob=null, _wfQuote=null, _wfSigData='', _wfSigPad=null, _wfSigCtx=null, _wfDraw=false, _wfSigTarget=null;
 
-function wfToggle(){var p=document.getElementById('wfPanel');p.style.display=p.style.display==='block'?'none':'block';}
-function wfMode(m){_wfMode=m;document.querySelectorAll('.wfTab').forEach(function(t){t.classList.toggle('active',t.dataset.t===m);});
-document.getElementById('wfQuote').style.display=m==='quote'?'block':'none';
-document.getElementById('wfVehicle').style.display=m==='vehicle'?'block':'none';
-document.getElementById('wfJob').style.display=m==='job'?'block':'none';}
+async function wfPost(p,b){ var r=await fetch('/api/workflow'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); var t=await r.text(); try{return JSON.parse(t);}catch(e){return {detail:'Server error: '+t.slice(0,200)};} }
+async function wfGet(p){ var r=await fetch('/api/workflow'+p); var t=await r.text(); try{return JSON.parse(t);}catch(e){return {detail:'Server error: '+t.slice(0,200)};} }
+function wfOpen(){ document.getElementById('wfModal').style.display='block'; }
+function wfClose(){ document.getElementById('wfModal').style.display='none'; }
+function wfRes(txt){ var e=document.getElementById('wfRes'); e.textContent=txt; e.style.display='block'; }
 
-async function wfPost(path,body){var r=await fetch('/api/workflow'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json();}
-async function wfGet(path){var r=await fetch('/api/workflow'+path);return r.json();}
-function wfShow(id,html){var el=document.getElementById(id);el.innerHTML=html;el.style.display='block';}
-
-// ─── SIGNATURE ───
-function wfOpenSig(){
-document.getElementById('wfSigWrap').style.display='block';
-_wfSigPad=document.getElementById('wfSigPad');
-_wfSigCtx=_wfSigPad.getContext('2d');
-_wfSigCtx.strokeStyle='#000';_wfSigCtx.lineWidth=2.5;_wfSigCtx.lineCap='round';
-var getP=function(e){var r=_wfSigPad.getBoundingClientRect();var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;var y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return{x:x*(_wfSigPad.width/r.width),y:y*(_wfSigPad.height/r.height)};};
-_wfSigPad.onmousedown=_wfSigPad.ontouchstart=function(e){_wfDraw=true;var p=getP(e);_wfSigCtx.beginPath();_wfSigCtx.moveTo(p.x,p.y);e.preventDefault();};
-_wfSigPad.onmousemove=_wfSigPad.ontouchmove=function(e){if(!_wfDraw)return;var p=getP(e);_wfSigCtx.lineTo(p.x,p.y);_wfSigCtx.stroke();e.preventDefault();};
-_wfSigPad.onmouseup=_wfSigPad.ontouchend=function(){_wfDraw=false;};
-}
-function wfSigClear(){_wfSigCtx.clearRect(0,0,_wfSigPad.width,_wfSigPad.height);_wfSigData='';document.getElementById('wfQuoteBtn').disabled=true;}
-function wfSigSave(){_wfSigData=_wfSigPad.toDataURL('image/png');document.getElementById('wfSigPreview').innerHTML='<img src="'+_wfSigData+'" style="width:100%;border:1px solid #334155;border-radius:10px;background:#fff">';document.getElementById('wfSigWrap').style.display='none';document.getElementById('wfQuoteBtn').disabled=false;}
-
-// ─── QUOTE SUBMIT ───
-async function wfPost(path,body){
-  var r=await fetch('/api/workflow'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  var t=await r.text();
-  try{return JSON.parse(t);}
-  catch(e){return {detail:'Server error: '+t.slice(0,200)};}
-}
-var d=await wfPost('/quote-sign',{
-customer:document.getElementById('wqCust').value.trim(),
-phone:document.getElementById('wqPhone').value.trim(),
-registration:document.getElementById('wqReg').value.trim().toUpperCase(),
-km:parseInt(document.getElementById('wqKm').value)||0,
-make:document.getElementById('wqMake').value.trim(),
-model:document.getElementById('wqModel').value.trim(),
-description:document.getElementById('wqDesc').value.trim(),
-labour:parseFloat(document.getElementById('wqLabour').value)||0,
-parts:parseFloat(document.getElementById('wqParts').value)||0,
-signature:_wfSigData
-});
-if(d.success){wfShow('wfResult','Job created: #'+d.job_id+'\nQuote: #'+d.quote_id);
-['wqCust','wqPhone','wqReg','wqKm','wqMake','wqModel','wqDesc','wqLabour','wqParts'].forEach(function(i){document.getElementById(i).value='';});
-_wfSigData='';document.getElementById('wfSigPreview').innerHTML='';}
-else{wfShow('wfResult','Error: '+(d.detail||JSON.stringify(d)));}
-}catch(e){wfShow('wfResult','Error: '+e.message);}
-b.disabled=false;b.textContent='Approve & Create Job';
+// ═══ NEW QUOTE ═══
+function wfOpenNewQuote(){
+  _wfJob=null; _wfQuote=null;
+  document.getElementById('wfTitle').textContent='New Quote';
+  document.getElementById('wfQuoteCreate').style.display='block';
+  document.getElementById('wfQuoteView').style.display='none';
+  document.getElementById('wfJobView').style.display='none';
+  document.getElementById('wfRes').style.display='none';
+  wfOpen();
 }
 
-// ─── VEHICLE LOOKUP ───
-async function wfLookupVehicle(){
-var reg=document.getElementById('wvReg').value.trim().toUpperCase();
-if(!reg){alert('Enter registration');return;}
-var d=await wfGet('/vehicle/'+reg);
-if(!d.vehicle){wfShow('wvResult','No record for '+reg);return;}
-var v=d.vehicle;
-var h='<div style="font-weight:700;margin-bottom:6px;">'+v.registration+'</div>'+
-(v.make||v.model?'<div>'+v.make+' '+v.model+' '+(v.year||'')+'</div>':'')+
-(v.last_km?'<div>Last km: '+v.last_km+'</div>':'');
-if(d.history&&d.history.length){h+='<div style="margin-top:8px;font-weight:600;">History</div>';
-d.history.forEach(function(j){h+='<div style="padding:6px 0;border-top:1px solid #1e2938;">#'+j.id+' — '+j.status+' — '+(j.complaint||'').slice(0,40)+'</div>';});}
-wfShow('wvResult',h);
+async function wfCreateQuote(){
+  var b=event.target; b.disabled=true; b.textContent='Saving...';
+  var d=await wfPost('/quote-create',{
+    customer:document.getElementById('wqCust').value.trim(),
+    phone:document.getElementById('wqPhone').value.trim(),
+    registration:document.getElementById('wqReg').value.trim().toUpperCase(),
+    km:parseInt(document.getElementById('wqKm').value)||0,
+    make:document.getElementById('wqMake').value.trim(),
+    model:document.getElementById('wqModel').value.trim(),
+    description:document.getElementById('wqDesc').value.trim(),
+    labour:parseFloat(document.getElementById('wqLabour').value)||0,
+    parts:parseFloat(document.getElementById('wqParts').value)||0
+  });
+  if(d.success){
+    wfRes('Quote #'+d.quote_id+' saved as draft');
+    ['wqCust','wqPhone','wqReg','wqKm','wqMake','wqModel','wqDesc','wqLabour','wqParts'].forEach(function(i){document.getElementById(i).value='';});
+    if(typeof wfRefresh==='function') setTimeout(wfRefresh,600);
+    setTimeout(function(){ wfOpenQuote(d.quote_id); },800);
+  } else { wfRes('Error: '+(d.detail||JSON.stringify(d))); }
+  b.disabled=false; b.textContent='Save Quote (Draft)';
 }
 
-// ─── JOB ACTIONS ───
-function wfLoadJob(){
-var jid=document.getElementById('wjId').value.trim();
-if(!jid){alert('Enter job id');return;}
-wfGet('/job/'+jid).then(function(d){
-if(d.detail){wfShow('wjResult','Not found');return;}
-var j=d.job;
-var h='<div style="font-weight:700;">#'+j.id+' — '+j.status+'</div>'+
-'<div>Customer: '+(j.customer||'')+'</div>'+
-'<div>Vehicle: '+(j.vehicle||'')+'</div>'+
-'<div>Assigned: '+(j.assigned_to||'—')+'</div>'+
-'<div>Progress: '+(j.progress||0)+'%</div>'+
-'<div>Started by: '+(j.tech_started_by||'—')+'</div>'+
-'<div>Completed by: '+(j.tech_completed_by||'—')+'</div>'+
-'<div>QC by: '+(j.qc_by||'—')+'</div>';
-wfShow('wjResult',h);
-});}
+// ═══ OPEN EXISTING QUOTE ═══
+async function wfOpenQuote(qid){
+  _wfQuote=qid; _wfJob=null;
+  document.getElementById('wfTitle').textContent='Quote #'+qid;
+  document.getElementById('wfQuoteCreate').style.display='none';
+  document.getElementById('wfQuoteView').style.display='block';
+  document.getElementById('wfJobView').style.display='none';
+  document.getElementById('wfRes').style.display='none';
+  document.getElementById('wfQuoteActions').innerHTML='Loading...';
+  document.getElementById('wfSigArea').innerHTML='';
+  wfOpen();
+  var d=await wfGet('/quote/'+qid);
+  if(!d.quote){ document.getElementById('wfQuoteActions').innerHTML='Quote not found'; return; }
+  wfRenderQuote(d.quote);
+}
 
-async function wfAssign(){
-var jid=document.getElementById('wjId').value.trim();
-var tech=prompt('Technician name:');
-if(!tech||!jid)return;
-var d=await wfPost('/assign/'+jid,{tech:tech});
-wfShow('wjResult',d.success?'Assigned to '+tech:'Error: '+(d.detail||''));}
+function wfRenderQuote(q){
+  var st=q.status||'draft';
+  var badge={draft:'Draft',customer_signed:'Awaiting Owner',approved:'Approved'}[st]||st;
+  var cls={draft:'badge-draft',customer_signed:'badge-csigned',approved:'badge-approved'}[st]||'badge-draft';
+  document.getElementById('wfQuoteInfo').innerHTML=
+    '<div><b>'+q.customer+'</b> — '+q.vehicle+' '+q.registration+'</div>'+
+    '<div>'+q.description+'</div>'+
+    '<div>Total: <b>R'+(q.total||0).toFixed(2)+'</b> <span id="wfBadge" class="'+cls+'">'+badge+'</span></div>';
 
-async function wfPinAction(action){
-var jid=document.getElementById('wjId').value.trim();
-if(!jid){alert('Enter job id');return;}
-var pin=prompt('Technician/Manager 4-digit PIN:');
-if(!pin)return;
-var d=await wfPost('/'+action+'/'+jid,{pin:pin});
-if(d.success){wfShow('wjResult','OK — '+JSON.stringify(d));}else{wfShow('wjResult','Error: '+(d.detail||JSON.stringify(d)));}}
+  var h='';
+  if(st==='draft'){
+    h+='<div style="font-size:12px;color:#7b8da3;margin-bottom:8px;">Hand the phone to the customer to sign</div>';
+    h+='<button class="wfBtn" onclick="wfOpenSig(\'customer\')">Customer Signature</button>';
+  } else if(st==='customer_signed'){
+    h+='<div style="font-size:12px;color:#7b8da3;margin-bottom:8px;">Customer signed ✓ — now hand to owner/manager</div>';
+    h+='<button class="wfBtn blue" onclick="wfOpenSig(\'owner\')">Owner Approval Signature</button>';
+  } else if(st==='approved'){
+    h+='<div style="text-align:center;color:#10b981;font-weight:700;padding:12px;">Approved — job created</div>';
+    if(q.job_id) h+='<button class="wfBtn dark" onclick="wfOpenJob(\''+q.job_id+'\')">Open Job #'+q.job_id+'</button>';
+  }
+  document.getElementById('wfQuoteActions').innerHTML=h;
+}
+
+// ═══ SIGNATURE PAD ═══
+function wfOpenSig(target){
+  _wfSigTarget=target;
+  document.getElementById('wfSigArea').innerHTML=
+    '<div style="margin-top:12px;"><canvas id="wfSigPad" class="wfSig" width="600" height="150"></canvas>'+
+    '<div class="wfRow" style="margin-top:8px;">'+
+    '<button class="wfBtn dark" onclick="wfSigClear()">Clear</button>'+
+    '<button class="wfBtn" onclick="wfSigSave()">Confirm Signature</button>'+
+    '</div></div>';
+  _wfSigPad=document.getElementById('wfSigPad');
+  _wfSigCtx=_wfSigPad.getContext('2d');
+  _wfSigCtx.strokeStyle='#000'; _wfSigCtx.lineWidth=2.5; _wfSigCtx.lineCap='round';
+  var getP=function(e){ var r=_wfSigPad.getBoundingClientRect(); var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; var y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x:x*(_wfSigPad.width/r.width),y:y*(_wfSigPad.height/r.height)}; };
+  _wfSigPad.onmousedown=_wfSigPad.ontouchstart=function(e){ _wfDraw=true; var p=getP(e); _wfSigCtx.beginPath(); _wfSigCtx.moveTo(p.x,p.y); e.preventDefault(); };
+  _wfSigPad.onmousemove=_wfSigPad.ontouchmove=function(e){ if(!_wfDraw)return; var p=getP(e); _wfSigCtx.lineTo(p.x,p.y); _wfSigCtx.stroke(); e.preventDefault(); };
+  _wfSigPad.onmouseup=_wfSigPad.ontouchend=function(){ _wfDraw=false; };
+}
+function wfSigClear(){ _wfSigCtx.clearRect(0,0,_wfSigPad.width,_wfSigPad.height); }
+async function wfSigSave(){
+  var sig=_wfSigPad.toDataURL('image/png');
+  var endpoint=_wfSigTarget==='customer'?'/quote-customer-sign/':'/quote-owner-sign/';
+  var d=await wfPost(endpoint+_wfQuote,{signature:sig});
+  if(d.success){
+    if(_wfSigTarget==='customer'){ wfRes('Customer signature captured'); }
+    else { wfRes('Owner approved — job #'+d.job_id+' created and appears in your Jobs list'); }
+    if(typeof wfRefresh==='function') setTimeout(wfRefresh,600);
+    setTimeout(function(){ wfOpenQuote(_wfQuote); },700);
+  } else { wfRes('Error: '+(d.detail||JSON.stringify(d))); }
+}
+
+// ═══ JOB ACTIONS ═══
+async function wfOpenJob(jid){
+  _wfJob=jid; _wfQuote=null;
+  document.getElementById('wfTitle').textContent='Job #'+jid;
+  document.getElementById('wfQuoteCreate').style.display='none';
+  document.getElementById('wfQuoteView').style.display='none';
+  document.getElementById('wfJobView').style.display='block';
+  document.getElementById('wfRes').style.display='none';
+  document.getElementById('wfJobActions').innerHTML='Loading...';
+  wfOpen();
+  var d=await wfGet('/job/'+jid);
+  if(!d.job){ document.getElementById('wfJobActions').innerHTML='Job not found'; return; }
+  wfRenderJob(d.job);
+}
+
+function wfRenderJob(j){
+  var s=j.stage||'Approved';
+  document.getElementById('wfJobInfo').innerHTML=
+    '<div><b>'+(j.customer||'')+'</b> — '+(j.vehicle||'')+' '+(j.registration||'')+'</div>'+
+    '<div>Stage: <b style="color:#10b981">'+s+'</b> | Progress: '+(j.progress||0)+'%</div>'+
+    '<div>Assigned: '+(j.assigned_to||'—')+' | Started: '+(j.tech_started_by||'—')+'</div>'+
+    '<div>Completed: '+(j.tech_completed_by||'—')+' | QC: '+(j.qc_by||'—')+'</div>'+
+    '<div>Invoice: '+(j.invoice_id||'—')+'</div>';
+
+  var next={
+    'Approved':{label:'Assign Technician',act:'assign'},
+    'Assigned':{label:'Start Work (PIN)',act:'start'},
+    'In Progress':{label:'Complete Work (PIN)',act:'complete'},
+    'QC':{label:'QC Pass (PIN)',act:'qc'},
+    'Awaiting QC':{label:'QC Pass (PIN)',act:'qc'},
+    'Ready':{label:'Generate Invoice',act:'invoice'},
+    'Invoiced':{label:'Done',act:'done'}
+  };
+  var n=next[s]||next['Approved'];
+  var h='';
+  if(n.act!=='done') h+='<button class="wfBtn" onclick="wfAction(\''+n.act+'\')">'+n.label+'</button>';
+  else h+='<div style="text-align:center;color:#10b981;font-weight:700;padding:12px;">Job complete</div>';
+  h+='<button class="wfBtn dark" onclick="wfAction(\'assign\')">Reassign</button>';
+  h+='<button class="wfBtn purple" onclick="wfAction(\'timeline\')">View Timeline</button>';
+  document.getElementById('wfJobActions').innerHTML=h;
+}
+
+async function wfAction(act){
+  var jid=_wfJob; if(!jid)return;
+  if(act==='assign'){ var t=prompt('Technician name:'); if(!t)return; var d=await wfPost('/assign/'+jid,{tech:t}); wfRes(d.success?'OK — assigned to '+t:'Error: '+(d.detail||'')); }
+  else if(act==='start'||act==='complete'||act==='qc'){ var p=prompt('4-digit PIN:'); if(!p)return; var d=await wfPost('/'+act+'/'+jid,{pin:p}); wfRes(d.success?'OK — '+(d.tech||d.manager||''):'Error: '+(d.detail||JSON.stringify(d))); }
+  else if(act==='invoice'){ var by=prompt('Invoiced by:')||''; var d=await wfPost('/invoice/'+jid,{by:by}); wfRes(d.success?'Invoice #'+d.invoice_id+' created':'Error: '+(d.detail||'')); }
+  else if(act==='timeline'){ var d=await wfGet('/job/'+jid); var tl=(d.job&&d.job.timeline)||[]; wfRes(tl.join('\n')||'No timeline yet'); return; }
+  if(typeof wfRefresh==='function') setTimeout(wfRefresh,500);
+  setTimeout(function(){ wfOpenJob(jid); },900);
+}
 
 async function wfSetProgress(){
-var jid=document.getElementById('wjId').value.trim();
-var p=document.getElementById('wjPct').value;
-if(!jid||!p){alert('Enter job id and %');return;}
-var d=await wfPost('/progress/'+jid,{progress:p});
-wfShow('wjResult',d.success?'Progress '+d.progress+'%':'Error');}
+  var jid=_wfJob; if(!jid)return;
+  var p=document.getElementById('wfProgIn').value;
+  if(!p){ alert('Enter a %'); return; }
+  var d=await wfPost('/progress/'+jid,{progress:p});
+  wfRes(d.success?'Progress '+d.progress+'%':'Error');
+  if(typeof wfRefresh==='function') setTimeout(wfRefresh,500);
+}
 
-async function wfInvoice(){
-var jid=document.getElementById('wjId').value.trim();
-if(!jid){alert('Enter job id');return;}
-var by=prompt('Invoiced by (name):')||'';
-var d=await wfPost('/invoice/'+jid,{by:by});
-if(d.success){wfShow('wjResult','Invoice #'+d.invoice_id+' created');}else{wfShow('wjResult','Error: '+(d.detail||''));}}
+// ═══ INJECT INTO JOBS TAB ═══
+function wfInject(){
+  var jobs=document.getElementById('jobs');
+  if(!jobs) return;
+  var title=jobs.querySelector('.panel-title');
+  if(!title) return;
 
-// ─── SHOW FAB ONLY ON JOBS TAB ───
-function wfUpdateFab(){
-var fab=document.getElementById('wfFab');if(!fab)return;
-var a=document.querySelector('.panel.active');
-fab.style.display=(a&&a.id==='jobs')?'flex':'none';}
-setTimeout(wfUpdateFab,300);
-document.addEventListener('click',function(e){
-if(e.target.closest('.bnav-item')||e.target.closest('.tile'))setTimeout(wfUpdateFab,80);});
-document.getElementById('wfPanel').addEventListener('click',function(e){if(e.target===this)wfToggle();});
+  // Add "New Quote" + refresh button
+  if(!document.getElementById('wfNewQuoteBtn')){
+    var b=document.createElement('button');
+    b.id='wfNewQuoteBtn';
+    b.className='btn';
+    b.style.cssText='background:linear-gradient(135deg,#10b981,#047857);';
+    b.textContent='+ New Quote (with Signatures)';
+    b.onclick=wfOpenNewQuote;
+    title.parentNode.insertBefore(b,title.nextSibling);
+  }
+
+  // Pending quotes section
+  if(!document.getElementById('wfPendingWrap')){
+    var wrap=document.createElement('div');
+    wrap.id='wfPendingWrap';
+    wrap.style.cssText='margin:16px 0;';
+    title.parentNode.insertBefore(wrap,title.nextSibling.nextSibling);
+    wfRefresh();
+  }
+
+  // Hook job cards to add "⚙ Workflow" button
+  document.querySelectorAll('.card[id^="job-"]').forEach(function(card){
+    if(card.dataset.wfHooked) return;
+    card.dataset.wfHooked='1';
+    var jid=card.id.replace('job-','');
+    var actions=card.querySelector('.no-print');
+    if(!actions) return;
+    var b=document.createElement('button');
+    b.className='btn-sm purple';
+    b.textContent='⚙ Workflow';
+    b.onclick=function(){ wfOpenJob(jid); };
+    actions.appendChild(b);
+  });
+}
+
+async function wfRefresh(){
+  var wrap=document.getElementById('wfPendingWrap');
+  if(!wrap) return;
+  var d=await wfGet('/quotes-pending');
+  var qs=d.quotes||[];
+  if(qs.length===0){ wrap.innerHTML=''; return; }
+  var h='<div style="font-size:12px;color:#7b8da3;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Pending Quotes ('+qs.length+')</div>';
+  qs.forEach(function(q){
+    var st=q.status||'draft';
+    var label={draft:'Awaiting Customer Signature',customer_signed:'Awaiting Owner Approval'}[st]||st;
+    var color={draft:'#6b7280',customer_signed:'#f59e0b'}[st]||'#6b7280';
+    h+='<div class="wfQuoteCard" onclick="wfOpenQuote(\''+q.id+'\')">'+
+       '<div style="font-weight:700;color:#00a8e8;">Quote #'+q.id+'</div>'+
+       '<div style="color:#a5b4c7;font-size:12px;">'+q.customer+' — '+q.vehicle+' '+q.registration+'</div>'+
+       '<div style="color:#e6edf5;font-size:13px;margin-top:4px;">'+q.description+'</div>'+
+       '<div style="font-size:13px;margin-top:6px;">Total: <b>R'+(q.total||0).toFixed(2)+'</b> <span style="color:'+color+';font-weight:700;font-size:11px;"> ● '+label+'</span></div>'+
+       '</div>';
+  });
+  wrap.innerHTML=h;
+}
+
+setInterval(wfInject, 900);
+setTimeout(wfInject, 500);
+document.getElementById('wfModal').addEventListener('click', function(e){ if(e.target===this) wfClose(); });
 </script>
 """
