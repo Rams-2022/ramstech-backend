@@ -68,7 +68,7 @@ async def set_job_status(jid: str, r: Request):
 
 JOB_STATUS_HTML = r"""
 <style>
-#jsFab{position:fixed;bottom:96px;right:18px;width:52px;height:52px;border-radius:50%;
+#jsFab{display:none;position;fixed;bottom:96px;right:18px;width:52px;height:52px;border-radius:50%;
 background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;font-size:22px;
 cursor:pointer;z-index:9996;box-shadow:0 6px 18px rgba(124,58,237,.45);}
 #jsPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;padding:10px;overflow:auto;}
@@ -167,6 +167,19 @@ else{alert('Failed: '+(d.detail||d.reply||'unknown'));}
 .catch(function(e){alert('Error: '+e.message);});
 }
 document.getElementById('jsMove').addEventListener('click',function(e){if(e.target===this)this.style.display='none';});
+setInterval(function(){
+var jp=document.getElementById('jobs');
+if(!jp||document.getElementById('jsInlineBtn'))return;
+var t=jp.querySelector('.panel-title');
+if(!t)return;
+var b=document.createElement('button');
+b.id='jsInlineBtn';
+b.className='btn';
+b.style.cssText='background:linear-gradient(135deg,#7c3aed,#5b21b6);';
+b.textContent='Kanban View';
+b.onclick=function(){jsToggle();};
+t.parentNode.insertBefore(b,t.nextSibling);
+},900);
 </script>
 """
 
