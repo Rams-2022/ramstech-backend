@@ -1,5 +1,5 @@
-"""Workshop workflow: quote draft -> 2 signatures -> job -> tech PIN -> invoice."""
-import uuid
+"""Workshop workflow using ONLY original jobs columns (bypasses Supabase cache bug)."""
+import uuid, json
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 
@@ -45,15 +45,28 @@ def _pin(pin):
     return s
 
 
+def _meta(job):
+    """Read workflow metadata packed in the signature field."""
+    sig = job.get("signature") or ""
+    if sig.startswith("{"):
+        try:
+            return json.loads(sig)
+        except Exception:
+            pass
+    return {"customer_sig": sig, "owner_sig": "", "stage": job.get("status", "New"),
+            "progress": 0, "tech": "", "completed_by": "", "qc_by": ""}
+
+
+def _save_meta(job_id, job, meta):
+    _upd("jobs", job_id, {"signature": json.dumps(meta)})
+
+
 def _tl(job, text):
     tl = list(job.get("timeline") or [])
     tl.append(f"{_now()} — {text}")
     return tl
 
 
-# ═══════════════════════════════════
-# Staff PIN
-# ═══════════════════════════════════
 @router.post("/set-pin")
 async def set_pin(r: Request):
     d = await r.json()
@@ -76,7 +89,7 @@ async def tech_pin(r: Request):
 
 
 # ═══════════════════════════════════
-# Pending quotes = jobs with status "Draft Quote"
+# Pending quotes (uses original 'status' column)
 # ═══════════════════════════════════
 @router.get("/quotes-pending")
 def quotes_pending():
@@ -95,6 +108,8 @@ async def quote_create(r: Request):
         sub = round(labour + parts, 2)
         vat = round(sub * 0.15, 2)
         vtxt = ((d.get("make", "") or "") + " " + (d.get("model", "") or "")).strip()
+        meta = {"customer_sig": "", "owner_sig": "", "stage": "Draft",
+                "progress": 0, "tech": "", "completed_by": "", "qc_by": ""}
         row = {
             "id": jid,
             "customer": d.get("customer", "") or "",
@@ -105,10 +120,9 @@ async def quote_create(r: Request):
             "complaint": d.get("description", "") or "",
             "assigned_to": "",
             "photos": [],
-            "signature": "",
+            "signature": json.dumps(meta),
             "warranty_months": 6,
             "status": "Draft Quote",
-            "stage": "Draft",
             "timeline": [f"{_now()} — Quote drafted"],
             "labour_hours": 0,
             "labour_rate": 450,
@@ -118,7 +132,6 @@ async def quote_create(r: Request):
             "vat": vat,
             "total": round(sub + vat, 2),
             "created": _now(),
-            "progress": 0,
         }
         _ins("jobs", row)
         return {"success": True, "quote_id": jid, "quote": row}
@@ -133,7 +146,8 @@ def quote_get(qid: str):
     q = _get("jobs", qid)
     if not q:
         raise HTTPException(404, "Quote not found")
-    return {"quote": q}
+    meta = _meta(q)
+    return {"quote": q, "meta": meta}
 
 
 @router.post("/quote-customer-sign/{qid}")
@@ -145,8 +159,11 @@ async def quote_customer_sign(qid: str, r: Request):
     q = _get("jobs", qid)
     if not q:
         raise HTTPException(404, "Quote not found")
+    meta = _meta(q)
+    meta["customer_sig"] = sig
+    meta["stage"] = "Awaiting Owner"
     _upd("jobs", qid, {
-        "signature": sig,
+        "signature": json.dumps(meta),
         "status": "Awaiting Owner",
         "timeline": _tl(q, "Customer signature captured"),
     })
@@ -162,22 +179,17 @@ async def quote_owner_sign(qid: str, r: Request):
     q = _get("jobs", qid)
     if not q:
         raise HTTPException(404, "Quote not found")
-
-    cust_sig = q.get("signature") or ""
-    combined = cust_sig + "||OWNER||" + sig
-
+    meta = _meta(q)
+    meta["owner_sig"] = sig
+    meta["stage"] = "Approved"
     _upd("jobs", qid, {
-        "signature": combined,
+        "signature": json.dumps(meta),
         "status": "In Progress",
-        "stage": "Approved",
         "timeline": _tl(q, "Owner approved — job active"),
     })
     return {"success": True, "job_id": qid}
 
 
-# ═══════════════════════════════════
-# Vehicle lookup
-# ═══════════════════════════════════
 @router.get("/vehicle/{reg}")
 def get_vehicle(reg: str):
     reg = reg.upper().strip()
@@ -186,9 +198,6 @@ def get_vehicle(reg: str):
     return {"vehicle": {"registration": reg}, "history": r.data or []}
 
 
-# ═══════════════════════════════════
-# Job workflow
-# ═══════════════════════════════════
 @router.post("/assign/{jid}")
 async def assign(jid: str, r: Request):
     d = await r.json()
@@ -198,9 +207,12 @@ async def assign(jid: str, r: Request):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    meta["tech"] = tech
+    meta["stage"] = "Assigned"
     _upd("jobs", jid, {
         "assigned_to": tech,
-        "stage": "Assigned",
+        "signature": json.dumps(meta),
         "timeline": _tl(job, f"Assigned to {tech}"),
     })
     return {"success": True}
@@ -213,9 +225,11 @@ async def start(jid: str, r: Request):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    meta["stage"] = "In Progress"
     _upd("jobs", jid, {
-        "tech_started_by": s["name"],
-        "status": "In Progress", "stage": "In Progress",
+        "signature": json.dumps(meta),
+        "status": "In Progress",
         "timeline": _tl(job, f"{s['name']} started work"),
     })
     return {"success": True, "tech": s["name"]}
@@ -229,8 +243,10 @@ async def progress(jid: str, r: Request):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    meta["progress"] = pct
     txt = f"Progress {pct}%" + (f" | {note}" if note else "")
-    _upd("jobs", jid, {"progress": pct, "timeline": _tl(job, txt)})
+    _upd("jobs", jid, {"signature": json.dumps(meta), "timeline": _tl(job, txt)})
     return {"success": True, "progress": pct}
 
 
@@ -241,9 +257,13 @@ async def complete(jid: str, r: Request):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    meta["completed_by"] = s["name"]
+    meta["progress"] = 100
+    meta["stage"] = "QC"
     _upd("jobs", jid, {
-        "tech_completed_by": s["name"],
-        "progress": 100, "status": "Awaiting QC", "stage": "QC",
+        "signature": json.dumps(meta),
+        "status": "Awaiting QC",
         "timeline": _tl(job, f"{s['name']} marked complete"),
     })
     return {"success": True, "tech": s["name"]}
@@ -256,9 +276,12 @@ async def qc(jid: str, r: Request):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    meta["qc_by"] = s["name"]
+    meta["stage"] = "Ready"
     _upd("jobs", jid, {
-        "qc_by": s["name"],
-        "status": "Ready for Pickup", "stage": "Ready",
+        "signature": json.dumps(meta),
+        "status": "Ready for Pickup",
         "timeline": _tl(job, f"QC passed by {s['name']}"),
     })
     return {"success": True, "manager": s["name"]}
@@ -285,9 +308,11 @@ async def make_invoice(jid: str, r: Request):
         "job_id": jid, "created": _now(),
     }
     _ins("invoices", inv)
+    meta = _meta(job)
+    meta["stage"] = "Invoiced"
     _upd("jobs", jid, {
-        "invoiced_by": by,
-        "status": "Invoiced", "stage": "Invoiced",
+        "signature": json.dumps(meta),
+        "status": "Invoiced",
         "timeline": _tl(job, f"Invoice #{iid} generated"),
     })
     return {"success": True, "invoice_id": iid, "invoice": inv}
@@ -298,4 +323,5 @@ def full_job(jid: str):
     job = _get("jobs", jid)
     if not job:
         raise HTTPException(404, "Job not found")
-    return {"job": job}
+    meta = _meta(job)
+    return {"job": job, "meta": meta}
