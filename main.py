@@ -22,6 +22,8 @@ tech_router = None
 TECH_HTML = ""
 pwa_router = None
 PWA_HTML = ""
+auth_router = None
+AUTH_LOCK_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -54,6 +56,11 @@ except Exception as _e:
     print(f"[main] pwa unavailable: {_e}")
 
 try:
+    from auth_lock import router as auth_router, AUTH_LOCK_HTML
+except Exception as _e:
+    print(f"[main] auth_lock unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -77,6 +84,8 @@ if tech_router:
     app.include_router(tech_router)
 if pwa_router:
     app.include_router(pwa_router)
+if auth_router:
+    app.include_router(auth_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -149,6 +158,8 @@ async def home():
             inject += WORKFLOW_HTML
         if TECH_HTML:
             inject += TECH_HTML
+        if AUTH_LOCK_HTML:
+            inject += AUTH_LOCK_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -173,6 +184,7 @@ def debug_env():
         "OPENAI_API_KEY_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
         "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY", "").strip()),
         "OLP_API_KEY_set": bool(os.getenv("OLP_API_KEY", "").strip()),
+        "OWNER_PIN_set": bool(os.getenv("OWNER_PIN", "").strip()),
     }
 
 
