@@ -19,6 +19,8 @@ except Exception as _e:
 ai_router = None
 try:
     from ai_endpoints import router as ai_router
+  from workflow import router as workflow_router
+from workflow_ui import WORKFLOW_HTML
 except Exception as _e:
     print(f"[main] ai_endpoints unavailable: {_e}")
 
@@ -44,6 +46,8 @@ except Exception as _e:
 app = FastAPI(title="RamsTech")
 if ai_router:
     app.include_router(ai_router)
+if workflow_router:
+    app.include_router(workflow_router)
 if job_status_router:
     app.include_router(job_status_router)
 if workshop_router:
@@ -84,13 +88,12 @@ def get_workshop_data():
     return WORKSHOP
 def save_workshop_data(d):
     if db.is_ready(): return db.save_workshop(d)
-    WORKSHOP.update(d); return d
+    WORKSHOP.update(d); return 
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
-    # Only inject at the LAST </body> (true page end), not every </body>
     idx = html.rfind("</body>")
     if idx != -1:
         inject = ""
@@ -98,6 +101,8 @@ async def home():
             inject += JOB_STATUS_HTML
         if AI_PANEL_HTML:
             inject += AI_PANEL_HTML
+        if WORKFLOW_HTML:
+            inject += WORKFLOW_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
