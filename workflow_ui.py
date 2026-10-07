@@ -145,9 +145,12 @@ function wfSigClear(){_wfSigCtx.clearRect(0,0,_wfSigPad.width,_wfSigPad.height);
 function wfSigSave(){_wfSigData=_wfSigPad.toDataURL('image/png');document.getElementById('wfSigPreview').innerHTML='<img src="'+_wfSigData+'" style="width:100%;border:1px solid #334155;border-radius:10px;background:#fff">';document.getElementById('wfSigWrap').style.display='none';document.getElementById('wfQuoteBtn').disabled=false;}
 
 // ─── QUOTE SUBMIT ───
-async function wfSubmitQuote(){
-var b=document.getElementById('wfQuoteBtn');b.disabled=true;b.textContent='Creating...';
-try{
+async function wfPost(path,body){
+  var r=await fetch('/api/workflow'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var t=await r.text();
+  try{return JSON.parse(t);}
+  catch(e){return {detail:'Server error: '+t.slice(0,200)};}
+}
 var d=await wfPost('/quote-sign',{
 customer:document.getElementById('wqCust').value.trim(),
 phone:document.getElementById('wqPhone').value.trim(),
