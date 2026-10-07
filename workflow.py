@@ -46,7 +46,6 @@ def _pin(pin):
 
 
 def _meta(job):
-    """Read workflow metadata packed in the signature field."""
     sig = job.get("signature") or ""
     if sig.startswith("{"):
         try:
@@ -54,11 +53,7 @@ def _meta(job):
         except Exception:
             pass
     return {"customer_sig": sig, "owner_sig": "", "stage": job.get("status", "New"),
-            "progress": 0, "tech": "", "completed_by": "", "qc_by": ""}
-
-
-def _save_meta(job_id, job, meta):
-    _upd("jobs", job_id, {"signature": json.dumps(meta)})
+            "progress": 0, "tech": "", "started_by": "", "completed_by": "", "qc_by": ""}
 
 
 def _tl(job, text):
@@ -88,9 +83,6 @@ async def tech_pin(r: Request):
     return {"staff_id": s["id"], "name": s["name"], "role": s.get("role", "")}
 
 
-# ═══════════════════════════════════
-# Pending quotes (uses original 'status' column)
-# ═══════════════════════════════════
 @router.get("/quotes-pending")
 def quotes_pending():
     r = _c().table("jobs").select("*").in_(
@@ -109,7 +101,7 @@ async def quote_create(r: Request):
         vat = round(sub * 0.15, 2)
         vtxt = ((d.get("make", "") or "") + " " + (d.get("model", "") or "")).strip()
         meta = {"customer_sig": "", "owner_sig": "", "stage": "Draft",
-                "progress": 0, "tech": "", "completed_by": "", "qc_by": ""}
+                "progress": 0, "tech": "", "started_by": "", "completed_by": "", "qc_by": ""}
         row = {
             "id": jid,
             "customer": d.get("customer", "") or "",
@@ -227,6 +219,7 @@ async def start(jid: str, r: Request):
         raise HTTPException(404, "Job not found")
     meta = _meta(job)
     meta["stage"] = "In Progress"
+    meta["started_by"] = s["name"]
     _upd("jobs", jid, {
         "signature": json.dumps(meta),
         "status": "In Progress",
