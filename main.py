@@ -20,6 +20,8 @@ WORKFLOW_HTML = ""
 invoice_router = None
 tech_router = None
 TECH_HTML = ""
+pwa_router = None
+PWA_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -47,6 +49,11 @@ except Exception as _e:
     print(f"[main] workflow unavailable: {_e}")
 
 try:
+    from pwa import router as pwa_router, PWA_HTML
+except Exception as _e:
+    print(f"[main] pwa unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -68,6 +75,8 @@ if invoice_router:
     app.include_router(invoice_router)
 if tech_router:
     app.include_router(tech_router)
+if pwa_router:
+    app.include_router(pwa_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -140,6 +149,8 @@ async def home():
             inject += WORKFLOW_HTML
         if TECH_HTML:
             inject += TECH_HTML
+        if PWA_HTML:
+            inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
