@@ -1,4 +1,4 @@
-"""Workshop workflow: draft quote -> customer sign -> owner sign -> job -> invoice."""
+"""Workshop workflow: quote draft -> 2 signatures -> job -> tech PIN -> invoice."""
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
@@ -51,6 +51,9 @@ def _tl(job, text):
     return tl
 
 
+# ═══════════════════════════════════
+# Staff PIN
+# ═══════════════════════════════════
 @router.post("/set-pin")
 async def set_pin(r: Request):
     d = await r.json()
@@ -65,13 +68,20 @@ async def set_pin(r: Request):
     return {"success": True}
 
 
+@router.post("/tech-pin")
+async def tech_pin(r: Request):
+    d = await r.json()
+    s = _pin(d.get("pin"))
+    return {"staff_id": s["id"], "name": s["name"], "role": s.get("role", "")}
+
+
 # ═══════════════════════════════════
-# QUOTES — pending list for jobs tab
+# Pending quotes = jobs with status "Draft Quote"
 # ═══════════════════════════════════
 @router.get("/quotes-pending")
 def quotes_pending():
-    r = _c().table("quotes").select("*").in_(
-        "status", ["draft", "customer_signed"]).order("created", desc=True).execute()
+    r = _c().table("jobs").select("*").in_(
+        "status", ["Draft Quote", "Awaiting Owner"]).order("created", desc=True).execute()
     return {"quotes": r.data or []}
 
 
@@ -79,35 +89,51 @@ def quotes_pending():
 async def quote_create(r: Request):
     try:
         d = await r.json()
-        qid = str(uuid.uuid4())[:8]
+        jid = str(uuid.uuid4())[:8]
         labour = float(d.get("labour", 0) or 0)
         parts = float(d.get("parts", 0) or 0)
         sub = round(labour + parts, 2)
         vat = round(sub * 0.15, 2)
+        vtxt = ((d.get("make", "") or "") + " " + (d.get("model", "") or "")).strip()
         row = {
-            "id": qid,
+            "id": jid,
             "customer": d.get("customer", "") or "",
             "phone": d.get("phone", "") or "",
-            "vehicle": ((d.get("make", "") or "") + " " + (d.get("model", "") or "")).strip(),
+            "vehicle": vtxt or (d.get("registration", "") or ""),
             "registration": (d.get("registration") or "").upper(),
-            "make": d.get("make", "") or "",
-            "model": d.get("model", "") or "",
-            "description": d.get("description", "") or "",
-            "labour": labour,
-            "parts": parts,
+            "km": int(d.get("km") or 0),
+            "complaint": d.get("description", "") or "",
+            "assigned_to": "",
+            "photos": [],
+            "signature": "",
+            "warranty_months": 6,
+            "status": "Draft Quote",
+            "stage": "Draft",
+            "timeline": [f"{_now()} — Quote drafted"],
+            "labour_hours": 0,
+            "labour_rate": 450,
+            "parts_cost": parts,
+            "labour_cost": labour,
             "subtotal": sub,
             "vat": vat,
             "total": round(sub + vat, 2),
-            "status": "draft",
             "created": _now(),
+            "progress": 0,
         }
-        result = _c().table("quotes").insert(row).execute()
-        return {"success": True, "quote_id": qid, "quote": row}
+        _ins("jobs", row)
+        return {"success": True, "quote_id": jid, "quote": row}
     except Exception as e:
         import traceback
-        tb = traceback.format_exc()
-        print(f"[quote-create ERROR]\n{tb}")
+        print(f"[quote-create ERROR]\n{traceback.format_exc()}")
         return {"success": False, "detail": f"{type(e).__name__}: {str(e)}"}
+
+
+@router.get("/quote/{qid}")
+def quote_get(qid: str):
+    q = _get("jobs", qid)
+    if not q:
+        raise HTTPException(404, "Quote not found")
+    return {"quote": q}
 
 
 @router.post("/quote-customer-sign/{qid}")
@@ -116,13 +142,13 @@ async def quote_customer_sign(qid: str, r: Request):
     sig = d.get("signature") or ""
     if not sig:
         raise HTTPException(400, "signature required")
-    q = _get("quotes", qid)
+    q = _get("jobs", qid)
     if not q:
         raise HTTPException(404, "Quote not found")
-    _upd("quotes", qid, {
-        "signature_customer": sig,
-        "customer_signed_at": datetime.utcnow().isoformat(),
-        "status": "customer_signed",
+    _upd("jobs", qid, {
+        "signature": sig,
+        "status": "Awaiting Owner",
+        "timeline": _tl(q, "Customer signature captured"),
     })
     return {"success": True}
 
@@ -133,71 +159,35 @@ async def quote_owner_sign(qid: str, r: Request):
     sig = d.get("signature") or ""
     if not sig:
         raise HTTPException(400, "signature required")
-    q = _get("quotes", qid)
+    q = _get("jobs", qid)
     if not q:
         raise HTTPException(404, "Quote not found")
-    _upd("quotes", qid, {
-        "signature_owner": sig,
-        "owner_signed_at": datetime.utcnow().isoformat(),
-        "status": "approved",
+
+    cust_sig = q.get("signature") or ""
+    combined = cust_sig + "||OWNER||" + sig
+
+    _upd("jobs", qid, {
+        "signature": combined,
+        "status": "In Progress",
+        "stage": "Approved",
+        "timeline": _tl(q, "Owner approved — job active"),
     })
-
-    reg = (q.get("registration") or "").upper()
-    v = _c().table("vehicles").select("id").eq("registration", reg).execute()
-    vid = v.data[0]["id"] if v.data else None
-
-    jid = str(uuid.uuid4())[:8]
-    job = {
-        "id": jid, "customer": q.get("customer", ""),
-        "phone": q.get("phone", ""),
-        "vehicle": q.get("vehicle", "") or reg,
-        "registration": reg,
-        "km": int(q.get("km") or 0),
-        "complaint": q.get("description", ""),
-        "assigned_to": "", "photos": [],
-        "signature": q.get("signature_customer", ""),
-        "warranty_months": 6,
-        "status": "In Progress", "stage": "Approved",
-        "timeline": [f"{_now()} — Quote #{qid} approved (customer + owner signed)"],
-        "labour_hours": 0, "labour_rate": 450,
-        "parts_cost": float(q.get("parts") or 0),
-        "labour_cost": float(q.get("labour") or 0),
-        "subtotal": float(q.get("subtotal") or 0),
-        "vat": float(q.get("vat") or 0),
-        "total": float(q.get("total") or 0),
-        "created": _now(),
-        "vehicle_id": vid, "quote_id": qid, "progress": 0,
-    }
-    _ins("jobs", job)
-    _upd("quotes", qid, {"job_id": jid})
-    return {"success": True, "job_id": jid}
-
-
-@router.get("/quote/{qid}")
-def quote_get(qid: str):
-    q = _get("quotes", qid)
-    if not q:
-        raise HTTPException(404, "Quote not found")
-    return {"quote": q}
+    return {"success": True, "job_id": qid}
 
 
 # ═══════════════════════════════════
-# VEHICLE lookup
+# Vehicle lookup
 # ═══════════════════════════════════
 @router.get("/vehicle/{reg}")
 def get_vehicle(reg: str):
     reg = reg.upper().strip()
-    r = _c().table("vehicles").select("*").eq("registration", reg).execute()
-    v = r.data[0] if r.data else None
-    if not v:
-        return {"vehicle": None}
-    h = _c().table("jobs").select("id,created,complaint,status,total")\
+    r = _c().table("jobs").select("id,created,complaint,status,total")\
         .eq("registration", reg).order("created", desc=True).limit(20).execute()
-    return {"vehicle": v, "history": h.data or []}
+    return {"vehicle": {"registration": reg}, "history": r.data or []}
 
 
 # ═══════════════════════════════════
-# JOB workflow actions
+# Job workflow
 # ═══════════════════════════════════
 @router.post("/assign/{jid}")
 async def assign(jid: str, r: Request):
@@ -210,7 +200,6 @@ async def assign(jid: str, r: Request):
         raise HTTPException(404, "Job not found")
     _upd("jobs", jid, {
         "assigned_to": tech,
-        "assigned_at": datetime.utcnow().isoformat(),
         "stage": "Assigned",
         "timeline": _tl(job, f"Assigned to {tech}"),
     })
@@ -226,7 +215,6 @@ async def start(jid: str, r: Request):
         raise HTTPException(404, "Job not found")
     _upd("jobs", jid, {
         "tech_started_by": s["name"],
-        "started_at": datetime.utcnow().isoformat(),
         "status": "In Progress", "stage": "In Progress",
         "timeline": _tl(job, f"{s['name']} started work"),
     })
@@ -255,7 +243,6 @@ async def complete(jid: str, r: Request):
         raise HTTPException(404, "Job not found")
     _upd("jobs", jid, {
         "tech_completed_by": s["name"],
-        "completed_at": datetime.utcnow().isoformat(),
         "progress": 100, "status": "Awaiting QC", "stage": "QC",
         "timeline": _tl(job, f"{s['name']} marked complete"),
     })
@@ -270,7 +257,7 @@ async def qc(jid: str, r: Request):
     if not job:
         raise HTTPException(404, "Job not found")
     _upd("jobs", jid, {
-        "qc_by": s["name"], "qc_at": datetime.utcnow().isoformat(),
+        "qc_by": s["name"],
         "status": "Ready for Pickup", "stage": "Ready",
         "timeline": _tl(job, f"QC passed by {s['name']}"),
     })
@@ -299,9 +286,9 @@ async def make_invoice(jid: str, r: Request):
     }
     _ins("invoices", inv)
     _upd("jobs", jid, {
-        "invoiced_by": by, "invoiced_at": datetime.utcnow().isoformat(),
-        "status": "Invoiced", "stage": "Invoiced", "invoice_id": iid,
-        "timeline": _tl(job, f"Invoice #{iid} generated" + (f" by {by}" if by else "")),
+        "invoiced_by": by,
+        "status": "Invoiced", "stage": "Invoiced",
+        "timeline": _tl(job, f"Invoice #{iid} generated"),
     })
     return {"success": True, "invoice_id": iid, "invoice": inv}
 
