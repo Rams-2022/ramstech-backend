@@ -1,4 +1,4 @@
-"""Workshop workflow: quote+sign -> job -> tech PIN -> QC -> invoice."""
+"""Workshop workflow: draft quote -> customer sign -> owner sign -> job -> invoice."""
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
@@ -65,6 +65,114 @@ async def set_pin(r: Request):
     return {"success": True}
 
 
+# ═══════════════════════════════════
+# QUOTES — pending list for jobs tab
+# ═══════════════════════════════════
+@router.get("/quotes-pending")
+def quotes_pending():
+    r = _c().table("quotes").select("*").in_(
+        "status", ["draft", "customer_signed"]).order("created", desc=True).execute()
+    return {"quotes": r.data or []}
+
+
+@router.post("/quote-create")
+async def quote_create(r: Request):
+    d = await r.json()
+    qid = str(uuid.uuid4())[:8]
+    labour = float(d.get("labour", 0) or 0)
+    parts = float(d.get("parts", 0) or 0)
+    sub = round(labour + parts, 2)
+    vat = round(sub * 0.15, 2)
+    row = {
+        "id": qid, "customer": d.get("customer", ""),
+        "phone": d.get("phone", ""),
+        "vehicle": (d.get("make", "") + " " + d.get("model", "")).strip(),
+        "registration": (d.get("registration") or "").upper(),
+        "make": d.get("make", ""), "model": d.get("model", ""),
+        "km": int(d.get("km") or 0),
+        "description": d.get("description", ""),
+        "labour": labour, "parts": parts,
+        "subtotal": sub, "vat": vat, "total": round(sub + vat, 2),
+        "status": "draft", "created": _now(),
+    }
+    _ins("quotes", row)
+    return {"success": True, "quote_id": qid, "quote": row}
+
+
+@router.post("/quote-customer-sign/{qid}")
+async def quote_customer_sign(qid: str, r: Request):
+    d = await r.json()
+    sig = d.get("signature") or ""
+    if not sig:
+        raise HTTPException(400, "signature required")
+    q = _get("quotes", qid)
+    if not q:
+        raise HTTPException(404, "Quote not found")
+    _upd("quotes", qid, {
+        "signature_customer": sig,
+        "customer_signed_at": datetime.utcnow().isoformat(),
+        "status": "customer_signed",
+    })
+    return {"success": True}
+
+
+@router.post("/quote-owner-sign/{qid}")
+async def quote_owner_sign(qid: str, r: Request):
+    d = await r.json()
+    sig = d.get("signature") or ""
+    if not sig:
+        raise HTTPException(400, "signature required")
+    q = _get("quotes", qid)
+    if not q:
+        raise HTTPException(404, "Quote not found")
+    _upd("quotes", qid, {
+        "signature_owner": sig,
+        "owner_signed_at": datetime.utcnow().isoformat(),
+        "status": "approved",
+    })
+
+    reg = (q.get("registration") or "").upper()
+    v = _c().table("vehicles").select("id").eq("registration", reg).execute()
+    vid = v.data[0]["id"] if v.data else None
+
+    jid = str(uuid.uuid4())[:8]
+    job = {
+        "id": jid, "customer": q.get("customer", ""),
+        "phone": q.get("phone", ""),
+        "vehicle": q.get("vehicle", "") or reg,
+        "registration": reg,
+        "km": int(q.get("km") or 0),
+        "complaint": q.get("description", ""),
+        "assigned_to": "", "photos": [],
+        "signature": q.get("signature_customer", ""),
+        "warranty_months": 6,
+        "status": "In Progress", "stage": "Approved",
+        "timeline": [f"{_now()} — Quote #{qid} approved (customer + owner signed)"],
+        "labour_hours": 0, "labour_rate": 450,
+        "parts_cost": float(q.get("parts") or 0),
+        "labour_cost": float(q.get("labour") or 0),
+        "subtotal": float(q.get("subtotal") or 0),
+        "vat": float(q.get("vat") or 0),
+        "total": float(q.get("total") or 0),
+        "created": _now(),
+        "vehicle_id": vid, "quote_id": qid, "progress": 0,
+    }
+    _ins("jobs", job)
+    _upd("quotes", qid, {"job_id": jid})
+    return {"success": True, "job_id": jid}
+
+
+@router.get("/quote/{qid}")
+def quote_get(qid: str):
+    q = _get("quotes", qid)
+    if not q:
+        raise HTTPException(404, "Quote not found")
+    return {"quote": q}
+
+
+# ═══════════════════════════════════
+# VEHICLE lookup
+# ═══════════════════════════════════
 @router.get("/vehicle/{reg}")
 def get_vehicle(reg: str):
     reg = reg.upper().strip()
@@ -77,81 +185,9 @@ def get_vehicle(reg: str):
     return {"vehicle": v, "history": h.data or []}
 
 
-@router.post("/vehicle")
-async def upsert_vehicle(r: Request):
-    d = await r.json()
-    reg = (d.get("registration") or "").upper().strip()
-    if not reg:
-        raise HTTPException(400, "registration required")
-    payload = {
-        "registration": reg,
-        "customer_id": d.get("customer_id"),
-        "make": d.get("make", ""),
-        "model": d.get("model", ""),
-        "year": int(d.get("year") or 0) or None,
-        "vin": d.get("vin", ""),
-        "engine_type": d.get("engine_type", ""),
-        "colour": d.get("colour", ""),
-        "last_km": int(d.get("last_km") or 0) or None,
-    }
-    ex = _c().table("vehicles").select("*").eq("registration", reg).execute()
-    if ex.data:
-        _upd("vehicles", ex.data[0]["id"], payload)
-        return {"vehicle": _get("vehicles", ex.data[0]["id"])}
-    payload["id"] = str(uuid.uuid4())[:8]
-    return {"vehicle": _ins("vehicles", payload)}
-
-
-@router.post("/tech-pin")
-async def tech_pin(r: Request):
-    d = await r.json()
-    s = _pin(d.get("pin"))
-    return {"staff_id": s["id"], "name": s["name"], "role": s.get("role", "")}
-
-
-@router.post("/quote-sign")
-async def quote_sign(r: Request):
-    d = await r.json()
-    customer = (d.get("customer") or "").strip()
-    reg = (d.get("registration") or "").upper().strip()
-    desc = (d.get("description") or "").strip()
-    sig = d.get("signature") or ""
-    if not customer or not reg or not desc or not sig:
-        raise HTTPException(400, "customer, registration, description, signature required")
-    labour = float(d.get("labour", 0) or 0)
-    parts = float(d.get("parts", 0) or 0)
-    subtotal = round(labour + parts, 2)
-    vat = round(subtotal * 0.15, 2)
-    total = round(subtotal + vat, 2)
-    v = _c().table("vehicles").select("id").eq("registration", reg).execute()
-    vid = v.data[0]["id"] if v.data else None
-    qid = str(uuid.uuid4())[:8]
-    _ins("quotes", {
-        "id": qid, "customer": customer, "vehicle": reg,
-        "description": desc, "labour": labour, "parts": parts,
-        "subtotal": subtotal, "vat": vat, "total": total,
-        "created": _now(),
-    })
-    jid = str(uuid.uuid4())[:8]
-    vtxt = (d.get("make", "") + " " + d.get("model", "")).strip() or reg
-    _ins("jobs", {
-        "id": jid, "customer": customer, "phone": d.get("phone", ""),
-        "vehicle": vtxt, "registration": reg,
-        "km": int(d.get("km") or 0), "complaint": desc,
-        "assigned_to": "", "photos": [], "signature": sig,
-        "warranty_months": int(d.get("warranty_months") or 6),
-        "status": "In Progress", "stage": "Approved",
-        "timeline": [f"{_now()} — Quote #{qid} approved by customer"],
-        "labour_hours": 0,
-        "labour_rate": float(d.get("labour_rate") or 450),
-        "parts_cost": parts, "labour_cost": labour,
-        "subtotal": subtotal, "vat": vat, "total": total,
-        "created": _now(), "vehicle_id": vid, "quote_id": qid,
-        "progress": 0,
-    })
-    return {"success": True, "quote_id": qid, "job_id": jid}
-
-
+# ═══════════════════════════════════
+# JOB workflow actions
+# ═══════════════════════════════════
 @router.post("/assign/{jid}")
 async def assign(jid: str, r: Request):
     d = await r.json()
