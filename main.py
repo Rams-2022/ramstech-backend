@@ -18,6 +18,8 @@ JOB_STATUS_HTML = ""
 workflow_router = None
 WORKFLOW_HTML = ""
 invoice_router = None
+tech_router = None
+TECH_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -40,6 +42,7 @@ try:
     from workflow import router as workflow_router
     from workflow_ui import WORKFLOW_HTML
     from invoice_pdf import router as invoice_router
+    from tech_view import router as tech_router, TECH_HTML
 except Exception as _e:
     print(f"[main] workflow unavailable: {_e}")
 
@@ -63,6 +66,8 @@ if workflow_router:
     app.include_router(workflow_router)
 if invoice_router:
     app.include_router(invoice_router)
+if tech_router:
+    app.include_router(tech_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -133,6 +138,8 @@ async def home():
             inject += AI_PANEL_HTML
         if WORKFLOW_HTML:
             inject += WORKFLOW_HTML
+        if TECH_HTML:
+            inject += TECH_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
