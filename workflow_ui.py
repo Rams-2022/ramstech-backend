@@ -8,7 +8,6 @@ WORKFLOW_HTML = r"""
 .wfBtn.dark{background:#1e2938;}
 .wfBtn.blue{background:#00a8e8;color:#03121c;}
 .wfBtn.purple{background:#8b5cf6;}
-.wfBtn.red{background:#ef4444;}
 .wfRow{display:flex;gap:8px;}
 .wfRow .wfIn{flex:1;}
 .wfSig{border:2px dashed #334155;border-radius:10px;width:100%;height:150px;background:#fff;touch-action:none;}
@@ -17,7 +16,6 @@ WORKFLOW_HTML = r"""
 .badge-draft{background:#6b7280;}
 .badge-csigned{background:#f59e0b;}
 .badge-approved{background:#10b981;}
-#wfPendingWrap{margin:16px 0;}
 .wfQuoteCard{background:#0a1018;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;}
 .wfQuoteCard:active{background:#1e2938;}
 </style>
@@ -218,14 +216,17 @@ function wfRenderJob(j,meta){
     '<div><b>'+(j.customer||'')+'</b> — '+(j.vehicle||'')+' '+(j.registration||'')+'</div>'+
     '<div>Status: <b style="color:#10b981">'+st+'</b> | Progress: '+prog+'%</div>'+
     '<div>Assigned: '+(j.assigned_to||meta.tech||'—')+'</div>'+
+    '<div>Started by: '+(meta.started_by||'—')+'</div>'+
     '<div>Completed by: '+(meta.completed_by||'—')+' | QC: '+(meta.qc_by||'—')+'</div>';
 
   var h='';
-  if(st==='In Progress'&&!j.assigned_to){
-    h+='<button class="wfBtn" onclick="wfAction(\'assign\')">Assign Technician</button>';
-  } else if(st==='In Progress'&&j.assigned_to&&!meta.completed_by){
-    h+='<button class="wfBtn" onclick="wfAction(\'start\')">Start Work (PIN)</button>';
-    h+='<button class="wfBtn blue" onclick="wfAction(\'complete\')">Complete Work (PIN)</button>';
+  if(st==='In Progress'){
+    if(!j.assigned_to){
+      h+='<button class="wfBtn" onclick="wfAction(\'assign\')">Assign Technician</button>';
+    } else if(!meta.completed_by){
+      h+='<button class="wfBtn" onclick="wfAction(\'start\')">Start Work (PIN)</button>';
+      h+='<button class="wfBtn blue" onclick="wfAction(\'complete\')">Complete Work (PIN)</button>';
+    }
   } else if(st==='Awaiting QC'){
     h+='<button class="wfBtn" onclick="wfAction(\'qc\')">QC Pass (PIN)</button>';
   } else if(st==='Ready for Pickup'){
@@ -234,17 +235,19 @@ function wfRenderJob(j,meta){
     h+='<div style="text-align:center;color:#10b981;font-weight:700;padding:12px;">Job complete</div>';
   } else {
     h+='<button class="wfBtn" onclick="wfAction(\'assign\')">Assign Technician</button>';
-    h+='<button class="wfBtn blue" onclick="wfAction(\'complete\')">Complete Work (PIN)</button>';
-    h+='<button class="wfBtn" onclick="wfAction(\'qc\')">QC (PIN)</button>';
-    h+='<button class="wfBtn blue" onclick="wfAction(\'invoice\')">Invoice</button>';
   }
   h+='<button class="wfBtn dark" onclick="wfAction(\'assign\')">Reassign</button>';
   h+='<button class="wfBtn purple" onclick="wfAction(\'timeline\')">View Timeline</button>';
+  h+='<button class="wfBtn blue" onclick="wfAction(\'print\')">🖨 Print Invoice</button>';
   document.getElementById('wfJobActions').innerHTML=h;
 }
 
 async function wfAction(act){
   var jid=_wfJob;if(!jid)return;
+  if(act==='print'){
+    window.open('/api/workflow/invoice-html/'+jid,'_blank');
+    return;
+  }
   if(act==='assign'){
     var t=prompt('Technician name:');
     if(!t)return;
@@ -307,6 +310,11 @@ function wfInject(){
     var jid=card.id.replace('job-','');
     var actions=card.querySelector('.no-print');
     if(!actions)return;
+    var pb=document.createElement('button');
+    pb.className='btn-sm gray';
+    pb.textContent='🖨 Invoice';
+    pb.onclick=function(){window.open('/api/workflow/invoice-html/'+jid,'_blank');};
+    actions.appendChild(pb);
     var b=document.createElement('button');
     b.className='btn-sm purple';
     b.textContent='⚙ Workflow';
