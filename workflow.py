@@ -92,7 +92,6 @@ async def quote_create(r: Request):
             "registration": (d.get("registration") or "").upper(),
             "make": d.get("make", "") or "",
             "model": d.get("model", "") or "",
-            "km": int(d.get("km") or 0),
             "description": d.get("description", "") or "",
             "labour": labour,
             "parts": parts,
