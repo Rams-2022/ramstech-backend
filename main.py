@@ -10,12 +10,13 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
                   INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
 from pages import HTML_PAGE
 
-# ── Optional modules (fail-safe: app loads even if one is missing) ──
+# ── Optional modules (each in its own fail-safe block) ──
 AI_PANEL_HTML = ""
 ai_router = None
 job_status_router = None
 JOB_STATUS_HTML = ""
 workflow_router = None
+workflow_ui_loaded = False
 WORKFLOW_HTML = ""
 invoice_router = None
 tech_router = None
@@ -24,6 +25,7 @@ pwa_router = None
 PWA_HTML = ""
 auth_router = None
 AUTH_LOCK_HTML = ""
+embed_router = None
 workshop_router = None
 workshop_api_router = None
 
@@ -44,11 +46,23 @@ except Exception as _e:
 
 try:
     from workflow import router as workflow_router
-    from workflow_ui import WORKFLOW_HTML
-    from invoices_pdf import router as invoice_router
-    from tech_view import router as tech_router, TECH_HTML
 except Exception as _e:
     print(f"[main] workflow unavailable: {_e}")
+
+try:
+    from workflow_ui import WORKFLOW_HTML
+except Exception as _e:
+    print(f"[main] workflow_ui unavailable: {_e}")
+
+try:
+    from invoices_pdf import router as invoice_router
+except Exception as _e:
+    print(f"[main] invoices_pdf unavailable: {_e}")
+
+try:
+    from tech_view import router as tech_router, TECH_HTML
+except Exception as _e:
+    print(f"[main] tech_view unavailable: {_e}")
 
 try:
     from pwa import router as pwa_router, PWA_HTML
@@ -59,6 +73,11 @@ try:
     from auth_lock import router as auth_router, AUTH_LOCK_HTML
 except Exception as _e:
     print(f"[main] auth_lock unavailable: {_e}")
+
+try:
+    from embed_helper import router as embed_router
+except Exception as _e:
+    print(f"[main] embed_helper unavailable: {_e}")
 
 try:
     from workshop_routes import router as workshop_router
@@ -86,6 +105,8 @@ if pwa_router:
     app.include_router(pwa_router)
 if auth_router:
     app.include_router(auth_router)
+if embed_router:
+    app.include_router(embed_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
