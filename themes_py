@@ -6,7 +6,7 @@ router = APIRouter()
 THEMES_HTML = r"""
 <style id="multiTheme">
 /* ═══════════════════════════════════════════════════════════════ */
-/* THEME 1: WORKSHOP — current industrial metallic                  */
+/* THEME 1: WORKSHOP — industrial metallic                          */
 /* ═══════════════════════════════════════════════════════════════ */
 body[data-theme="workshop"]{
   --bg-base:#080a0e;
@@ -31,9 +31,7 @@ body[data-theme="workshop"]{
   --font-mono:'JetBrains Mono','Consolas',monospace;
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 2: MIDNIGHT — deep blue professional                       */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 2: MIDNIGHT */
 body[data-theme="midnight"]{
   --bg-base:#05080f;
   --bg-elevated:#0a1424;
@@ -57,9 +55,7 @@ body[data-theme="midnight"]{
   --font-mono:'JetBrains Mono','Consolas',monospace;
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 3: CARBON — racing carbon fiber                            */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 3: CARBON */
 body[data-theme="carbon"]{
   --bg-base:#0a0a0a;
   --bg-elevated:#151515;
@@ -83,9 +79,7 @@ body[data-theme="carbon"]{
   --font-mono:'JetBrains Mono','Consolas',monospace;
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 4: NEON — cyberpunk / synthwave                            */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 4: NEON */
 body[data-theme="neon"]{
   --bg-base:#0a0014;
   --bg-elevated:#15002a;
@@ -112,21 +106,8 @@ body[data-theme="neon"] .header{
   background:linear-gradient(180deg, #2d005f 0%, #0a0014 100%) !important;
   box-shadow:0 0 60px rgba(255,0,255,.4), 0 12px 40px rgba(0,0,0,.9) !important;
 }
-body[data-theme="neon"] .card,
-body[data-theme="neon"] .tile,
-body[data-theme="neon"] .btn{
-  box-shadow:
-    0 0 20px rgba(255,0,255,.2),
-    inset 0 1px 0 rgba(255,0,255,.2),
-    0 6px 20px rgba(0,0,0,.8) !important;
-}
-body[data-theme="neon"] .panel-title{
-  text-shadow:0 0 20px var(--accent), 0 0 40px var(--accent);
-}
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 5: VINTAGE — retro garage / sepia                          */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 5: VINTAGE */
 body[data-theme="vintage"]{
   --bg-base:#1a1410;
   --bg-elevated:#221a14;
@@ -149,19 +130,8 @@ body[data-theme="vintage"]{
   --font-display:'Georgia','Times New Roman',serif;
   --font-mono:'Courier New',monospace;
 }
-body[data-theme="vintage"] .header{
-  background:linear-gradient(180deg, #3d2f22 0%, #1a1410 100%) !important;
-  border-bottom-color:#d97706 !important;
-}
-body[data-theme="vintage"] .card h3,
-body[data-theme="vintage"] .panel-title{
-  font-family:Georgia,serif !important;
-  font-style:italic;
-}
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 6: LIGHT — clean professional light                        */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 6: DAYLIGHT */
 body[data-theme="light"]{
   --bg-base:#f1f5f9;
   --bg-elevated:#ffffff;
@@ -184,10 +154,7 @@ body[data-theme="light"]{
   --font-display:'Inter',-apple-system,sans-serif;
   --font-mono:'JetBrains Mono','Consolas',monospace;
 }
-body[data-theme="light"]{
-  background:#f1f5f9 !important;
-  color:#0f172a !important;
-}
+body[data-theme="light"]{background:#f1f5f9 !important;color:#0f172a !important;}
 body[data-theme="light"]::before,
 body[data-theme="light"]::after{opacity:.3 !important;}
 body[data-theme="light"] .header{
@@ -222,17 +189,11 @@ body[data-theme="light"] select{
   background:#f8fafc !important;
   color:#0f172a !important;
   border:1px solid #cbd5e1 !important;
-  box-shadow:inset 0 1px 3px rgba(0,0,0,.04) !important;
 }
-body[data-theme="light"] .chat-box{background:#f8fafc !important;}
-body[data-theme="light"] .msg.ai{background:#f1f5f9 !important;color:#0f172a !important;}
-body[data-theme="light"] .panel-title::after{opacity:.3;}
 body[data-theme="light"] .card::before,
 body[data-theme="light"] .card::after{display:none;}
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 7: RACING — high-vis motorsport                            */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 7: RACING */
 body[data-theme="racing"]{
   --bg-base:#0d0d0d;
   --bg-elevated:#1a1a1a;
@@ -267,9 +228,7 @@ body[data-theme="racing"] .header{
 }
 body[data-theme="racing"] .panel-title{color:#ffcc00 !important;}
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 8: SAHARA — warm desert sand                               */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 8: SAHARA */
 body[data-theme="sahara"]{
   --bg-base:#1a1410;
   --bg-elevated:#26201a;
@@ -297,9 +256,7 @@ body[data-theme="sahara"] .header{
   border-bottom:3px solid #ea9a3e !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* THEME 9: MATRIX — terminal green                                 */
-/* ═══════════════════════════════════════════════════════════════ */
+/* THEME 9: MATRIX */
 body[data-theme="matrix"]{
   --bg-base:#000000;
   --bg-elevated:#001a00;
@@ -639,18 +596,18 @@ body[data-theme] .card::after{
 
 #themeFab{
   position:fixed;
-  top:80px;
+  top:14px;
   right:14px;
   width:42px;height:42px;
   border-radius:50%;
-  background:linear-gradient(180deg, var(--accent,#ff6b1a) 0%, color-mix(in srgb, var(--accent,#ff6b1a) 60%, black) 100%);
-  border:2px solid rgba(255,255,255,.2);
+  background:linear-gradient(180deg, #2a3141 0%, #080a0e 100%);
+  border:1px solid #4a5568;
   box-shadow:
-    0 6px 20px var(--accent-glow,rgba(255,107,26,.5)),
-    inset 0 1px 0 rgba(255,255,255,.3);
-  color:#fff;
+    inset 0 1px 0 rgba(255,255,255,.15),
+    0 4px 12px rgba(0,0,0,.6);
+  color:#ff9f1c;
   cursor:pointer;
-  z-index:9990;
+  z-index:9999;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -678,15 +635,15 @@ body[data-theme] .card::after{
 
 <script>
 var _themes = [
-  {id:'workshop', name:'Workshop', desc:'Industrial · metal', colors:['#ff6b1a','#00e676','#0a0c10'], accent:'#ff6b1a'},
-  {id:'midnight', name:'Midnight', desc:'Deep blue · pro', colors:['#3b82f6','#22d3a6','#05080f'], accent:'#3b82f6'},
-  {id:'carbon',   name:'Carbon',   desc:'Racing · stealth', colors:['#e60000','#00d26a','#0a0a0a'], accent:'#e60000'},
-  {id:'neon',     name:'Neon',     desc:'Cyberpunk · vivid', colors:['#ff00ff','#00ffff','#0a0014'], accent:'#ff00ff'},
-  {id:'vintage',  name:'Vintage',  desc:'Retro · warm', colors:['#d97706','#f5e6d3','#1a1410'], accent:'#d97706'},
-  {id:'light',    name:'Daylight', desc:'Clean · bright', colors:['#ea580c','#ffffff','#f1f5f9'], accent:'#ea580c'},
-  {id:'racing',   name:'Racing',   desc:'Motorsport · bold', colors:['#ffcc00','#ff0000','#0d0d0d'], accent:'#ffcc00'},
-  {id:'sahara',   name:'Sahara',   desc:'Warm · earth', colors:['#ea9a3e','#9caf3e','#1a1410'], accent:'#ea9a3e'},
-  {id:'matrix',   name:'Matrix',   desc:'Terminal · green', colors:['#00ff00','#00ccff','#000000'], accent:'#00ff00'}
+  {id:'workshop', name:'Workshop', desc:'Industrial', colors:['#ff6b1a','#00e676','#0a0c10'], accent:'#ff6b1a'},
+  {id:'midnight', name:'Midnight', desc:'Deep blue', colors:['#3b82f6','#22d3a6','#05080f'], accent:'#3b82f6'},
+  {id:'carbon',   name:'Carbon',   desc:'Racing', colors:['#e60000','#00d26a','#0a0a0a'], accent:'#e60000'},
+  {id:'neon',     name:'Neon',     desc:'Cyberpunk', colors:['#ff00ff','#00ffff','#0a0014'], accent:'#ff00ff'},
+  {id:'vintage',  name:'Vintage',  desc:'Retro', colors:['#d97706','#f5e6d3','#1a1410'], accent:'#d97706'},
+  {id:'light',    name:'Daylight', desc:'Clean', colors:['#ea580c','#ffffff','#f1f5f9'], accent:'#ea580c'},
+  {id:'racing',   name:'Racing',   desc:'Motorsport', colors:['#ffcc00','#ff0000','#0d0d0d'], accent:'#ffcc00'},
+  {id:'sahara',   name:'Sahara',   desc:'Warm earth', colors:['#ea9a3e','#9caf3e','#1a1410'], accent:'#ea9a3e'},
+  {id:'matrix',   name:'Matrix',   desc:'Terminal', colors:['#00ff00','#00ccff','#000000'], accent:'#00ff00'}
 ];
 
 function buildThemeGrid(){
