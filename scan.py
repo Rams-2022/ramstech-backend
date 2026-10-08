@@ -1,4 +1,4 @@
-"""Barcode + VIN scanning — uses html5-qrcode for reliable detection."""
+"""Barcode + VIN scanning — with inline text input fallback."""
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
@@ -55,10 +55,9 @@ def lookup_vin(vin: str):
 
 
 SCAN_HTML = r"""
-<!-- html5-qrcode — reliable barcode scanning -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-#scanModal{display:none;position:fixed;inset:0;background:#000;z-index:9999;overflow:auto;color:#fff;}
+#scanModal{display:none;position:fixed;inset:0;background:#0a1018;z-index:9999;overflow:auto;color:#fff;}
 #scanInner{max-width:700px;margin:0 auto;padding:16px;min-height:100vh;}
 .scanBtn{width:100%;padding:14px;border:none;border-radius:10px;font-weight:700;
 font-size:15px;cursor:pointer;margin-bottom:8px;text-decoration:none;display:block;text-align:center;}
@@ -74,8 +73,10 @@ font-size:15px;cursor:pointer;margin-bottom:8px;text-decoration:none;display:blo
 .scanHeader{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;
 border-bottom:2px solid #1e2938;margin-bottom:14px;}
 .scanPin{width:100%;padding:14px;background:#0f1520;border:2px solid #1e2938;border-radius:10px;
-color:#fff;font-size:16px;box-sizing:border-box;text-align:center;font-family:monospace;margin:10px 0;}
+color:#fff;font-size:18px;box-sizing:border-box;text-align:center;letter-spacing:2px;
+font-family:monospace;margin:10px 0;text-transform:uppercase;}
 .scanPin:focus{outline:none;border-color:#ec4899;}
+.scanLabel{font-size:12px;color:#7b8da3;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;}
 </style>
 
 <div id="scanModal">
@@ -90,10 +91,19 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 </div>
 
 <div id="scanChoice">
-<button class="scanBtn pink" onclick="scanStart('part')">📷 Scan Part Barcode</button>
-<button class="scanBtn blue" onclick="scanStart('vin')">📷 Scan VIN (Code 39 / PDF417)</button>
-<button class="scanBtn dark" onclick="scanManual('part')">⌨️ Type Part Number</button>
-<button class="scanBtn orange" onclick="scanManual('vin')">⌨️ Type VIN (camera fallback)</button>
+<div class="scanCard">
+<div class="scanLabel">VIN Lookup</div>
+<input id="scanVinInput" class="scanPin" placeholder="17-character VIN" maxlength="17" autocapitalize="characters" autocomplete="off">
+<button class="scanBtn blue" onclick="scanSubmitVin()">🔍 Look up VIN</button>
+<button class="scanBtn dark" onclick="scanStart('vin')">📷 Try camera scan instead</button>
+</div>
+
+<div class="scanCard">
+<div class="scanLabel">Part Lookup</div>
+<input id="scanPartInput" class="scanPin" placeholder="Part number" autocomplete="off">
+<button class="scanBtn pink" onclick="scanSubmitPart()">🔍 Look up Part</button>
+<button class="scanBtn dark" onclick="scanStart('part')">📷 Try camera scan instead</button>
+</div>
 </div>
 
 <div id="scanCamera" style="display:none;">
@@ -113,6 +123,7 @@ var _scanner = null;
 function scanOpen(){
   document.getElementById('scanModal').style.display='block';
   scanReset();
+  setTimeout(function(){ document.getElementById('scanVinInput').focus(); }, 300);
 }
 function scanClose(){
   scanStop();
@@ -122,6 +133,20 @@ function scanReset(){
   document.getElementById('scanChoice').style.display='block';
   document.getElementById('scanCamera').style.display='none';
   document.getElementById('scanResult').innerHTML='';
+  var v = document.getElementById('scanVinInput'); if(v) v.value='';
+  var p = document.getElementById('scanPartInput'); if(p) p.value='';
+}
+
+function scanSubmitVin(){
+  var v = (document.getElementById('scanVinInput').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(v.length !== 17){ alert('VIN must be 17 characters'); return; }
+  scanLookupVin(v);
+}
+
+function scanSubmitPart(){
+  var p = (document.getElementById('scanPartInput').value || '').trim().toUpperCase();
+  if(!p){ alert('Enter a part number'); return; }
+  scanLookupPart(p);
 }
 
 async function scanStart(mode){
@@ -131,57 +156,46 @@ async function scanStart(mode){
   document.getElementById('scanStatus').textContent = 'Starting camera...';
 
   if(typeof Html5Qrcode === 'undefined'){
-    document.getElementById('scanStatus').textContent = 'Scanner library failed to load. Check internet.';
+    document.getElementById('scanStatus').textContent = 'Scanner library failed to load. Use text input above.';
     return;
   }
 
   try {
     _scanner = new Html5Qrcode("scanReader");
     var config = {
-      fps: 10,
-      qrbox: { width: 280, height: 160 },
-      aspectRatio: 1.7
+      fps: 12,
+      qrbox: function(w, h){
+        var size = Math.min(w, h) * 0.7;
+        return { width: size, height: size * 0.6 };
+      },
+      aspectRatio: 1.7,
+      formatsToSupport: mode === 'vin' ? [5, 3, 0, 1] : undefined
     };
 
-    document.getElementById('scanStatus').textContent = 'Point camera at barcode...';
+    document.getElementById('scanStatus').textContent = 'Point camera at ' + (mode === 'vin' ? 'VIN barcode' : 'part barcode') + '...';
 
     await _scanner.start(
       { facingMode: 'environment' },
       config,
       function(decodedText){
-        // Success callback
         scanStop();
         if(_scanMode === 'part') scanLookupPart(decodedText);
         else scanLookupVin(decodedText);
       },
-      function(errorMessage){
-        // Per-frame error — ignore (happens constantly until found)
-      }
+      function(){}
     );
 
   } catch(e){
-    document.getElementById('scanStatus').textContent = 'Camera error: ' + e.message;
+    document.getElementById('scanStatus').textContent = 'Camera error: ' + e.message + '. Use text input above.';
   }
 }
 
 async function scanStop(){
   if(_scanner){
-    try {
-      await _scanner.stop();
-      _scanner.clear();
-    } catch(e){}
+    try { await _scanner.stop(); _scanner.clear(); } catch(e){}
     _scanner = null;
   }
   document.getElementById('scanCamera').style.display='none';
-}
-
-function scanManual(mode){
-  var label = mode==='part' ? 'part number' : 'VIN (17 characters)';
-  var val = prompt('Enter ' + label + ':');
-  if(!val) return;
-  _scanMode = mode;
-  if(mode === 'part') scanLookupPart(val);
-  else scanLookupVin(val);
 }
 
 async function scanLookupPart(code){
@@ -190,7 +204,7 @@ async function scanLookupPart(code){
     var r = await fetch('/api/scan/lookup-part/' + encodeURIComponent(code));
     var d = await r.json();
     var h = '<div class="scanCard">';
-    h += '<div style="font-size:12px;color:#7b8da3;">SCANNED CODE</div>';
+    h += '<div style="font-size:12px;color:#7b8da3;">PART NUMBER</div>';
     h += '<div style="font-size:20px;font-weight:800;color:#ec4899;margin-bottom:10px;">' + d.code + '</div>';
     if(d.inventory && d.inventory.length){
       h += '<div style="font-weight:700;color:#10b981;margin-bottom:6px;">IN YOUR STOCK</div>';
@@ -216,7 +230,7 @@ async function scanLookupPart(code){
     } else {
       h += '<button class="scanBtn orange" style="margin-top:10px;" onclick="scanSearchSupplier(\'' + d.code + '\')">🔍 Search online suppliers for price</button>';
     }
-    h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Scan Another</button>';
+    h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Back</button>';
     h += '</div>';
     document.getElementById('scanResult').innerHTML = h;
   } catch(e){
@@ -250,7 +264,7 @@ async function scanLookupVin(vin){
       h += '<div style="color:#7b8da3;margin-top:10px;">No previous workshop history for this vehicle.</div>';
     }
     h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanCreateJobFromVin(\'' + d.vin + '\',\'' + (d.manufacturer||'') + '\',\'' + (d.year||'') + '\')">➕ Create Job Card for this Vehicle</button>';
-    h += '<button class="scanBtn dark" style="margin-top:6px;" onclick="scanReset()">Scan Another</button>';
+    h += '<button class="scanBtn dark" style="margin-top:6px;" onclick="scanReset()">Back</button>';
     h += '</div>';
     document.getElementById('scanResult').innerHTML = h;
   } catch(e){
@@ -313,8 +327,8 @@ function scanInjectParts(){
   btn.id = 'scanPartBtn';
   btn.className = 'btn';
   btn.style.cssText = 'background:linear-gradient(135deg,#ec4899,#be185d);margin-bottom:10px;';
-  btn.textContent = '📷 Scan Part Barcode';
-  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('part'); }, 400); };
+  btn.textContent = '🔍 Look up Part (scan or type)';
+  btn.onclick = function(){ scanOpen(); };
   title.parentNode.insertBefore(btn, title.nextSibling);
 }
 
@@ -327,8 +341,8 @@ function scanInjectVin(){
   btn.id = 'scanVinBtn';
   btn.className = 'btn';
   btn.style.cssText = 'background:linear-gradient(135deg,#3b82f6,#1d4ed8);margin-bottom:10px;';
-  btn.textContent = '📷 Scan VIN (door jamb or windscreen)';
-  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('vin'); }, 400); };
+  btn.textContent = '🔍 Look up VIN (scan or type)';
+  btn.onclick = function(){ scanOpen(); };
   title.parentNode.insertBefore(btn, title.nextSibling);
 }
 
