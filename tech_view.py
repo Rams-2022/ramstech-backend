@@ -1,4 +1,4 @@
-"""Technician view — PIN login, only their own jobs, simple actions."""
+"""Technician view — PIN login via auth.py, only their own jobs."""
 from fastapi import APIRouter, HTTPException, Request
 import auth
 
