@@ -40,6 +40,8 @@ audit_router = None
 AUDIT_HTML = ""
 design_html = ""
 theme_html = ""
+instant_html = ""
+search_html = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -127,6 +129,16 @@ try:
     from themes import THEMES_HTML as theme_html
 except Exception as _e:
     print(f"[main] themes unavailable: {_e}")
+
+try:
+    from instant_mode import INSTANT_HTML as instant_html
+except Exception as _e:
+    print(f"[main] instant_mode unavailable: {_e}")
+
+try:
+    from smart_search import SMART_SEARCH_HTML as search_html
+except Exception as _e:
+    print(f"[main] smart_search unavailable: {_e}")
 
 try:
     from workshop_routes import router as workshop_router
@@ -263,6 +275,10 @@ async def home():
             inject += design_html
         if theme_html:
             inject += theme_html
+        if instant_html:
+            inject += instant_html
+        if search_html:
+            inject += search_html
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
