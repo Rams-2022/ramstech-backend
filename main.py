@@ -10,7 +10,10 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
                   INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
 from pages import HTML_PAGE
 
-# ── Optional modules (fail-safe) ──
+# ═══════════════════════════════════════════════════════
+# OPTIONAL MODULES — each in its own fail-safe block
+# ═══════════════════════════════════════════════════════
+
 AI_PANEL_HTML = ""
 ai_router = None
 job_status_router = None
@@ -35,6 +38,7 @@ staff_admin_router = None
 STAFF_ADMIN_HTML = ""
 audit_router = None
 AUDIT_HTML = ""
+design_html = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -112,6 +116,11 @@ try:
     from job_audit import router as audit_router, AUDIT_HTML
 except Exception as _e:
     print(f"[main] job_audit unavailable: {_e}")
+
+try:
+    from design_polish import DESIGN_HTML as design_html
+except Exception as _e:
+    print(f"[main] design_polish unavailable: {_e}")
 
 try:
     from workshop_routes import router as workshop_router
@@ -215,6 +224,9 @@ def save_workshop_data(d):
     return d
 
 
+# ═══════════════════════════════════════════════════════
+# HOME — injects all UI modules before </body>
+# ═══════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
@@ -241,12 +253,17 @@ async def home():
             inject += STAFF_ADMIN_HTML
         if AUDIT_HTML:
             inject += AUDIT_HTML
+        if design_html:
+            inject += design_html
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
 
+# ═══════════════════════════════════════════════════════
+# HEALTH & DEBUG
+# ═══════════════════════════════════════════════════════
 @app.get("/health")
 def health():
     return {"status": "healthy",
@@ -266,6 +283,9 @@ def debug_env():
     }
 
 
+# ═══════════════════════════════════════════════════════
+# TRANSLATIONS / STATS / ANALYTICS / WORKSHOP
+# ═══════════════════════════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str):
     return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
@@ -331,6 +351,9 @@ async def save_workshop(r: Request):
     return {"success": True, "workshop": get_workshop_data()}
 
 
+# ═══════════════════════════════════════════════════════
+# STATIC REFERENCE DATA
+# ═══════════════════════════════════════════════════════
 @app.get("/api/fault-codes")
 def list_codes(search: str = None):
     res = list(FAULT_CODES.values())
@@ -433,6 +456,9 @@ def decode_vin(vin: str):
             "year": YEAR_CODES.get(v[9], "Unknown")}
 
 
+# ═══════════════════════════════════════════════════════
+# AI
+# ═══════════════════════════════════════════════════════
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json()
@@ -519,6 +545,9 @@ Respond ONLY valid JSON:
         return {"success": False, "error": str(e)}
 
 
+# ═══════════════════════════════════════════════════════
+# JOBS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/jobs")
 def list_jobs():
     return {"jobs": store_list("jobs")}
@@ -584,6 +613,9 @@ async def set_cost(jid: str, r: Request):
     return {"success": True, "job": job}
 
 
+# ═══════════════════════════════════════════════════════
+# CUSTOMERS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/customers")
 def list_customers():
     return {"customers": store_list("customers")}
@@ -600,6 +632,9 @@ async def create_customer(r: Request):
     return {"success": True, "customer": c}
 
 
+# ═══════════════════════════════════════════════════════
+# APPOINTMENTS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/appointments")
 def list_appts():
     return {"appointments": store_list("appointments")}
@@ -621,6 +656,9 @@ def del_appt(aid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# QUOTES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/quotes")
 def list_quotes():
     return {"quotes": store_list("quotes")}
@@ -664,6 +702,9 @@ def del_quote(qid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# INVOICES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/invoices")
 def list_invoices():
     return {"invoices": store_list("invoices")}
@@ -700,6 +741,9 @@ async def record_payment(iid: str, r: Request):
     return {"success": True, "invoice": inv}
 
 
+# ═══════════════════════════════════════════════════════
+# INVENTORY
+# ═══════════════════════════════════════════════════════
 @app.get("/api/inventory")
 def list_inv():
     return {"items": store_list("inventory")}
@@ -744,6 +788,9 @@ def del_inv(iid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# PURCHASE ORDERS (legacy)
+# ═══════════════════════════════════════════════════════
 @app.get("/api/purchase-orders")
 def list_pos():
     return {"pos": store_list("purchase_orders")}
@@ -777,6 +824,9 @@ def del_po(pid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# STAFF
+# ═══════════════════════════════════════════════════════
 @app.get("/api/staff")
 def list_staff():
     return {"staff": store_list("staff")}
@@ -799,6 +849,9 @@ def del_staff(sid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# CLOCKINS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/clockins")
 def list_clockins():
     return {"clockins": store_list("clockins")}
@@ -824,6 +877,9 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 
+# ═══════════════════════════════════════════════════════
+# EXPENSES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/expenses")
 def list_exp():
     return {"expenses": store_list("expenses")}
@@ -847,6 +903,9 @@ def del_exp(eid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# REMINDERS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/reminders")
 def get_reminders():
     reminders = []
@@ -862,6 +921,9 @@ def get_reminders():
     return {"reminders": reminders[:20]}
 
 
+# ═══════════════════════════════════════════════════════
+# FUEL LOG
+# ═══════════════════════════════════════════════════════
 @app.get("/api/fuel")
 def list_fuel():
     return {"logs": store_list("fuel_logs")}
@@ -894,6 +956,9 @@ def del_fuel(fid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# WARRANTY TRACKER
+# ═══════════════════════════════════════════════════════
 @app.get("/api/warranty")
 def get_warranty():
     from datetime import datetime as dt
@@ -920,6 +985,9 @@ def get_warranty():
     return {"warranties": items}
 
 
+# ═══════════════════════════════════════════════════════
+# CSV EXPORTS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/export/jobs")
 def exp_jobs():
     o = io.StringIO()
