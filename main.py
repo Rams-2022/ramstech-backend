@@ -16,7 +16,6 @@ ai_router = None
 job_status_router = None
 JOB_STATUS_HTML = ""
 workflow_router = None
-workflow_ui_loaded = False
 WORKFLOW_HTML = ""
 invoice_router = None
 tech_router = None
@@ -26,6 +25,12 @@ PWA_HTML = ""
 auth_router = None
 AUTH_LOCK_HTML = ""
 embed_router = None
+parts_order_router = None
+PARTS_ORDER_HTML = ""
+parts_search_router = None
+PARTS_SEARCH_HTML = ""
+scan_router = None
+SCAN_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -80,6 +85,21 @@ except Exception as _e:
     print(f"[main] embed_helper unavailable: {_e}")
 
 try:
+    from parts_order import router as parts_order_router, PARTS_ORDER_HTML
+except Exception as _e:
+    print(f"[main] parts_order unavailable: {_e}")
+
+try:
+    from parts_search import router as parts_search_router, PARTS_SEARCH_HTML
+except Exception as _e:
+    print(f"[main] parts_search unavailable: {_e}")
+
+try:
+    from scan import router as scan_router, SCAN_HTML
+except Exception as _e:
+    print(f"[main] scan unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -107,6 +127,12 @@ if auth_router:
     app.include_router(auth_router)
 if embed_router:
     app.include_router(embed_router)
+if parts_order_router:
+    app.include_router(parts_order_router)
+if parts_search_router:
+    app.include_router(parts_search_router)
+if scan_router:
+    app.include_router(scan_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -118,7 +144,7 @@ db.init()
 MEM = {k: {} for k in ["jobs","customers","appointments","quotes","invoices",
                        "inventory","purchase_orders","staff","clockins","expenses",
                        "fuel_logs"]}
-WORKSHOP = {"name":"My Workshop","phone":"","address":"","email":"","logo":"🔧","labour_rate":450}
+WORKSHOP = {"name":"My Workshop","phone":"","address":"","email":"","logo":"RT","labour_rate":450}
 
 
 def now():
@@ -181,6 +207,12 @@ async def home():
             inject += TECH_HTML
         if AUTH_LOCK_HTML:
             inject += AUTH_LOCK_HTML
+        if PARTS_ORDER_HTML:
+            inject += PARTS_ORDER_HTML
+        if PARTS_SEARCH_HTML:
+            inject += PARTS_SEARCH_HTML
+        if SCAN_HTML:
+            inject += SCAN_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -198,10 +230,7 @@ def health():
 def debug_env():
     return {
         "SUPABASE_URL_set": bool(os.getenv("SUPABASE_URL", "").strip()),
-        "SUPABASE_URL_starts_with_https": os.getenv("SUPABASE_URL", "").strip().startswith("https://"),
-        "SUPABASE_URL_length": len(os.getenv("SUPABASE_URL", "").strip()),
         "SUPABASE_SERVICE_KEY_set": bool(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
-        "SUPABASE_SERVICE_KEY_length": len(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
         "OPENAI_API_KEY_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
         "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY", "").strip()),
         "OLP_API_KEY_set": bool(os.getenv("OLP_API_KEY", "").strip()),
