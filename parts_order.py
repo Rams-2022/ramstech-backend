@@ -1,4 +1,4 @@
-"""Parts ordering from suppliers — PO workflow + supplier management."""
+"""Parts ordering from suppliers — PO workflow + supplier management + online search."""
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
@@ -201,15 +201,16 @@ font-weight:700;color:#fff;}
 .poLineItem{display:flex;justify-content:space-between;padding:6px 0;
 border-bottom:1px solid #1e2938;font-size:13px;}
 .poLineItem:last-child{border-bottom:none;}
-.poTabs{display:flex;gap:4px;margin-bottom:12px;background:#0a1018;padding:4px;border-radius:10px;}
+.poTabs{display:flex;gap:4px;margin-bottom:12px;background:#0a1018;padding:4px;border-radius:10px;overflow-x:auto;}
 .poTab{flex:1;padding:9px;background:transparent;color:#7b8da3;border:none;
-border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;}
+border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .poTab.active{background:#0ea5e9;color:#fff;}
 #poItemsList{margin-top:10px;}
 .poItemEntry{background:#0a1018;border:1px solid #1e2938;border-radius:8px;padding:10px;margin-bottom:6px;}
-.poSupplierLink{display:block;padding:12px;background:#0a1018;border:1px solid #1e2938;
-border-radius:8px;color:#0ea5e9;text-decoration:none;margin-bottom:6px;font-weight:700;}
-.poSupplierLink:active{background:#1e2938;}
+.poSupplierLink{display:block;padding:14px;background:#0a1018;border:1px solid #1e2938;
+border-radius:8px;color:#0ea5e9;text-decoration:none;margin-bottom:8px;font-weight:700;
+font-size:15px;text-align:center;}
+.poSupplierLink:active{background:#1e2938;transform:scale(.98);}
 </style>
 
 <div id="poModal">
@@ -224,7 +225,7 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 </div>
 
 <div class="poTabs">
-<button class="poTab active" data-t="new" onclick="poTab('new')">New Order</button>
+<button class="poTab active" data-t="new" onclick="poTab('new')">New</button>
 <button class="poTab" data-t="list" onclick="poTab('list')">Orders</button>
 <button class="poTab" data-t="suppliers" onclick="poTab('suppliers')">Suppliers</button>
 <button class="poTab" data-t="online" onclick="poTab('online')">🔍 Online</button>
@@ -271,9 +272,10 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 <div id="poOnlineTab" style="display:none;">
 <div class="poCard">
 <h3 style="margin-bottom:10px;color:#f97316;">🔍 Search Online Suppliers</h3>
+<div style="font-size:12px;color:#7b8da3;margin-bottom:8px;">Enter a part number or description, then tap a supplier to search their site.</div>
 <input id="poOnlineQuery" class="poIn" placeholder="Part number or description..."
   autocapitalize="characters" onkeypress="if(event.key==='Enter')poOnlineSearch()">
-<button class="poBtn orange" onclick="poOnlineSearch()">Search Suppliers</button>
+<button class="poBtn orange" onclick="poOnlineSearch()">Search All Suppliers</button>
 </div>
 <div id="poOnlineResults"></div>
 </div>
@@ -296,6 +298,7 @@ function poTab(t){
   document.getElementById('poOnlineTab').style.display = t==='online'?'block':'none';
   if(t==='list')poLoadList();
   if(t==='suppliers')poLoadSuppliers();
+  if(t==='online')setTimeout(function(){document.getElementById('poOnlineQuery').focus();},200);
 }
 function poRes(t){var e=document.getElementById('poRes');e.textContent=t;e.style.display='block';}
 
@@ -357,12 +360,14 @@ function poOnlineSearch(){
   h += '<a class="poSupplierLink" target="_blank" href="https://www.autozoneonline.co.za/search?q='+pn+'">🔍 AutoZone SA</a>';
   h += '<a class="poSupplierLink" target="_blank" href="https://www.goldwagen.com/?s='+pn+'">🔍 Goldwagen</a>';
   h += '<a class="poSupplierLink" target="_blank" href="https://www.midas.co.za/search?q='+pn+'">🔍 Midas</a>';
-  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q='+pn+'+car+part+South+Africa+price">🔍 Google (all suppliers)</a>';
-  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q='+pn+'+%22part+number%22+Gauteng">🔍 Google (part number)</a>';
-  h += '<a class="poSupplierLink" target="_blank" href="https://www.gumtree.co.za/s-cars-bakkies/part+number/'+pn">🔍 Gumtree</a>';
-  h += '<a class="poSupplierLink" target="_blank" href="https://www.bidorbuy.co.za/search?searchTerm='+pn">🔍 BidOrBuy</a>';
-  h += '<div style="font-size:12px;color:#7b8da3;margin-top:12px;">Tap a supplier to search their site. Then copy the price back into your PO.</div>';
-  h += '<button class="poBtn dark" style="margin-top:10px;" onclick="poTab(\'new\')">Back to PO</button>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q='+pn+'+car+part+South+Africa+price">🔍 Google (all SA parts)</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q=%22'+pn+'%22+part+number+Gauteng">🔍 Google (part number)</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.gumtree.co.za/s-cars-bakkies/part+number/'+pn+'">🔍 Gumtree</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.bidorbuy.co.za/search?searchTerm='+pn+'">🔍 BidOrBuy</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.autotrader.co.za/search?q='+pn+'">🔍 AutoTrader</a>';
+
+  h += '<div style="font-size:12px;color:#7b8da3;margin-top:12px;line-height:1.5;">Tap a supplier to open their site with your search pre-filled. Copy their price into the New tab to build a PO.</div>';
+  h += '<button class="poBtn dark" style="margin-top:12px;" onclick="poTab(\'new\')">Back to New PO</button>';
   h += '</div>';
   document.getElementById('poOnlineResults').innerHTML = h;
 }
@@ -519,7 +524,7 @@ function poInjectIntoPurchase(){
   btn.id = 'poInlineBtn';
   btn.className = 'btn';
   btn.style.cssText = 'background:linear-gradient(135deg,#0ea5e9,#0369a1);margin-bottom:10px;';
-  btn.textContent = '📦 New Purchase Order (with Suppliers)';
+  btn.textContent = '📦 New Purchase Order (with Suppliers & Online Search)';
   btn.onclick = poOpen;
   title.parentNode.insertBefore(btn, title.nextSibling);
 }
