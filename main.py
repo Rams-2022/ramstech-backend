@@ -45,7 +45,7 @@ except Exception as _e:
 try:
     from workflow import router as workflow_router
     from workflow_ui import WORKFLOW_HTML
-    from invoice_pdf import router as invoice_router
+    from invoices_pdf import router as invoice_router
     from tech_view import router as tech_router, TECH_HTML
 except Exception as _e:
     print(f"[main] workflow unavailable: {_e}")
