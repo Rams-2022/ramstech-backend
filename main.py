@@ -42,6 +42,7 @@ design_html = ""
 theme_html = ""
 instant_html = ""
 search_html = ""
+queue_html = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -139,6 +140,11 @@ try:
     from smart_search import SMART_SEARCH_HTML as search_html
 except Exception as _e:
     print(f"[main] smart_search unavailable: {_e}")
+
+try:
+    from offline_queue import OFFLINE_HTML as queue_html
+except Exception as _e:
+    print(f"[main] offline_queue unavailable: {_e}")
 
 try:
     from workshop_routes import router as workshop_router
@@ -279,6 +285,8 @@ async def home():
             inject += instant_html
         if search_html:
             inject += search_html
+        if queue_html:
+            inject += queue_html
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
