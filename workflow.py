@@ -33,15 +33,10 @@ def _ins(t, d):
 
 
 def _pin(pin):
-    p = str(pin or "").strip()
-    if len(p) != 4 or not p.isdigit():
-        raise HTTPException(400, "PIN must be 4 digits")
-    r = _c().table("staff").select("*").eq("pin", p).execute()
-    if not r.data:
+    import auth
+    s = auth.lookup_pin(pin)
+    if not s:
         raise HTTPException(401, "Invalid PIN")
-    s = r.data[0]
-    if s.get("active") is False:
-        raise HTTPException(401, "Staff inactive")
     return s
 
 
