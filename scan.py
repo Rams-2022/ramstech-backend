@@ -1,4 +1,4 @@
-"""Barcode + VIN scanning — camera-based identification for parts and vehicles."""
+"""Barcode + VIN scanning — ZXing polyfill for reliable detection."""
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
@@ -55,6 +55,8 @@ def lookup_vin(vin: str):
 
 
 SCAN_HTML = r"""
+<!-- ZXing polyfill for reliable barcode detection -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/polyfill.min.js"></script>
 <style>
 #scanModal{display:none;position:fixed;inset:0;background:#000;z-index:9999;overflow:auto;color:#fff;}
 #scanInner{max-width:700px;margin:0 auto;padding:16px;min-height:100vh;}
@@ -64,11 +66,16 @@ font-size:15px;cursor:pointer;margin-bottom:8px;}
 .scanBtn.blue{background:#3b82f6;color:#fff;}
 .scanBtn.dark{background:#1e2938;color:#fff;}
 .scanBtn.green{background:#10b981;color:#fff;}
+.scanBtn.orange{background:#f97316;color:#fff;}
 #scanVideo{width:100%;border-radius:12px;background:#000;max-height:60vh;object-fit:cover;}
 .scanCard{background:#0f1520;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-bottom:8px;color:#e6edf5;}
 #scanResult{margin-top:10px;}
 .scanHeader{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;
 border-bottom:2px solid #1e2938;margin-bottom:14px;}
+.scanPin{width:100%;padding:14px;background:#0f1520;border:2px solid #1e2938;border-radius:10px;
+color:#fff;font-size:18px;box-sizing:border-box;text-align:center;letter-spacing:4px;
+font-family:monospace;margin:10px 0;}
+.scanPin:focus{outline:none;border-color:#ec4899;}
 </style>
 
 <div id="scanModal">
@@ -83,10 +90,10 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 </div>
 
 <div id="scanChoice">
-<button class="scanBtn pink" onclick="scanStart('part')">Scan Part Number</button>
-<button class="scanBtn blue" onclick="scanStart('vin')">Scan VIN (Vehicle)</button>
-<button class="scanBtn dark" onclick="scanManual('part')">Type Part Number</button>
-<button class="scanBtn dark" onclick="scanManual('vin')">Type VIN</button>
+<button class="scanBtn pink" onclick="scanStart('part')">📷 Scan Part Barcode</button>
+<button class="scanBtn blue" onclick="scanStart('vin')">📷 Scan VIN (Code 39 / PDF417)</button>
+<button class="scanBtn dark" onclick="scanManual('part')">⌨️ Type Part Number</button>
+<button class="scanBtn orange" onclick="scanManual('vin')">⌨️ Type VIN (if camera fails)</button>
 </div>
 
 <div id="scanCamera" style="display:none;">
@@ -115,23 +122,38 @@ async function scanStart(mode){
   _scanMode = mode;
   document.getElementById('scanChoice').style.display='none';
   document.getElementById('scanCamera').style.display='block';
+  document.getElementById('scanStatus').textContent='Starting camera...';
 
   if(!('BarcodeDetector' in window)){
-    document.getElementById('scanStatus').textContent='Barcode API not supported. Use Type instead.';
+    document.getElementById('scanStatus').textContent='Barcode API not supported. Use "Type" instead.';
     return;
   }
   try {
-    var formats = ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','codabar','itf'];
+    // Request all formats — polyfill supports PDF417, Data Matrix, etc.
+    var supported = await BarcodeDetector.getSupportedFormats();
+    var wanted = ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e',
+                  'qr_code','codabar','itf','pdf417','data_matrix','aztec'];
+    var formats = wanted.filter(function(f){return supported.indexOf(f) >= 0;});
+    if(formats.length === 0){formats = wanted;}
+
+    document.getElementById('scanStatus').textContent = 'Scanning (' + formats.length + ' formats)...';
+
     var detector = new BarcodeDetector({formats: formats});
 
     _scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
+      video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} }
     });
     var v = document.getElementById('scanVideo');
     v.srcObject = _scanStream;
     await v.play();
 
+    var tries = 0;
     _scanLoop = setInterval(async function(){
+      tries++;
+      if(tries > 300){ // ~2 minutes
+        document.getElementById('scanStatus').textContent = 'No barcode found. Use "Type VIN" instead.';
+        return;
+      }
       try {
         var codes = await detector.detect(v);
         if(codes && codes.length){
@@ -144,7 +166,7 @@ async function scanStart(mode){
     }, 400);
 
   } catch(e){
-    document.getElementById('scanStatus').textContent='Camera error: '+e.message;
+    document.getElementById('scanStatus').textContent='Camera error: '+e.message+'. Use "Type" instead.';
   }
 }
 
@@ -194,6 +216,9 @@ async function scanLookupPart(code){
     if(!d.found){
       h += '<div style="color:#f59e0b;margin-top:10px;">Not found in stock or catalog.</div>';
       h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanAddToPO(\''+d.code+'\')">Add to a Purchase Order</button>';
+      h += '<button class="scanBtn orange" style="margin-top:6px;" onclick="scanSearchSupplier(\''+d.code+'\')">🔍 Search AutoZone / Goldwagen / Midas</button>';
+    } else {
+      h += '<button class="scanBtn orange" style="margin-top:10px;" onclick="scanSearchSupplier(\''+d.code+'\')">🔍 Search online suppliers for price</button>';
     }
     h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Scan Another</button>';
     h += '</div>';
@@ -228,11 +253,25 @@ async function scanLookupVin(vin){
     } else {
       h += '<div style="color:#7b8da3;margin-top:10px;">No previous workshop history for this vehicle.</div>';
     }
-    h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Scan Another</button>';
+    h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanCreateJobFromVin(\''+d.vin+'\',\''+(d.manufacturer||'')+'\',\''+(d.year||'')+'\')">➕ Create Job Card for this Vehicle</button>';
+    h += '<button class="scanBtn dark" style="margin-top:6px;" onclick="scanReset()">Scan Another</button>';
     h += '</div>';
     document.getElementById('scanResult').innerHTML = h;
   } catch(e){
     document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">Error: '+e.message+'</div>';
+  }
+}
+
+function scanCreateJobFromVin(vin, make, year){
+  scanClose();
+  if(typeof wfOpenNewQuote === 'function'){
+    wfOpenNewQuote();
+    setTimeout(function(){
+      var vf = document.getElementById('wqReg');
+      if(vf){ vf.value = vin; }
+      var mk = document.getElementById('wqMake');
+      if(mk){ mk.value = make; }
+    }, 400);
   }
 }
 
@@ -253,6 +292,20 @@ function scanAddToPO(part_number){
       }
     }, 500);
   }
+}
+
+function scanSearchSupplier(part_number){
+  var pn = encodeURIComponent(part_number);
+  var h = '<div class="scanCard">';
+  h += '<div style="font-size:12px;color:#7b8da3;">SEARCH ONLINE</div>';
+  h += '<div style="font-size:16px;font-weight:800;color:#f97316;margin-bottom:10px;">'+part_number+'</div>';
+  h += '<a class="scanBtn orange" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.autozoneonline.co.za/search?q='+pn+'">🔍 AutoZone</a>';
+  h += '<a class="scanBtn green" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.goldwagen.com/?s='+pn+'">🔍 Goldwagen</a>';
+  h += '<a class="scanBtn blue" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.midas.co.za/search?q='+pn+'">🔍 Midas</a>';
+  h += '<a class="scanBtn pink" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.google.com/search?q='+pn+'+car+part+South+Africa">🔍 Google Search</a>';
+  h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Back</button>';
+  h += '</div>';
+  document.getElementById('scanResult').innerHTML = h;
 }
 
 function scanInjectParts(){
