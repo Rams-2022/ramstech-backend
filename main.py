@@ -10,7 +10,10 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
                   INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
 from pages import HTML_PAGE
 
-# ── Optional modules (each in its own fail-safe block) ──
+# ═══════════════════════════════════════════════════════
+# OPTIONAL MODULES — each in its own fail-safe block
+# ═══════════════════════════════════════════════════════
+
 AI_PANEL_HTML = ""
 ai_router = None
 job_status_router = None
@@ -31,6 +34,8 @@ parts_search_router = None
 PARTS_SEARCH_HTML = ""
 scan_router = None
 SCAN_HTML = ""
+staff_admin_router = None
+STAFF_ADMIN_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -100,6 +105,11 @@ except Exception as _e:
     print(f"[main] scan unavailable: {_e}")
 
 try:
+    from staff_admin import router as staff_admin_router, STAFF_ADMIN_HTML
+except Exception as _e:
+    print(f"[main] staff_admin unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -133,6 +143,8 @@ if parts_search_router:
     app.include_router(parts_search_router)
 if scan_router:
     app.include_router(scan_router)
+if staff_admin_router:
+    app.include_router(staff_admin_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -141,12 +153,16 @@ if workshop_api_router:
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
 
-MEM = {k: {} for k in ["jobs","customers","appointments","quotes","invoices",
-                       "inventory","purchase_orders","staff","clockins","expenses",
+MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
+                       "inventory", "purchase_orders", "staff", "clockins", "expenses",
                        "fuel_logs"]}
-WORKSHOP = {"name":"My Workshop","phone":"","address":"","email":"","logo":"RT","labour_rate":450}
+WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "",
+            "logo": "RT", "labour_rate": 450}
 
 
+# ═══════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════
 def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -156,12 +172,14 @@ def today():
 
 
 def store_list(t):
-    if db.is_ready(): return db.get_all(t)
+    if db.is_ready():
+        return db.get_all(t)
     return list(MEM[t].values())
 
 
 def store_get(t, i):
-    if db.is_ready(): return db.get_one(t, i)
+    if db.is_ready():
+        return db.get_one(t, i)
     return MEM[t].get(i)
 
 
@@ -173,7 +191,8 @@ def store_save(t, i, row):
 
 
 def store_delete(t, i):
-    if db.is_ready(): return db.delete(t, i)
+    if db.is_ready():
+        return db.delete(t, i)
     MEM[t].pop(i, None)
     return True
 
@@ -181,16 +200,21 @@ def store_delete(t, i):
 def get_workshop_data():
     if db.is_ready():
         w = db.get_workshop()
-        if w: return w
+        if w:
+            return w
     return WORKSHOP
 
 
 def save_workshop_data(d):
-    if db.is_ready(): return db.save_workshop(d)
+    if db.is_ready():
+        return db.save_workshop(d)
     WORKSHOP.update(d)
     return d
 
 
+# ═══════════════════════════════════════════════════════
+# HOME PAGE — injects all UI modules before </body>
+# ═══════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
@@ -213,12 +237,17 @@ async def home():
             inject += PARTS_SEARCH_HTML
         if SCAN_HTML:
             inject += SCAN_HTML
+        if STAFF_ADMIN_HTML:
+            inject += STAFF_ADMIN_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
 
+# ═══════════════════════════════════════════════════════
+# HEALTH & DEBUG
+# ═══════════════════════════════════════════════════════
 @app.get("/health")
 def health():
     return {"status": "healthy",
@@ -238,6 +267,9 @@ def debug_env():
     }
 
 
+# ═══════════════════════════════════════════════════════
+# TRANSLATIONS / STATS / ANALYTICS / WORKSHOP
+# ═══════════════════════════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str):
     return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
@@ -245,8 +277,10 @@ def get_translations(lang: str):
 
 @app.get("/api/stats")
 def get_stats():
-    jobs = store_list("jobs"); invs = store_list("invoices")
-    exps = store_list("expenses"); custs = store_list("customers")
+    jobs = store_list("jobs")
+    invs = store_list("invoices")
+    exps = store_list("expenses")
+    custs = store_list("customers")
     rev = sum(float(i.get("total", 0)) for i in invs)
     exp = sum(float(e.get("amount", 0)) for e in exps)
     labels, data = [], []
@@ -267,19 +301,23 @@ def get_stats():
 
 @app.get("/api/analytics")
 def get_analytics():
-    invs = store_list("invoices"); exps = store_list("expenses"); jobs = store_list("jobs")
+    invs = store_list("invoices")
+    exps = store_list("expenses")
+    jobs = store_list("jobs")
     tr = sum(float(i.get("total", 0)) for i in invs)
     te = sum(float(e.get("amount", 0)) for e in exps)
     avg = tr / len(invs) if invs else 0
     svc = {}
     for j in jobs:
         c = (j.get("complaint") or "").strip()[:30]
-        if c: svc[c] = svc.get(c, 0) + 1
+        if c:
+            svc[c] = svc.get(c, 0) + 1
     top_services = [{"name": k, "count": v} for k, v in sorted(svc.items(), key=lambda x: -x[1])[:5]]
     cr = {}
     for i in invs:
         n = i.get("customer", "")
-        if n: cr[n] = cr.get(n, 0) + float(i.get("total", 0))
+        if n:
+            cr[n] = cr.get(n, 0) + float(i.get("total", 0))
     top_customers = [{"name": k, "total": v} for k, v in sorted(cr.items(), key=lambda x: -x[1])[:5]]
     return {"total_revenue": tr, "total_expenses": te, "net_profit": tr - te,
             "avg_invoice": avg, "top_services": top_services, "top_customers": top_customers}
@@ -297,6 +335,9 @@ async def save_workshop(r: Request):
     return {"success": True, "workshop": get_workshop_data()}
 
 
+# ═══════════════════════════════════════════════════════
+# STATIC REFERENCE DATA
+# ═══════════════════════════════════════════════════════
 @app.get("/api/fault-codes")
 def list_codes(search: str = None):
     res = list(FAULT_CODES.values())
@@ -379,7 +420,9 @@ async def bolt_calc(r: Request):
     am = {"M6": 20.1, "M8": 36.6, "M10": 58.0, "M12": 84.3, "M14": 115.0,
           "M16": 157.0, "M18": 192.0, "M20": 245.0}
     km = {"dry": 0.20, "oiled": 0.17, "moly": 0.14}
-    ts = tm.get(grade, 800); a = am.get(size, 36.6); k = km.get(cond, 0.20)
+    ts = tm.get(grade, 800)
+    a = am.get(size, 36.6)
+    k = km.get(cond, 0.20)
     cf = 0.75 * ts * a
     dm = float(size.replace("M", "")) / 1000.0
     nm = k * dm * cf
@@ -397,6 +440,9 @@ def decode_vin(vin: str):
             "year": YEAR_CODES.get(v[9], "Unknown")}
 
 
+# ═══════════════════════════════════════════════════════
+# AI
+# ═══════════════════════════════════════════════════════
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json()
@@ -483,6 +529,9 @@ Respond ONLY valid JSON:
         return {"success": False, "error": str(e)}
 
 
+# ═══════════════════════════════════════════════════════
+# JOBS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/jobs")
 def list_jobs():
     return {"jobs": store_list("jobs")}
@@ -548,6 +597,9 @@ async def set_cost(jid: str, r: Request):
     return {"success": True, "job": job}
 
 
+# ═══════════════════════════════════════════════════════
+# CUSTOMERS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/customers")
 def list_customers():
     return {"customers": store_list("customers")}
@@ -564,6 +616,9 @@ async def create_customer(r: Request):
     return {"success": True, "customer": c}
 
 
+# ═══════════════════════════════════════════════════════
+# APPOINTMENTS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/appointments")
 def list_appts():
     return {"appointments": store_list("appointments")}
@@ -585,6 +640,9 @@ def del_appt(aid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# QUOTES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/quotes")
 def list_quotes():
     return {"quotes": store_list("quotes")}
@@ -628,6 +686,9 @@ def del_quote(qid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# INVOICES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/invoices")
 def list_invoices():
     return {"invoices": store_list("invoices")}
@@ -664,6 +725,9 @@ async def record_payment(iid: str, r: Request):
     return {"success": True, "invoice": inv}
 
 
+# ═══════════════════════════════════════════════════════
+# INVENTORY
+# ═══════════════════════════════════════════════════════
 @app.get("/api/inventory")
 def list_inv():
     return {"items": store_list("inventory")}
@@ -708,6 +772,9 @@ def del_inv(iid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# PURCHASE ORDERS (legacy)
+# ═══════════════════════════════════════════════════════
 @app.get("/api/purchase-orders")
 def list_pos():
     return {"pos": store_list("purchase_orders")}
@@ -741,6 +808,9 @@ def del_po(pid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# STAFF
+# ═══════════════════════════════════════════════════════
 @app.get("/api/staff")
 def list_staff():
     return {"staff": store_list("staff")}
@@ -763,6 +833,9 @@ def del_staff(sid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# CLOCKINS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/clockins")
 def list_clockins():
     return {"clockins": store_list("clockins")}
@@ -788,6 +861,9 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 
+# ═══════════════════════════════════════════════════════
+# EXPENSES
+# ═══════════════════════════════════════════════════════
 @app.get("/api/expenses")
 def list_exp():
     return {"expenses": store_list("expenses")}
@@ -811,6 +887,9 @@ def del_exp(eid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# REMINDERS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/reminders")
 def get_reminders():
     reminders = []
@@ -826,6 +905,9 @@ def get_reminders():
     return {"reminders": reminders[:20]}
 
 
+# ═══════════════════════════════════════════════════════
+# FUEL LOG
+# ═══════════════════════════════════════════════════════
 @app.get("/api/fuel")
 def list_fuel():
     return {"logs": store_list("fuel_logs")}
@@ -858,6 +940,9 @@ def del_fuel(fid: str):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════
+# WARRANTY TRACKER
+# ═══════════════════════════════════════════════════════
 @app.get("/api/warranty")
 def get_warranty():
     from datetime import datetime as dt
@@ -884,6 +969,9 @@ def get_warranty():
     return {"warranties": items}
 
 
+# ═══════════════════════════════════════════════════════
+# CSV EXPORTS
+# ═══════════════════════════════════════════════════════
 @app.get("/api/export/jobs")
 def exp_jobs():
     o = io.StringIO()
