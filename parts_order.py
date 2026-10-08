@@ -180,10 +180,11 @@ PARTS_ORDER_HTML = r"""
 .poIn{width:100%;padding:12px;background:#0f1520;border:1px solid #1e2938;border-radius:9px;
 color:#e6edf5;font-size:14px;box-sizing:border-box;font-family:inherit;margin-bottom:8px;}
 .poBtn{width:100%;padding:14px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;
-font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;}
+font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;text-decoration:none;display:block;text-align:center;}
 .poBtn.dark{background:#1e2938;}
 .poBtn.green{background:#10b981;}
 .poBtn.red{background:#ef4444;}
+.poBtn.orange{background:#f97316;}
 .poRow{display:flex;gap:8px;}
 .poRow .poIn{flex:1;}
 .poCard{background:#0f1520;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-bottom:8px;}
@@ -206,6 +207,9 @@ border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;}
 .poTab.active{background:#0ea5e9;color:#fff;}
 #poItemsList{margin-top:10px;}
 .poItemEntry{background:#0a1018;border:1px solid #1e2938;border-radius:8px;padding:10px;margin-bottom:6px;}
+.poSupplierLink{display:block;padding:12px;background:#0a1018;border:1px solid #1e2938;
+border-radius:8px;color:#0ea5e9;text-decoration:none;margin-bottom:6px;font-weight:700;}
+.poSupplierLink:active{background:#1e2938;}
 </style>
 
 <div id="poModal">
@@ -223,6 +227,7 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 <button class="poTab active" data-t="new" onclick="poTab('new')">New Order</button>
 <button class="poTab" data-t="list" onclick="poTab('list')">Orders</button>
 <button class="poTab" data-t="suppliers" onclick="poTab('suppliers')">Suppliers</button>
+<button class="poTab" data-t="online" onclick="poTab('online')">🔍 Online</button>
 </div>
 
 <div id="poNewTab">
@@ -263,6 +268,16 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 <div id="poSupplierList"></div>
 </div>
 
+<div id="poOnlineTab" style="display:none;">
+<div class="poCard">
+<h3 style="margin-bottom:10px;color:#f97316;">🔍 Search Online Suppliers</h3>
+<input id="poOnlineQuery" class="poIn" placeholder="Part number or description..."
+  autocapitalize="characters" onkeypress="if(event.key==='Enter')poOnlineSearch()">
+<button class="poBtn orange" onclick="poOnlineSearch()">Search Suppliers</button>
+</div>
+<div id="poOnlineResults"></div>
+</div>
+
 <div id="poRes" style="display:none;background:#0a1018;border:1px solid #1e2938;
 border-radius:10px;padding:12px;margin-top:10px;font-size:13px;white-space:pre-wrap;"></div>
 </div>
@@ -278,6 +293,7 @@ function poTab(t){
   document.getElementById('poNewTab').style.display = t==='new'?'block':'none';
   document.getElementById('poListTab').style.display = t==='list'?'block':'none';
   document.getElementById('poSuppliersTab').style.display = t==='suppliers'?'block':'none';
+  document.getElementById('poOnlineTab').style.display = t==='online'?'block':'none';
   if(t==='list')poLoadList();
   if(t==='suppliers')poLoadSuppliers();
 }
@@ -328,6 +344,27 @@ async function poLoadSupplierList(){
     document.getElementById('poSupplierPhone').value = s[idx-1].phone||'';
     document.getElementById('poSupplierEmail').value = s[idx-1].email||'';
   }
+}
+
+function poOnlineSearch(){
+  var q = (document.getElementById('poOnlineQuery').value || '').trim();
+  if(!q){alert('Enter a part number or description');return;}
+  var pn = encodeURIComponent(q);
+  var h = '<div class="poCard">';
+  h += '<div style="font-size:12px;color:#7b8da3;margin-bottom:8px;">SEARCH ONLINE FOR</div>';
+  h += '<div style="font-size:16px;font-weight:800;color:#f97316;margin-bottom:12px;">'+q+'</div>';
+
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.autozoneonline.co.za/search?q='+pn+'">🔍 AutoZone SA</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.goldwagen.com/?s='+pn+'">🔍 Goldwagen</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.midas.co.za/search?q='+pn+'">🔍 Midas</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q='+pn+'+car+part+South+Africa+price">🔍 Google (all suppliers)</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.google.com/search?q='+pn+'+%22part+number%22+Gauteng">🔍 Google (part number)</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.gumtree.co.za/s-cars-bakkies/part+number/'+pn">🔍 Gumtree</a>';
+  h += '<a class="poSupplierLink" target="_blank" href="https://www.bidorbuy.co.za/search?searchTerm='+pn">🔍 BidOrBuy</a>';
+  h += '<div style="font-size:12px;color:#7b8da3;margin-top:12px;">Tap a supplier to search their site. Then copy the price back into your PO.</div>';
+  h += '<button class="poBtn dark" style="margin-top:10px;" onclick="poTab(\'new\')">Back to PO</button>';
+  h += '</div>';
+  document.getElementById('poOnlineResults').innerHTML = h;
 }
 
 async function poSubmit(){
