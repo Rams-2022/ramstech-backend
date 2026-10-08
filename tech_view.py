@@ -1,5 +1,6 @@
 """Technician view — PIN login, only their own jobs, simple actions."""
 from fastapi import APIRouter, HTTPException, Request
+import auth
 
 router = APIRouter()
 
@@ -11,25 +12,17 @@ def _c():
     return db.get_client()
 
 
-def _pin(pin):
-    p = str(pin or "").strip()
-    if len(p) != 4 or not p.isdigit():
-        raise HTTPException(400, "PIN must be 4 digits")
-    r = _c().table("staff").select("*").eq("pin", p).execute()
-    if not r.data:
-        raise HTTPException(401, "Invalid PIN")
-    s = r.data[0]
-    if s.get("active") is False:
-        raise HTTPException(401, "Staff inactive")
-    return s
-
-
 @router.post("/api/tech/login")
 async def tech_login(r: Request):
     d = await r.json()
-    s = _pin(d.get("pin"))
-    r2 = _c().table("jobs").select("*").eq("assigned_to", s["name"]).execute()
-    all_jobs = r2.data or []
+    s = auth.lookup_pin(d.get("pin"))
+    if not s:
+        raise HTTPException(401, "Invalid PIN")
+    try:
+        r2 = _c().table("jobs").select("*").eq("assigned_to", s["name"]).execute()
+        all_jobs = r2.data or []
+    except Exception:
+        all_jobs = []
     active = [j for j in all_jobs if j.get("status") not in ("Invoiced", "Completed")]
     done = [j for j in all_jobs if j.get("status") in ("Invoiced", "Completed")]
     active.sort(key=lambda x: x.get("created") or "", reverse=True)
@@ -45,8 +38,11 @@ async def tech_login(r: Request):
 
 @router.get("/api/tech/jobs/{tech_name}")
 def tech_jobs(tech_name: str):
-    r = _c().table("jobs").select("*").eq("assigned_to", tech_name).execute()
-    all_jobs = r.data or []
+    try:
+        r = _c().table("jobs").select("*").eq("assigned_to", tech_name).execute()
+        all_jobs = r.data or []
+    except Exception:
+        all_jobs = []
     active = [j for j in all_jobs if j.get("status") not in ("Invoiced", "Completed")]
     done = [j for j in all_jobs if j.get("status") in ("Invoiced", "Completed")]
     active.sort(key=lambda x: x.get("created") or "", reverse=True)
@@ -169,6 +165,8 @@ async function tvLogin(){
     if(d.success){
       _tvTech=d.name;_tvPin=pin;
       localStorage.setItem('tech_session',JSON.stringify({name:d.name,pin:pin}));
+      localStorage.setItem('app_role','tech');
+      document.body.classList.add('tech-mode');
       tvShowJobs();
     } else {
       document.getElementById('tvError').textContent=d.detail||'Invalid PIN';
@@ -178,8 +176,15 @@ async function tvLogin(){
 
 function tvLogout(){
   localStorage.removeItem('tech_session');
+  localStorage.removeItem('app_role');
+  document.body.classList.remove('tech-mode');
   _tvTech=null;_tvPin=null;
-  tvCheckSession();
+  if(typeof appLogout === 'function'){
+    tvClose();
+    appLogout();
+  } else {
+    tvCheckSession();
+  }
 }
 
 async function tvShowJobs(){
@@ -316,16 +321,5 @@ function tvRefresh(){
   if(_tvJobId&&document.getElementById('tvJobDetail').style.display==='block'){tvOpenJob(_tvJobId);}
   else{tvShowJobs();}
 }
-
-function tvUpdateBtn(){
-  var b=document.getElementById('tvBtn');if(!b)return;
-  var a=document.querySelector('.panel.active');
-  b.style.display=(a&&a.id==='jobs')?'flex':'none';
-}
-setInterval(tvUpdateBtn,900);
-setTimeout(tvUpdateBtn,500);
-document.addEventListener('click',function(e){
-  if(e.target.closest('.bnav-item')||e.target.closest('.tile'))setTimeout(tvUpdateBtn,80);
-});
 </script>
 """
