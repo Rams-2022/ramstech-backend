@@ -1,4 +1,4 @@
-"""Barcode + VIN scanning — ZXing polyfill for reliable detection."""
+"""Barcode + VIN scanning — uses html5-qrcode for reliable detection."""
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
@@ -55,26 +55,26 @@ def lookup_vin(vin: str):
 
 
 SCAN_HTML = r"""
-<!-- ZXing polyfill for reliable barcode detection -->
-<script src="https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/polyfill.min.js"></script>
+<!-- html5-qrcode — reliable barcode scanning -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 #scanModal{display:none;position:fixed;inset:0;background:#000;z-index:9999;overflow:auto;color:#fff;}
 #scanInner{max-width:700px;margin:0 auto;padding:16px;min-height:100vh;}
 .scanBtn{width:100%;padding:14px;border:none;border-radius:10px;font-weight:700;
-font-size:15px;cursor:pointer;margin-bottom:8px;}
+font-size:15px;cursor:pointer;margin-bottom:8px;text-decoration:none;display:block;text-align:center;}
 .scanBtn.pink{background:#ec4899;color:#fff;}
 .scanBtn.blue{background:#3b82f6;color:#fff;}
 .scanBtn.dark{background:#1e2938;color:#fff;}
 .scanBtn.green{background:#10b981;color:#fff;}
 .scanBtn.orange{background:#f97316;color:#fff;}
-#scanVideo{width:100%;border-radius:12px;background:#000;max-height:60vh;object-fit:cover;}
+#scanReader{width:100%;border-radius:12px;background:#000;overflow:hidden;}
+#scanReader video{width:100% !important;height:auto !important;border-radius:12px;}
 .scanCard{background:#0f1520;border:1px solid #1e2938;border-radius:10px;padding:12px;margin-bottom:8px;color:#e6edf5;}
 #scanResult{margin-top:10px;}
 .scanHeader{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;
 border-bottom:2px solid #1e2938;margin-bottom:14px;}
 .scanPin{width:100%;padding:14px;background:#0f1520;border:2px solid #1e2938;border-radius:10px;
-color:#fff;font-size:18px;box-sizing:border-box;text-align:center;letter-spacing:4px;
-font-family:monospace;margin:10px 0;}
+color:#fff;font-size:16px;box-sizing:border-box;text-align:center;font-family:monospace;margin:10px 0;}
 .scanPin:focus{outline:none;border-color:#ec4899;}
 </style>
 
@@ -93,13 +93,13 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 <button class="scanBtn pink" onclick="scanStart('part')">📷 Scan Part Barcode</button>
 <button class="scanBtn blue" onclick="scanStart('vin')">📷 Scan VIN (Code 39 / PDF417)</button>
 <button class="scanBtn dark" onclick="scanManual('part')">⌨️ Type Part Number</button>
-<button class="scanBtn orange" onclick="scanManual('vin')">⌨️ Type VIN (if camera fails)</button>
+<button class="scanBtn orange" onclick="scanManual('vin')">⌨️ Type VIN (camera fallback)</button>
 </div>
 
 <div id="scanCamera" style="display:none;">
-<video id="scanVideo" autoplay muted playsinline></video>
+<div id="scanReader"></div>
 <button class="scanBtn dark" style="margin-top:10px;" onclick="scanStop()">Stop Camera</button>
-<div id="scanStatus" style="text-align:center;color:#7b8da3;font-size:13px;margin-top:8px;">Point camera at the barcode...</div>
+<div id="scanStatus" style="text-align:center;color:#7b8da3;font-size:13px;margin-top:8px;">Starting camera...</div>
 </div>
 
 <div id="scanResult"></div>
@@ -107,101 +107,97 @@ border-radius:8px;padding:8px 14px;cursor:pointer;">X</button>
 </div>
 
 <script>
-var _scanStream = null, _scanLoop = null, _scanMode = null;
+var _scanMode = null;
+var _scanner = null;
 
-function scanOpen(){document.getElementById('scanModal').style.display='block';scanReset();}
-function scanClose(){scanStop();document.getElementById('scanModal').style.display='none';}
+function scanOpen(){
+  document.getElementById('scanModal').style.display='block';
+  scanReset();
+}
+function scanClose(){
+  scanStop();
+  document.getElementById('scanModal').style.display='none';
+}
 function scanReset(){
   document.getElementById('scanChoice').style.display='block';
   document.getElementById('scanCamera').style.display='none';
   document.getElementById('scanResult').innerHTML='';
-  document.getElementById('scanStatus').textContent='Point camera at the barcode...';
 }
 
 async function scanStart(mode){
   _scanMode = mode;
   document.getElementById('scanChoice').style.display='none';
   document.getElementById('scanCamera').style.display='block';
-  document.getElementById('scanStatus').textContent='Starting camera...';
+  document.getElementById('scanStatus').textContent = 'Starting camera...';
 
-  if(!('BarcodeDetector' in window)){
-    document.getElementById('scanStatus').textContent='Barcode API not supported. Use "Type" instead.';
+  if(typeof Html5Qrcode === 'undefined'){
+    document.getElementById('scanStatus').textContent = 'Scanner library failed to load. Check internet.';
     return;
   }
+
   try {
-    // Request all formats — polyfill supports PDF417, Data Matrix, etc.
-    var supported = await BarcodeDetector.getSupportedFormats();
-    var wanted = ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e',
-                  'qr_code','codabar','itf','pdf417','data_matrix','aztec'];
-    var formats = wanted.filter(function(f){return supported.indexOf(f) >= 0;});
-    if(formats.length === 0){formats = wanted;}
+    _scanner = new Html5Qrcode("scanReader");
+    var config = {
+      fps: 10,
+      qrbox: { width: 280, height: 160 },
+      aspectRatio: 1.7
+    };
 
-    document.getElementById('scanStatus').textContent = 'Scanning (' + formats.length + ' formats)...';
+    document.getElementById('scanStatus').textContent = 'Point camera at barcode...';
 
-    var detector = new BarcodeDetector({formats: formats});
-
-    _scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} }
-    });
-    var v = document.getElementById('scanVideo');
-    v.srcObject = _scanStream;
-    await v.play();
-
-    var tries = 0;
-    _scanLoop = setInterval(async function(){
-      tries++;
-      if(tries > 300){ // ~2 minutes
-        document.getElementById('scanStatus').textContent = 'No barcode found. Use "Type VIN" instead.';
-        return;
+    await _scanner.start(
+      { facingMode: 'environment' },
+      config,
+      function(decodedText){
+        // Success callback
+        scanStop();
+        if(_scanMode === 'part') scanLookupPart(decodedText);
+        else scanLookupVin(decodedText);
+      },
+      function(errorMessage){
+        // Per-frame error — ignore (happens constantly until found)
       }
-      try {
-        var codes = await detector.detect(v);
-        if(codes && codes.length){
-          var val = codes[0].rawValue;
-          scanStop();
-          if(_scanMode==='part') scanLookupPart(val);
-          else scanLookupVin(val);
-        }
-      } catch(e){}
-    }, 400);
+    );
 
   } catch(e){
-    document.getElementById('scanStatus').textContent='Camera error: '+e.message+'. Use "Type" instead.';
+    document.getElementById('scanStatus').textContent = 'Camera error: ' + e.message;
   }
 }
 
-function scanStop(){
-  if(_scanLoop){clearInterval(_scanLoop);_scanLoop=null;}
-  if(_scanStream){
-    _scanStream.getTracks().forEach(function(t){t.stop();});
-    _scanStream = null;
+async function scanStop(){
+  if(_scanner){
+    try {
+      await _scanner.stop();
+      _scanner.clear();
+    } catch(e){}
+    _scanner = null;
   }
   document.getElementById('scanCamera').style.display='none';
 }
 
 function scanManual(mode){
-  var label = mode==='part'?'part number':'VIN (17 characters)';
-  var val = prompt('Enter '+label+':');
-  if(!val)return;
+  var label = mode==='part' ? 'part number' : 'VIN (17 characters)';
+  var val = prompt('Enter ' + label + ':');
+  if(!val) return;
   _scanMode = mode;
-  if(mode==='part') scanLookupPart(val);
+  if(mode === 'part') scanLookupPart(val);
   else scanLookupVin(val);
 }
 
 async function scanLookupPart(code){
-  document.getElementById('scanResult').innerHTML = '<div class="scanCard">Looking up '+code+'...</div>';
+  document.getElementById('scanResult').innerHTML = '<div class="scanCard">Looking up ' + code + '...</div>';
   try {
-    var r = await fetch('/api/scan/lookup-part/'+encodeURIComponent(code));
+    var r = await fetch('/api/scan/lookup-part/' + encodeURIComponent(code));
     var d = await r.json();
     var h = '<div class="scanCard">';
     h += '<div style="font-size:12px;color:#7b8da3;">SCANNED CODE</div>';
-    h += '<div style="font-size:20px;font-weight:800;color:#ec4899;margin-bottom:10px;">'+d.code+'</div>';
+    h += '<div style="font-size:20px;font-weight:800;color:#ec4899;margin-bottom:10px;">' + d.code + '</div>';
     if(d.inventory && d.inventory.length){
       h += '<div style="font-weight:700;color:#10b981;margin-bottom:6px;">IN YOUR STOCK</div>';
       d.inventory.forEach(function(i){
         h += '<div style="padding:8px 0;border-top:1px solid #1e2938;">';
-        h += '<b>'+(i.name||'-')+'</b><br>';
-        h += '<span style="font-size:13px;color:#94a3b8;">Qty: '+i.qty+' | Sell: R'+(i.sell_price||0).toFixed(2)+'</span>';
+        h += '<b>' + (i.name||'-') + '</b><br>';
+        h += '<span style="font-size:13px;color:#94a3b8;">Qty: ' + i.qty + ' | Sell: R' + (i.sell_price||0).toFixed(2) + '</span>';
         h += '</div>';
       });
     }
@@ -209,56 +205,56 @@ async function scanLookupPart(code){
       h += '<div style="font-weight:700;color:#0ea5e9;margin:10px 0 6px;">IN CATALOG</div>';
       d.catalog.forEach(function(p){
         h += '<div style="padding:8px 0;border-top:1px solid #1e2938;">';
-        h += '<b>'+(p.description||p.part_number||'-')+'</b>';
+        h += '<b>' + (p.description||p.part_number||'-') + '</b>';
         h += '</div>';
       });
     }
     if(!d.found){
       h += '<div style="color:#f59e0b;margin-top:10px;">Not found in stock or catalog.</div>';
-      h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanAddToPO(\''+d.code+'\')">Add to a Purchase Order</button>';
-      h += '<button class="scanBtn orange" style="margin-top:6px;" onclick="scanSearchSupplier(\''+d.code+'\')">🔍 Search AutoZone / Goldwagen / Midas</button>';
+      h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanAddToPO(\'' + d.code + '\')">Add to a Purchase Order</button>';
+      h += '<button class="scanBtn orange" style="margin-top:6px;" onclick="scanSearchSupplier(\'' + d.code + '\')">🔍 Search AutoZone / Goldwagen / Midas</button>';
     } else {
-      h += '<button class="scanBtn orange" style="margin-top:10px;" onclick="scanSearchSupplier(\''+d.code+'\')">🔍 Search online suppliers for price</button>';
+      h += '<button class="scanBtn orange" style="margin-top:10px;" onclick="scanSearchSupplier(\'' + d.code + '\')">🔍 Search online suppliers for price</button>';
     }
     h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Scan Another</button>';
     h += '</div>';
     document.getElementById('scanResult').innerHTML = h;
   } catch(e){
-    document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">Error: '+e.message+'</div>';
+    document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">Error: ' + e.message + '</div>';
   }
 }
 
 async function scanLookupVin(vin){
-  document.getElementById('scanResult').innerHTML = '<div class="scanCard">Decoding '+vin+'...</div>';
+  document.getElementById('scanResult').innerHTML = '<div class="scanCard">Decoding ' + vin + '...</div>';
   try {
-    var r = await fetch('/api/scan/lookup-vin/'+encodeURIComponent(vin));
+    var r = await fetch('/api/scan/lookup-vin/' + encodeURIComponent(vin));
     var d = await r.json();
     if(d.detail){
-      document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">'+d.detail+'</div>';
+      document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">' + d.detail + '</div>';
       return;
     }
     var h = '<div class="scanCard">';
     h += '<div style="font-size:12px;color:#7b8da3;">VIN</div>';
-    h += '<div style="font-size:16px;font-weight:800;color:#3b82f6;font-family:monospace;margin-bottom:10px;">'+d.vin+'</div>';
-    h += '<div><b>Manufacturer:</b> '+d.manufacturer+'</div>';
-    h += '<div><b>Country:</b> '+d.country+'</div>';
-    h += '<div><b>Year:</b> '+d.year+'</div>';
+    h += '<div style="font-size:16px;font-weight:800;color:#3b82f6;font-family:monospace;margin-bottom:10px;">' + d.vin + '</div>';
+    h += '<div><b>Manufacturer:</b> ' + d.manufacturer + '</div>';
+    h += '<div><b>Country:</b> ' + d.country + '</div>';
+    h += '<div><b>Year:</b> ' + d.year + '</div>';
     if(d.history && d.history.length){
-      h += '<div style="font-weight:700;color:#10b981;margin:12px 0 6px;">WORKSHOP HISTORY ('+d.history.length+')</div>';
+      h += '<div style="font-weight:700;color:#10b981;margin:12px 0 6px;">WORKSHOP HISTORY (' + d.history.length + ')</div>';
       d.history.forEach(function(j){
         h += '<div style="padding:6px 0;border-top:1px solid #1e2938;font-size:13px;">';
-        h += '#'+j.id+' — '+(j.complaint||'').slice(0,50)+' — <b>'+j.status+'</b>';
+        h += '#' + j.id + ' — ' + (j.complaint||'').slice(0,50) + ' — <b>' + j.status + '</b>';
         h += '</div>';
       });
     } else {
       h += '<div style="color:#7b8da3;margin-top:10px;">No previous workshop history for this vehicle.</div>';
     }
-    h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanCreateJobFromVin(\''+d.vin+'\',\''+(d.manufacturer||'')+'\',\''+(d.year||'')+'\')">➕ Create Job Card for this Vehicle</button>';
+    h += '<button class="scanBtn green" style="margin-top:10px;" onclick="scanCreateJobFromVin(\'' + d.vin + '\',\'' + (d.manufacturer||'') + '\',\'' + (d.year||'') + '\')">➕ Create Job Card for this Vehicle</button>';
     h += '<button class="scanBtn dark" style="margin-top:6px;" onclick="scanReset()">Scan Another</button>';
     h += '</div>';
     document.getElementById('scanResult').innerHTML = h;
   } catch(e){
-    document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">Error: '+e.message+'</div>';
+    document.getElementById('scanResult').innerHTML = '<div class="scanCard" style="color:#ef4444;">Error: ' + e.message + '</div>';
   }
 }
 
@@ -298,11 +294,11 @@ function scanSearchSupplier(part_number){
   var pn = encodeURIComponent(part_number);
   var h = '<div class="scanCard">';
   h += '<div style="font-size:12px;color:#7b8da3;">SEARCH ONLINE</div>';
-  h += '<div style="font-size:16px;font-weight:800;color:#f97316;margin-bottom:10px;">'+part_number+'</div>';
-  h += '<a class="scanBtn orange" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.autozoneonline.co.za/search?q='+pn+'">🔍 AutoZone</a>';
-  h += '<a class="scanBtn green" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.goldwagen.com/?s='+pn+'">🔍 Goldwagen</a>';
-  h += '<a class="scanBtn blue" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.midas.co.za/search?q='+pn+'">🔍 Midas</a>';
-  h += '<a class="scanBtn pink" style="display:block;text-decoration:none;text-align:center;" target="_blank" href="https://www.google.com/search?q='+pn+'+car+part+South+Africa">🔍 Google Search</a>';
+  h += '<div style="font-size:16px;font-weight:800;color:#f97316;margin-bottom:10px;">' + part_number + '</div>';
+  h += '<a class="scanBtn orange" target="_blank" href="https://www.autozoneonline.co.za/search?q=' + pn + '">🔍 AutoZone</a>';
+  h += '<a class="scanBtn green" target="_blank" href="https://www.goldwagen.com/?s=' + pn + '">🔍 Goldwagen</a>';
+  h += '<a class="scanBtn blue" target="_blank" href="https://www.midas.co.za/search?q=' + pn + '">🔍 Midas</a>';
+  h += '<a class="scanBtn pink" target="_blank" href="https://www.google.com/search?q=' + pn + '+car+part+South+Africa">🔍 Google Search</a>';
   h += '<button class="scanBtn dark" style="margin-top:10px;" onclick="scanReset()">Back</button>';
   h += '</div>';
   document.getElementById('scanResult').innerHTML = h;
@@ -318,7 +314,7 @@ function scanInjectParts(){
   btn.className = 'btn';
   btn.style.cssText = 'background:linear-gradient(135deg,#ec4899,#be185d);margin-bottom:10px;';
   btn.textContent = '📷 Scan Part Barcode';
-  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('part'); }, 300); };
+  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('part'); }, 400); };
   title.parentNode.insertBefore(btn, title.nextSibling);
 }
 
@@ -332,7 +328,7 @@ function scanInjectVin(){
   btn.className = 'btn';
   btn.style.cssText = 'background:linear-gradient(135deg,#3b82f6,#1d4ed8);margin-bottom:10px;';
   btn.textContent = '📷 Scan VIN (door jamb or windscreen)';
-  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('vin'); }, 300); };
+  btn.onclick = function(){ scanOpen(); setTimeout(function(){ scanStart('vin'); }, 400); };
   title.parentNode.insertBefore(btn, title.nextSibling);
 }
 
