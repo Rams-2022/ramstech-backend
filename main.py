@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io
 
@@ -50,6 +50,9 @@ VOICE_INTAKE_HTML = ""
 JOB_INTAKE_HUB_HTML = ""
 STAFF_MERGE_HTML = ""
 TAB_CONSOLIDATE_HTML = ""
+push_router = None
+PUSH_NOTIFY_HTML = ""
+REALTIME_SYNC_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -182,6 +185,17 @@ except Exception as _e:
     TAB_CONSOLIDATE_HTML = ""
 
 try:
+    from push_notify import router as push_router, PUSH_NOTIFY_HTML
+except Exception as _e:
+    print(f"[main] push_notify unavailable: {_e}")
+
+try:
+    from realtime_sync import REALTIME_SYNC_HTML
+except Exception as _e:
+    print(f"[main] realtime_sync unavailable: {_e}")
+    REALTIME_SYNC_HTML = ""
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -223,6 +237,8 @@ if photo_router:
     app.include_router(photo_router)
 if voice_router:
     app.include_router(voice_router)
+if push_router:
+    app.include_router(push_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -288,6 +304,35 @@ def save_workshop_data(d):
 
 
 # ═══════════════════════════════════════════════════════════════
+# REAL-TIME CONFIG + PUSH SERVICE WORKER
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/realtime/config")
+def realtime_config():
+    """Expose public Supabase URL + anon key for browser Realtime client."""
+    return {
+        "success": True,
+        "url": os.getenv("SUPABASE_URL", "").strip(),
+        "anon_key": os.getenv("SUPABASE_ANON_KEY", "").strip(),
+    }
+
+
+@app.get("/push-sw.js")
+def push_service_worker():
+    """Serve service worker from root so it can control the whole app."""
+    try:
+        path = os.path.join(os.path.dirname(__file__), "push-sw.js")
+        with open(path, "r") as f:
+            js = f.read()
+    except Exception:
+        js = "// push-sw.js not found"
+    return Response(
+        content=js,
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
 # HOME — injects all UI modules before </body>
 # ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
@@ -336,6 +381,10 @@ async def home():
             inject += STAFF_MERGE_HTML
         if TAB_CONSOLIDATE_HTML:
             inject += TAB_CONSOLIDATE_HTML
+        if REALTIME_SYNC_HTML:
+            inject += REALTIME_SYNC_HTML
+        if PUSH_NOTIFY_HTML:
+            inject += PUSH_NOTIFY_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -357,10 +406,13 @@ def debug_env():
     return {
         "SUPABASE_URL_set": bool(os.getenv("SUPABASE_URL", "").strip()),
         "SUPABASE_SERVICE_KEY_set": bool(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
+        "SUPABASE_ANON_KEY_set": bool(os.getenv("SUPABASE_ANON_KEY", "").strip()),
         "OPENAI_API_KEY_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
         "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY", "").strip()),
         "OLP_API_KEY_set": bool(os.getenv("OLP_API_KEY", "").strip()),
         "OWNER_PIN_set": bool(os.getenv("OWNER_PIN", "").strip()),
+        "VAPID_PUBLIC_KEY_set": bool(os.getenv("VAPID_PUBLIC_KEY", "").strip()),
+        "VAPID_PRIVATE_KEY_set": bool(os.getenv("VAPID_PRIVATE_KEY", "").strip()),
     }
 
 
@@ -652,6 +704,14 @@ async def create_job(r: Request):
            "parts_cost": 0, "labour_cost": 0, "subtotal": 0,
            "vat": 0, "total": 0, "created": now()}
     store_save("jobs", jid, job)
+    # Optional push notification
+    try:
+        from push_notify import send_push_to_all
+        send_push_to_all("New Job Created",
+                         f"{job['customer']} — {job['vehicle']}",
+                         "/")
+    except Exception:
+        pass
     return {"success": True, "job": job}
 
 
