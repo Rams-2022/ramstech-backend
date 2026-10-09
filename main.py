@@ -54,6 +54,7 @@ push_router = None
 PUSH_NOTIFY_HTML = ""
 REALTIME_SYNC_HTML = ""
 EVENT_BUS_HTML = ""
+EVENT_HANDLERS_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -61,6 +62,11 @@ try:
     from event_bus import EVENT_BUS_HTML
 except Exception as _e:
     print(f"[main] event_bus unavailable: {_e}")
+
+try:
+    from event_handlers import EVENT_HANDLERS_HTML
+except Exception as _e:
+    print(f"[main] event_handlers unavailable: {_e}")
 
 try:
     from ai_panel import AI_PANEL_HTML
@@ -313,7 +319,6 @@ def save_workshop_data(d):
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/realtime/config")
 def realtime_config():
-    """Expose public Supabase URL + anon key for browser Realtime client."""
     return {
         "success": True,
         "url": os.getenv("SUPABASE_URL", "").strip(),
@@ -323,7 +328,6 @@ def realtime_config():
 
 @app.get("/push-sw.js")
 def push_service_worker():
-    """Serve service worker from root so it can control the whole app."""
     try:
         path = os.path.join(os.path.dirname(__file__), "push-sw.js")
         with open(path, "r") as f:
@@ -346,9 +350,11 @@ async def home():
     idx = html.rfind("</body>")
     if idx != -1:
         inject = ""
-        # EVENT BUS FIRST — other modules subscribe to it
+        # EVENT BUS + HANDLERS FIRST — everything else depends on them
         if EVENT_BUS_HTML:
             inject += EVENT_BUS_HTML
+        if EVENT_HANDLERS_HTML:
+            inject += EVENT_HANDLERS_HTML
         # Core UI panels
         if JOB_STATUS_HTML:
             inject += JOB_STATUS_HTML
@@ -382,7 +388,7 @@ async def home():
             inject += search_html
         if queue_html:
             inject += queue_html
-        # New intake flows
+        # Intake flows
         if PHOTO_INTAKE_HTML:
             inject += PHOTO_INTAKE_HTML
         if VOICE_INTAKE_HTML:
@@ -398,7 +404,7 @@ async def home():
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
             inject += PUSH_NOTIFY_HTML
-        # PWA last (registers service worker)
+        # PWA last
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
