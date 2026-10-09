@@ -107,6 +107,7 @@ def aged_debtors():
         row["invoices"].append({
             "id": inv.get("id", ""),
             "created": (inv.get("created") or "")[:10],
+            "due_date": inv.get("due_date", ""),
             "description": inv.get("description", ""),
             "total": float(inv.get("total", 0)),
             "paid": float(inv.get("amount_paid", 0)),
@@ -154,6 +155,7 @@ def customer_statement(customer_name: str):
         rows.append({
             "id": inv.get("id", ""),
             "created": (inv.get("created") or "")[:10],
+            "due_date": inv.get("due_date", ""),
             "description": inv.get("description", ""),
             "total": float(inv.get("total", 0)),
             "paid": float(inv.get("amount_paid", 0)),
@@ -225,7 +227,7 @@ def _build_reminder(name, total, days, tone):
 def export_debtors_csv():
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(["Customer", "Invoice ID", "Date", "Description",
+    w.writerow(["Customer", "Invoice ID", "Date", "Due Date", "Description",
                 "Total", "Paid", "Outstanding", "Days Overdue", "Bucket"])
 
     for inv in _list("invoices"):
@@ -235,7 +237,8 @@ def export_debtors_csv():
         days = _age_days(inv)
         w.writerow([
             inv.get("customer", ""), inv.get("id", ""),
-            (inv.get("created") or "")[:10], inv.get("description", ""),
+            (inv.get("created") or "")[:10], inv.get("due_date", ""),
+            inv.get("description", ""),
             f"{float(inv.get('total', 0)):.2f}",
             f"{float(inv.get('amount_paid', 0)):.2f}",
             f"{outstanding:.2f}", days, _bucket_for(days),
@@ -390,6 +393,22 @@ AGED_DEBTORS_HTML = """
 
   function money(n){ return "R" + Number(n||0).toLocaleString("en-ZA",{minimumFractionDigits:2, maximumFractionDigits:2}); }
 
+  function esc(s){
+    return String(s||"").replace(/[&<>"']/g, m => (
+      {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  }
+
+  function relTime(s){
+    if (!s) return "";
+    const t = new Date(s.replace(" ", "T"));
+    const sec = Math.floor((Date.now() - t.getTime()) / 1000);
+    if (sec < 60) return "just now";
+    if (sec < 3600) return Math.floor(sec/60) + "m ago";
+    if (sec < 86400) return Math.floor(sec/3600) + "h ago";
+    if (sec < 604800) return Math.floor(sec/86400) + "d ago";
+    return s.slice(0, 10);
+  }
+
   function render(){
     if (!DATA) return;
     document.getElementById("rt-db-asof").textContent =
@@ -433,8 +452,12 @@ AGED_DEBTORS_HTML = """
       html += `<tr class="cust-row" onclick="rtDebtorsToggle(${i})">
         <td>
           <div class="rt-db-name">${esc(c.customer)}</div>
-          <div class="rt-db-phone">${esc(c.phone||"")}
+          <div class="rt-db-phone">
+            ${esc(c.phone||"")}
             ${c.oldest_days > 0 ? ' · <span style="color:#c00">'+c.oldest_days+'d overdue</span>' : ''}
+            ${c.last_reminder
+              ? ' · <span style="color:#16a34a" title="Last reminder sent">🔔 '+relTime(c.last_reminder)+'</span>'
+              : ' · <span style="color:#aaa">no reminders sent</span>'}
           </div>
         </td>
         <td class="num">${c.current>0?money(c.current):"—"}</td>
@@ -451,7 +474,7 @@ AGED_DEBTORS_HTML = """
             <div style="padding:6px 0;border-bottom:1px dashed #eee">
               <span class="rt-badge ${inv.bucket==='current'?'current':'b'+inv.bucket}">${inv.days_overdue>0?inv.days_overdue+'d':'Current'}</span>
               <strong style="margin-left:8px">${inv.id}</strong>
-              · ${inv.created} · ${esc(inv.description||"—")}
+              · ${inv.created}${inv.due_date?' (due '+inv.due_date+')':''} · ${esc(inv.description||"—")}
               · Outstanding <strong>${money(inv.outstanding)}</strong>
               ${inv.reminders && inv.reminders.length ? ' · 🔔 '+inv.reminders.length+' reminder(s)' : ''}
             </div>
@@ -477,7 +500,8 @@ AGED_DEBTORS_HTML = """
       const d = await r.json();
       btn.textContent = "✓ Sent";
       btn.style.background = "#15803d";
-      setTimeout(() => { btn.textContent = "Remind"; btn.style.background = "#16a34a"; btn.disabled = false; }, 2500);
+      // reload to reflect reminder history immediately
+      setTimeout(() => { rtDebtorsLoad(); }, 800);
       console.log("Reminder sent:", d);
     } catch(e) {
       btn.textContent = "Error"; btn.disabled = false;
@@ -487,11 +511,6 @@ AGED_DEBTORS_HTML = """
   window.rtDebtorsExport = function(){
     window.location.href = API + "/export/csv";
   };
-
-  function esc(s){
-    return String(s||"").replace(/[&<>"']/g, m => (
-      {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-  }
 })();
 </script>
 """
