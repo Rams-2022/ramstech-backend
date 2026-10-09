@@ -287,6 +287,8 @@ if workshop_api_router:
     app.include_router(workshop_api_router)
 if aged_debtors_router:
     app.include_router(aged_debtors_router)
+if payments_router:
+    app.include_router(payments_router)
 if auto_remind_router:
     app.include_router(auto_remind_router)
 
