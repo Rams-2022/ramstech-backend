@@ -53,8 +53,14 @@ TAB_CONSOLIDATE_HTML = ""
 push_router = None
 PUSH_NOTIFY_HTML = ""
 REALTIME_SYNC_HTML = ""
+EVENT_BUS_HTML = ""
 workshop_router = None
 workshop_api_router = None
+
+try:
+    from event_bus import EVENT_BUS_HTML
+except Exception as _e:
+    print(f"[main] event_bus unavailable: {_e}")
 
 try:
     from ai_panel import AI_PANEL_HTML
@@ -193,7 +199,6 @@ try:
     from realtime_sync import REALTIME_SYNC_HTML
 except Exception as _e:
     print(f"[main] realtime_sync unavailable: {_e}")
-    REALTIME_SYNC_HTML = ""
 
 try:
     from workshop_routes import router as workshop_router
@@ -341,6 +346,10 @@ async def home():
     idx = html.rfind("</body>")
     if idx != -1:
         inject = ""
+        # EVENT BUS FIRST — other modules subscribe to it
+        if EVENT_BUS_HTML:
+            inject += EVENT_BUS_HTML
+        # Core UI panels
         if JOB_STATUS_HTML:
             inject += JOB_STATUS_HTML
         if AI_PANEL_HTML:
@@ -361,16 +370,19 @@ async def home():
             inject += STAFF_ADMIN_HTML
         if AUDIT_HTML:
             inject += AUDIT_HTML
+        # Visual polish
         if design_html:
             inject += design_html
         if theme_html:
             inject += theme_html
+        # Performance + reliability
         if instant_html:
             inject += instant_html
         if search_html:
             inject += search_html
         if queue_html:
             inject += queue_html
+        # New intake flows
         if PHOTO_INTAKE_HTML:
             inject += PHOTO_INTAKE_HTML
         if VOICE_INTAKE_HTML:
@@ -381,10 +393,12 @@ async def home():
             inject += STAFF_MERGE_HTML
         if TAB_CONSOLIDATE_HTML:
             inject += TAB_CONSOLIDATE_HTML
+        # Live sync + push
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
             inject += PUSH_NOTIFY_HTML
+        # PWA last (registers service worker)
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -704,7 +718,6 @@ async def create_job(r: Request):
            "parts_cost": 0, "labour_cost": 0, "subtotal": 0,
            "vat": 0, "total": 0, "created": now()}
     store_save("jobs", jid, job)
-    # Optional push notification
     try:
         from push_notify import send_push_to_all
         send_push_to_all("New Job Created",
