@@ -60,6 +60,9 @@ workshop_router = None
 workshop_api_router = None
 aged_debtors_router = None
 AGED_DEBTORS_HTML = ""
+auto_remind_router = None
+AUTO_REMIND_HTML = ""
+auto_remind_start = None
 
 try:
     from event_bus import EVENT_BUS_HTML
@@ -229,6 +232,13 @@ try:
 except Exception as _e:
     print(f"[main] aged_debtors unavailable: {_e}")
 
+try:
+    from auto_remind import (router as auto_remind_router,
+                             AUTO_REMIND_HTML,
+                             start_scheduler as auto_remind_start)
+except Exception as _e:
+    print(f"[main] auto_remind unavailable: {_e}")
+
 app = FastAPI(title="RamsTech")
 
 if ai_router:
@@ -271,6 +281,8 @@ if workshop_api_router:
     app.include_router(workshop_api_router)
 if aged_debtors_router:
     app.include_router(aged_debtors_router)
+if auto_remind_router:
+    app.include_router(auto_remind_router)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
@@ -329,6 +341,18 @@ def save_workshop_data(d):
         return db.save_workshop(d)
     WORKSHOP.update(d)
     return d
+
+
+# ═══════════════════════════════════════════════════════════════
+# STARTUP — kick off auto-reminder scheduler
+# ═══════════════════════════════════════════════════════════════
+@app.on_event("startup")
+async def _startup_scheduler():
+    if auto_remind_start:
+        try:
+            auto_remind_start()
+        except Exception as e:
+            print(f"[main] auto_remind scheduler failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -419,6 +443,8 @@ async def home():
         # Financial
         if AGED_DEBTORS_HTML:
             inject += AGED_DEBTORS_HTML
+        if AUTO_REMIND_HTML:
+            inject += AUTO_REMIND_HTML
         # Live sync + push
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
@@ -453,6 +479,9 @@ def debug_env():
         "OWNER_PIN_set": bool(os.getenv("OWNER_PIN", "").strip()),
         "VAPID_PUBLIC_KEY_set": bool(os.getenv("VAPID_PUBLIC_KEY", "").strip()),
         "VAPID_PRIVATE_KEY_set": bool(os.getenv("VAPID_PRIVATE_KEY", "").strip()),
+        "CLICKATELL_CONFIGURED": bool(os.getenv("CLICKATELL_API_KEY", "").strip()),
+        "TWILIO_CONFIGURED": bool(os.getenv("TWILIO_ACCOUNT_SID", "").strip()),
+        "META_WA_CONFIGURED": bool(os.getenv("META_WA_TOKEN", "").strip()),
     }
 
 
