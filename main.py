@@ -49,6 +49,7 @@ voice_router = None
 VOICE_INTAKE_HTML = ""
 JOB_INTAKE_HUB_HTML = ""
 STAFF_MERGE_HTML = ""
+TAB_CONSOLIDATE_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -173,6 +174,12 @@ try:
 except Exception as _e:
     print(f"[main] staff_merge unavailable: {_e}")
     STAFF_MERGE_HTML = ""
+
+try:
+    from tab_consolidate import TAB_CONSOLIDATE_HTML
+except Exception as _e:
+    print(f"[main] tab_consolidate unavailable: {_e}")
+    TAB_CONSOLIDATE_HTML = ""
 
 try:
     from workshop_routes import router as workshop_router
@@ -327,6 +334,8 @@ async def home():
             inject += JOB_INTAKE_HUB_HTML
         if STAFF_MERGE_HTML:
             inject += STAFF_MERGE_HTML
+        if TAB_CONSOLIDATE_HTML:
+            inject += TAB_CONSOLIDATE_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
