@@ -2,11 +2,27 @@
 Aged Debtors Report
 Shows who owes money, how much, and for how long.
 Buckets: Current (0–30), 30d, 60d, 90d, 120d+
+Reminders sent via whatsapp.py (auto-detects Clickatell / Twilio / Meta / console).
 """
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 import csv, io
+
+# ── WhatsApp sender (fail-safe) ──────────────────────────────────
+try:
+    from whatsapp import send_whatsapp, provider_status
+except Exception as _e:
+    print(f"[aged_debtors] whatsapp unavailable: {_e}")
+
+    def send_whatsapp(to, body, media_url=None):
+        print(f"[whatsapp:fallback] → {to}\n{body}")
+        return {"success": True, "provider": "fallback", "message_id": None,
+                "error": None, "to": str(to or "")}
+
+    def provider_status():
+        return {"provider": "unavailable"}
+
 
 router = APIRouter(tags=["debtors"])
 
@@ -173,7 +189,7 @@ def customer_statement(customer_name: str):
     }
 
 
-# ── send reminder (WhatsApp / SMS stub) ──────────────────────────
+# ── send reminder (WhatsApp / SMS / console) ─────────────────────
 @router.post("/api/debtors/{customer_name}/remind")
 async def send_reminder(customer_name: str, r: Request):
     try:
@@ -186,27 +202,62 @@ async def send_reminder(customer_name: str, r: Request):
     statement = customer_statement(customer_name)
     total = statement["total_outstanding"]
     oldest = max((inv["days_overdue"] for inv in statement["invoices"]), default=0)
+    invoices = [inv for inv in _list("invoices")
+                if (inv.get("customer") or "").strip() == customer_name.strip()
+                and _outstanding(inv) > 0]
+
+    # resolve phone from invoice or customer record
+    phone = ""
+    for inv in invoices:
+        if inv.get("phone"):
+            phone = inv["phone"]; break
+    if not phone:
+        for c in _list("customers"):
+            if (c.get("name") or "").strip() == customer_name.strip():
+                phone = c.get("phone", ""); break
 
     tone = "urgent" if oldest >= 90 else "firm" if oldest >= 60 else "friendly"
     msg = custom or _build_reminder(customer_name, total, oldest, tone)
 
-    # ── WIRE YOUR PROVIDER HERE ──────────────────────────────────
-    # from whatsapp import send_whatsapp
-    # send_whatsapp(to=phone, body=msg)
-    print(f"[debtors] {channel} → {customer_name}: {msg}")
+    # ── SEND ─────────────────────────────────────────────────────
+    if channel == "console":
+        print(f"[debtors] console → {customer_name}: {msg}")
+        send_result = {"success": True, "provider": "console",
+                       "message_id": None, "error": None, "to": phone}
+    elif not phone:
+        print(f"[debtors] no phone for {customer_name}, logging only: {msg}")
+        send_result = {"success": False, "provider": "none", "message_id": None,
+                       "error": "No phone number on file", "to": ""}
+    else:
+        send_result = send_whatsapp(phone, msg)
 
-    # log the reminder on every unpaid invoice for this customer
+    # ── LOG ──────────────────────────────────────────────────────
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    for inv in _list("invoices"):
-        if (inv.get("customer") or "").strip() == customer_name.strip() \
-                and _outstanding(inv) > 0:
-            rem = inv.get("reminders", [])
-            rem.append({"sent": stamp, "channel": channel, "tone": tone})
-            inv["reminders"] = rem
-            _save("invoices", inv["id"], inv)
+    for inv in invoices:
+        rem = inv.get("reminders", [])
+        rem.append({
+            "sent": stamp,
+            "channel": channel,
+            "tone": tone,
+            "provider": send_result.get("provider", ""),
+            "message_id": send_result.get("message_id"),
+            "success": send_result.get("success", False),
+            "error": send_result.get("error"),
+        })
+        inv["reminders"] = rem
+        _save("invoices", inv["id"], inv)
 
-    return {"success": True, "channel": channel, "tone": tone,
-            "message": msg, "total": total}
+    return {
+        "success": send_result.get("success", False),
+        "channel": channel,
+        "tone": tone,
+        "message": msg,
+        "total": total,
+        "to": send_result.get("to", phone),
+        "provider": send_result.get("provider", ""),
+        "message_id": send_result.get("message_id"),
+        "error": send_result.get("error"),
+    }
 
 
 def _build_reminder(name, total, days, tone):
@@ -220,6 +271,12 @@ def _build_reminder(name, total, days, tone):
                 f"or reply to arrange a plan.")
     return (f"Hi {name}, friendly reminder: R{total:,.2f} outstanding on your "
             f"account. No rush — settle when convenient. Thank you!")
+
+
+# ── WhatsApp status (which provider is active) ───────────────────
+@router.get("/api/whatsapp/status")
+def whatsapp_status():
+    return provider_status()
 
 
 # ── CSV export ───────────────────────────────────────────────────
@@ -498,11 +555,15 @@ AGED_DEBTORS_HTML = """
       const r = await fetch(API + "/" + encodeURIComponent(name) + "/remind",
         {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
       const d = await r.json();
-      btn.textContent = "✓ Sent";
-      btn.style.background = "#15803d";
-      // reload to reflect reminder history immediately
-      setTimeout(() => { rtDebtorsLoad(); }, 800);
-      console.log("Reminder sent:", d);
+      if (d.success) {
+        btn.textContent = "✓ Sent";
+        btn.style.background = "#15803d";
+      } else {
+        btn.textContent = "✗ " + (d.error||"Failed").slice(0, 20);
+        btn.style.background = "#dc2626";
+      }
+      setTimeout(() => { rtDebtorsLoad(); }, 900);
+      console.log("Reminder:", d);
     } catch(e) {
       btn.textContent = "Error"; btn.disabled = false;
     }
