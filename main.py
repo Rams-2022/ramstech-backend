@@ -854,6 +854,7 @@ async def create_quote(r: Request):
     vat = subtotal * 0.15
     total = subtotal + vat
     q = {"id": qid, "customer": d.get("customer", ""),
+         "phone": d.get("phone", ""),
          "vehicle": d.get("vehicle", ""), "description": d.get("description", ""),
          "labour": labour, "parts": parts, "subtotal": subtotal,
          "vat": vat, "total": total, "created": now()}
@@ -867,10 +868,18 @@ async def accept_quote(qid: str):
     if not q:
         raise HTTPException(404)
     iid = str(uuid.uuid4())[:8]
-    i = {"id": iid, "customer": q["customer"], "vehicle": q["vehicle"],
+    terms = 30
+    created = datetime.now()
+    due = created + timedelta(days=terms)
+    i = {"id": iid, "customer": q["customer"],
+         "phone": q.get("phone", ""),
+         "vehicle": q["vehicle"],
          "description": q["description"], "labour": q["labour"],
          "parts": q["parts"], "subtotal": q["subtotal"], "vat": q["vat"],
-         "total": q["total"], "amount_paid": 0, "paid": False, "created": now()}
+         "total": q["total"], "amount_paid": 0, "paid": False,
+         "payment_terms": terms,
+         "due_date": due.strftime("%Y-%m-%d"),
+         "created": created.strftime("%Y-%m-%d %H:%M")}
     store_save("invoices", iid, i)
     store_delete("quotes", qid)
     return {"success": True, "invoice": i}
@@ -898,12 +907,18 @@ async def create_invoice(r: Request):
     subtotal = labour + parts
     vat = subtotal * 0.15
     total = subtotal + vat
+    terms = int(d.get("payment_terms", 30))
+    created = datetime.now()
+    due = created + timedelta(days=terms)
     iid = str(uuid.uuid4())[:8]
     i = {"id": iid, "customer": d.get("customer", ""),
+         "phone": d.get("phone", ""),
          "vehicle": d.get("vehicle", ""), "description": d.get("description", ""),
          "labour": labour, "parts": parts, "subtotal": subtotal,
          "vat": vat, "total": total, "amount_paid": 0, "paid": False,
-         "created": now()}
+         "payment_terms": terms,
+         "due_date": due.strftime("%Y-%m-%d"),
+         "created": created.strftime("%Y-%m-%d %H:%M")}
     store_save("invoices", iid, i)
     return {"success": True, "invoice": i}
 
