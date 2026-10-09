@@ -59,6 +59,7 @@ guide_router = None
 workshop_router = None
 workshop_api_router = None
 aged_debtors_router = None
+payments_router = None
 AGED_DEBTORS_HTML = ""
 auto_remind_router = None
 AUTO_REMIND_HTML = ""
