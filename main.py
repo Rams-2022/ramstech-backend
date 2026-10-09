@@ -55,6 +55,7 @@ PUSH_NOTIFY_HTML = ""
 REALTIME_SYNC_HTML = ""
 EVENT_BUS_HTML = ""
 EVENT_HANDLERS_HTML = ""
+guide_router = None
 workshop_router = None
 workshop_api_router = None
 
@@ -207,6 +208,11 @@ except Exception as _e:
     print(f"[main] realtime_sync unavailable: {_e}")
 
 try:
+    from user_guide import router as guide_router
+except Exception as _e:
+    print(f"[main] user_guide unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -250,6 +256,8 @@ if voice_router:
     app.include_router(voice_router)
 if push_router:
     app.include_router(push_router)
+if guide_router:
+    app.include_router(guide_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
