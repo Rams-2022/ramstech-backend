@@ -1,8 +1,5 @@
 """
-Aged Debtors Report
-Shows who owes money, how much, and for how long.
-Buckets: Current (0–30), 30d, 60d, 90d, 120d+
-Reminders sent via whatsapp.py (auto-detects Clickatell / Twilio / Meta / console).
+Aged Debtors Report — with WhatsApp reminders and Yoco payment links.
 """
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -24,10 +21,22 @@ except Exception as _e:
         return {"provider": "unavailable"}
 
 
+# ── Payment link creator (fail-safe) ─────────────────────────────
+try:
+    from payments import create_payment_link, _public_base
+except Exception as _e:
+    print(f"[aged_debtors] payments unavailable: {_e}")
+
+    def create_payment_link(inv):
+        return {"success": False, "url": None, "error": "payments unavailable"}
+
+    def _public_base():
+        return "https://ramstech.onrender.com"
+
+
 router = APIRouter(tags=["debtors"])
 
 
-# ── lazy bridge to main's storage layer (avoids circular import) ──
 def _list(table):
     from main import store_list
     return store_list(table)
@@ -38,7 +47,6 @@ def _save(table, i, row):
     return store_save(table, i, row)
 
 
-# ── ageing configuration ─────────────────────────────────────────
 DEFAULT_TERMS_DAYS = 30
 
 BUCKETS = [
@@ -64,7 +72,6 @@ def _parse_date(s):
 
 
 def _age_days(inv):
-    """Days overdue relative to due date (or created + terms)."""
     due = _parse_date(inv.get("due_date"))
     if due:
         return (datetime.now() - due).days
@@ -131,9 +138,9 @@ def aged_debtors():
             "days_overdue": days,
             "bucket": bucket,
             "reminders": inv.get("reminders", []),
+            "has_payment_link": bool(inv.get("payment_link", {}).get("url")),
         })
 
-        # track most recent reminder across this customer's invoices
         for rem in inv.get("reminders", []):
             sent = rem.get("sent")
             if sent and (not row["last_reminder"] or sent > row["last_reminder"]):
@@ -189,7 +196,33 @@ def customer_statement(customer_name: str):
     }
 
 
-# ── send reminder (WhatsApp / SMS / console) ─────────────────────
+# ── ensure every unpaid invoice has a live payment link ──────────
+def _ensure_payment_links(invoices):
+    """
+    Returns {invoice_id: pay_url} for all invoices.
+    Creates links on demand if missing; reuses cached ones.
+    """
+    links = {}
+    for inv in invoices:
+        cached = inv.get("payment_link") or {}
+        if cached.get("url"):
+            links[inv["id"]] = cached["url"]
+            continue
+        link = create_payment_link(inv)
+        if link.get("success"):
+            inv["payment_link"] = {
+                "url": link["url"],
+                "provider": link["provider"],
+                "ref": link["ref"],
+                "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "amount": link["amount"],
+            }
+            _save("invoices", inv["id"], inv)
+            links[inv["id"]] = link["url"]
+    return links
+
+
+# ── send reminder (WhatsApp + pay link) ──────────────────────────
 @router.post("/api/debtors/{customer_name}/remind")
 async def send_reminder(customer_name: str, r: Request):
     try:
@@ -198,6 +231,7 @@ async def send_reminder(customer_name: str, r: Request):
         d = {}
     channel = d.get("channel", "whatsapp")
     custom = (d.get("message") or "").strip()
+    include_link = d.get("include_link", True)
 
     statement = customer_statement(customer_name)
     total = statement["total_outstanding"]
@@ -206,7 +240,6 @@ async def send_reminder(customer_name: str, r: Request):
                 if (inv.get("customer") or "").strip() == customer_name.strip()
                 and _outstanding(inv) > 0]
 
-    # resolve phone from invoice or customer record
     phone = ""
     for inv in invoices:
         if inv.get("phone"):
@@ -218,6 +251,21 @@ async def send_reminder(customer_name: str, r: Request):
 
     tone = "urgent" if oldest >= 90 else "firm" if oldest >= 60 else "friendly"
     msg = custom or _build_reminder(customer_name, total, oldest, tone)
+
+    # Append payment links for each unpaid invoice
+    if include_link and invoices:
+        base = _public_base()
+        if len(invoices) == 1:
+            inv = invoices[0]
+            cached = inv.get("payment_link") or {}
+            pay_url = cached.get("url") or f"{base}/pay/{inv['id']}"
+            msg += f"\n\nPay now: {pay_url}"
+        else:
+            msg += "\n\nPay invoices:"
+            for inv in invoices[:5]:  # cap to keep message short
+                cached = inv.get("payment_link") or {}
+                pay_url = cached.get("url") or f"{base}/pay/{inv['id']}"
+                msg += f"\n• R{_outstanding(inv):.2f} — {pay_url}"
 
     # ── SEND ─────────────────────────────────────────────────────
     if channel == "console":
@@ -243,6 +291,7 @@ async def send_reminder(customer_name: str, r: Request):
             "message_id": send_result.get("message_id"),
             "success": send_result.get("success", False),
             "error": send_result.get("error"),
+            "included_pay_link": bool(include_link),
         })
         inv["reminders"] = rem
         _save("invoices", inv["id"], inv)
@@ -273,7 +322,6 @@ def _build_reminder(name, total, days, tone):
             f"account. No rush — settle when convenient. Thank you!")
 
 
-# ── WhatsApp status (which provider is active) ───────────────────
 @router.get("/api/whatsapp/status")
 def whatsapp_status():
     return provider_status()
@@ -286,7 +334,6 @@ def export_debtors_csv():
     w = csv.writer(out)
     w.writerow(["Customer", "Invoice ID", "Date", "Due Date", "Description",
                 "Total", "Paid", "Outstanding", "Days Overdue", "Bucket"])
-
     for inv in _list("invoices"):
         outstanding = _outstanding(inv)
         if outstanding <= 0.005:
@@ -300,7 +347,6 @@ def export_debtors_csv():
             f"{float(inv.get('amount_paid', 0)):.2f}",
             f"{outstanding:.2f}", days, _bucket_for(days),
         ])
-
     out.seek(0)
     return StreamingResponse(
         iter([out.getvalue()]), media_type="text/csv",
@@ -309,7 +355,7 @@ def export_debtors_csv():
 
 
 # ═══════════════════════════════════════════════════════════════
-# UI PANEL — injected into home page before </body>
+# UI PANEL — unchanged except invoice rows now flag "Pay link ready"
 # ═══════════════════════════════════════════════════════════════
 AGED_DEBTORS_HTML = """
 <style>
@@ -389,6 +435,7 @@ AGED_DEBTORS_HTML = """
   .rt-badge.b60 { background: #fed7aa; color: #9a3412; }
   .rt-badge.b90 { background: #fecaca; color: #991b1b; }
   .rt-badge.b120 { background: #7f1d1d; color: #fff; }
+  .rt-badge.paylink { background: #dbeafe; color: #1e40af; margin-left:6px; }
   .rt-db-remind {
     background: #16a34a; color: #fff; border: none; padding: 6px 12px;
     border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
@@ -449,12 +496,7 @@ AGED_DEBTORS_HTML = """
   };
 
   function money(n){ return "R" + Number(n||0).toLocaleString("en-ZA",{minimumFractionDigits:2, maximumFractionDigits:2}); }
-
-  function esc(s){
-    return String(s||"").replace(/[&<>"']/g, m => (
-      {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-  }
-
+  function esc(s){ return String(s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
   function relTime(s){
     if (!s) return "";
     const t = new Date(s.replace(" ", "T"));
@@ -472,12 +514,11 @@ AGED_DEBTORS_HTML = """
       "As of " + DATA.as_of + " · " + DATA.customer_count +
       " customers · " + DATA.invoice_count + " invoices";
 
-    // KPIs
     const kpis = document.getElementById("rt-db-kpis");
     let khtml = `<div class="rt-db-kpi"><div class="lbl">Total Outstanding</div>
       <div class="val">${money(DATA.grand_total)}</div></div>`;
     DATA.buckets.forEach(b => {
-      if (b.key === "current") return; // skip current in KPI row, shown in table
+      if (b.key === "current") return;
       const danger = (b.key === "90" || b.key === "120") && b.total > 0;
       khtml += `<div class="rt-db-kpi ${danger?'danger':''}">
         <div class="lbl">${b.label}</div>
@@ -485,7 +526,6 @@ AGED_DEBTORS_HTML = """
     });
     kpis.innerHTML = khtml;
 
-    // Body
     const body = document.getElementById("rt-db-body");
     if (!DATA.customers.length){
       body.innerHTML = `<div class="rt-db-empty"><div class="big">🎉</div>
@@ -513,7 +553,7 @@ AGED_DEBTORS_HTML = """
             ${esc(c.phone||"")}
             ${c.oldest_days > 0 ? ' · <span style="color:#c00">'+c.oldest_days+'d overdue</span>' : ''}
             ${c.last_reminder
-              ? ' · <span style="color:#16a34a" title="Last reminder sent">🔔 '+relTime(c.last_reminder)+'</span>'
+              ? ' · <span style="color:#16a34a">🔔 '+relTime(c.last_reminder)+'</span>'
               : ' · <span style="color:#aaa">no reminders sent</span>'}
           </div>
         </td>
@@ -523,13 +563,14 @@ AGED_DEBTORS_HTML = """
         <td class="num">${c["90"]>0?money(c["90"]):"—"}</td>
         <td class="num">${c["120"]>0?money(c["120"]):"—"}</td>
         <td class="num"><strong>${money(c.total)}</strong></td>
-        <td><button class="rt-db-remind" onclick="event.stopPropagation();rtDebtorsRemind('${esc(c.customer)}',this)">Remind</button></td>
+        <td><button class="rt-db-remind" onclick="event.stopPropagation();rtDebtorsRemind('${esc(c.customer)}',this)">Remind & Pay</button></td>
       </tr>
       <tr class="invoice-row" id="rt-db-inv-${i}" style="display:none">
         <td colspan="8">
           ${c.invoices.map(inv => `
             <div style="padding:6px 0;border-bottom:1px dashed #eee">
               <span class="rt-badge ${inv.bucket==='current'?'current':'b'+inv.bucket}">${inv.days_overdue>0?inv.days_overdue+'d':'Current'}</span>
+              ${inv.has_payment_link ? '<span class="rt-badge paylink">💳 Pay link ready</span>' : ''}
               <strong style="margin-left:8px">${inv.id}</strong>
               · ${inv.created}${inv.due_date?' (due '+inv.due_date+')':''} · ${esc(inv.description||"—")}
               · Outstanding <strong>${money(inv.outstanding)}</strong>
@@ -553,10 +594,11 @@ AGED_DEBTORS_HTML = """
     btn.disabled = true; btn.textContent = "Sending…";
     try {
       const r = await fetch(API + "/" + encodeURIComponent(name) + "/remind",
-        {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
+        {method:"POST", headers:{"Content-Type":"application/json"},
+         body: JSON.stringify({include_link: true})});
       const d = await r.json();
       if (d.success) {
-        btn.textContent = "✓ Sent";
+        btn.textContent = "✓ Sent with Pay Link";
         btn.style.background = "#15803d";
       } else {
         btn.textContent = "✗ " + (d.error||"Failed").slice(0, 20);
