@@ -58,6 +58,8 @@ EVENT_HANDLERS_HTML = ""
 guide_router = None
 workshop_router = None
 workshop_api_router = None
+aged_debtors_router = None
+AGED_DEBTORS_HTML = ""
 
 try:
     from event_bus import EVENT_BUS_HTML
@@ -222,6 +224,11 @@ try:
 except Exception as _e:
     print(f"[main] workshop_api unavailable: {_e}")
 
+try:
+    from aged_debtors import router as aged_debtors_router, AGED_DEBTORS_HTML
+except Exception as _e:
+    print(f"[main] aged_debtors unavailable: {_e}")
+
 app = FastAPI(title="RamsTech")
 
 if ai_router:
@@ -262,6 +269,8 @@ if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
     app.include_router(workshop_api_router)
+if aged_debtors_router:
+    app.include_router(aged_debtors_router)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
@@ -338,7 +347,7 @@ def realtime_config():
 def push_service_worker():
     try:
         path = os.path.join(os.path.dirname(__file__), "push-sw.js")
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             js = f.read()
     except Exception:
         js = "// push-sw.js not found"
@@ -407,6 +416,9 @@ async def home():
             inject += STAFF_MERGE_HTML
         if TAB_CONSOLIDATE_HTML:
             inject += TAB_CONSOLIDATE_HTML
+        # Financial
+        if AGED_DEBTORS_HTML:
+            inject += AGED_DEBTORS_HTML
         # Live sync + push
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
