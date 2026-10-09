@@ -233,6 +233,11 @@ try:
 except Exception as _e:
     print(f"[main] aged_debtors unavailable: {_e}")
 
+try: 
+    from payments import router as payments_router
+except Exception as _e:
+    print(f"[main] payments unavailable: {_e}")
+
 try:
     from auto_remind import (router as auto_remind_router,
                              AUTO_REMIND_HTML,
