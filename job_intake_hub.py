@@ -7,7 +7,9 @@ JOB_INTAKE_HUB_HTML = r"""
 <style>
 /* Hide the individual floating buttons — they're now inside the hub */
 #photoIntakeBtn,
-#voiceIntakeBtn{
+#voiceIntakeBtn,
+#piInlineBtn,
+#viInlineBtn{
   display:none !important;
 }
 
