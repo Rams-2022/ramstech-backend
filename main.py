@@ -48,6 +48,7 @@ PHOTO_INTAKE_HTML = ""
 voice_router = None
 VOICE_INTAKE_HTML = ""
 JOB_INTAKE_HUB_HTML = ""
+STAFF_MERGE_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -166,6 +167,12 @@ try:
 except Exception as _e:
     print(f"[main] job_intake_hub unavailable: {_e}")
     JOB_INTAKE_HUB_HTML = ""
+
+try:
+    from staff_merge import STAFF_MERGE_HTML
+except Exception as _e:
+    print(f"[main] staff_merge unavailable: {_e}")
+    STAFF_MERGE_HTML = ""
 
 try:
     from workshop_routes import router as workshop_router
@@ -318,6 +325,8 @@ async def home():
             inject += VOICE_INTAKE_HTML
         if JOB_INTAKE_HUB_HTML:
             inject += JOB_INTAKE_HUB_HTML
+        if STAFF_MERGE_HTML:
+            inject += STAFF_MERGE_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
