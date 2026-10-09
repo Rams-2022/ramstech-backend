@@ -43,6 +43,8 @@ theme_html = ""
 instant_html = ""
 search_html = ""
 queue_html = ""
+photo_router = None
+PHOTO_INTAKE_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -147,6 +149,11 @@ except Exception as _e:
     print(f"[main] offline_queue unavailable: {_e}")
 
 try:
+    from photo_intake import router as photo_router, PHOTO_INTAKE_HTML
+except Exception as _e:
+    print(f"[main] photo_intake unavailable: {_e}")
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -184,6 +191,8 @@ if staff_admin_router:
     app.include_router(staff_admin_router)
 if audit_router:
     app.include_router(audit_router)
+if photo_router:
+    app.include_router(photo_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -287,6 +296,8 @@ async def home():
             inject += search_html
         if queue_html:
             inject += queue_html
+        if PHOTO_INTAKE_HTML:
+            inject += PHOTO_INTAKE_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
