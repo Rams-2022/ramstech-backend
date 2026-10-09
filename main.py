@@ -45,6 +45,9 @@ search_html = ""
 queue_html = ""
 photo_router = None
 PHOTO_INTAKE_HTML = ""
+voice_router = None
+VOICE_INTAKE_HTML = ""
+JOB_INTAKE_HUB_HTML = ""
 workshop_router = None
 workshop_api_router = None
 
@@ -154,6 +157,17 @@ except Exception as _e:
     print(f"[main] photo_intake unavailable: {_e}")
 
 try:
+    from voice_intake import router as voice_router, VOICE_INTAKE_HTML
+except Exception as _e:
+    print(f"[main] voice_intake unavailable: {_e}")
+
+try:
+    from job_intake_hub import JOB_INTAKE_HUB_HTML
+except Exception as _e:
+    print(f"[main] job_intake_hub unavailable: {_e}")
+    JOB_INTAKE_HUB_HTML = ""
+
+try:
     from workshop_routes import router as workshop_router
 except Exception as _e:
     print(f"[main] workshop_routes unavailable: {_e}")
@@ -193,6 +207,8 @@ if audit_router:
     app.include_router(audit_router)
 if photo_router:
     app.include_router(photo_router)
+if voice_router:
+    app.include_router(voice_router)
 if workshop_router:
     app.include_router(workshop_router)
 if workshop_api_router:
@@ -298,6 +314,10 @@ async def home():
             inject += queue_html
         if PHOTO_INTAKE_HTML:
             inject += PHOTO_INTAKE_HTML
+        if VOICE_INTAKE_HTML:
+            inject += VOICE_INTAKE_HTML
+        if JOB_INTAKE_HUB_HTML:
+            inject += JOB_INTAKE_HUB_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
