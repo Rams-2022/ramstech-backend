@@ -69,6 +69,15 @@ PORTAL_HTML = ""
 profit_router = None
 PROFIT_DASHBOARD_HTML = ""
 
+# ── Tenancy ──────────────────────────────────────────────────
+HAS_TENANCY = False
+MULTI_TENANT = False
+tenancy_router = None
+tenancy_middleware = None
+get_current_workshop = None
+is_multi_tenant = None
+
+
 try:
     from event_bus import EVENT_BUS_HTML
 except Exception as _e:
@@ -259,7 +268,35 @@ try:
 except Exception as _e:
     print(f"[main] profit_dashboard unavailable: {_e}")
 
+# ── Tenancy (optional, fail-safe) ───────────────────────────
+try:
+    from tenancy import (
+        router as tenancy_router,
+        tenancy_middleware,
+        get_current_workshop,
+        is_multi_tenant,
+        MULTI_TENANT as TENANCY_MT,
+    )
+    HAS_TENANCY = True
+    MULTI_TENANT = TENANCY_MT
+    print(f"[main] tenancy loaded — MULTI_TENANT={MULTI_TENANT}")
+except Exception as _e:
+    print(f"[main] tenancy unavailable: {_e}")
+    HAS_TENANCY = False
+    MULTI_TENANT = False
+
+    def get_current_workshop():
+        return "default"
+
+    def is_multi_tenant():
+        return False
+
+
 app = FastAPI(title="RamsTech")
+
+# ── Register tenancy middleware FIRST so it wraps everything ─
+if HAS_TENANCY and tenancy_middleware:
+    app.middleware("http")(tenancy_middleware)
 
 if ai_router:
     app.include_router(ai_router)
@@ -309,13 +346,15 @@ if portal_router:
     app.include_router(portal_router)
 if profit_router:
     app.include_router(profit_router)
+if tenancy_router:
+    app.include_router(tenancy_router)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
 
 MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
                        "inventory", "purchase_orders", "staff", "clockins", "expenses",
-                       "fuel_logs"]}
+                       "fuel_logs", "workshops"]}
 WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "",
             "logo": "RT", "labour_rate": 450}
 
@@ -328,26 +367,59 @@ def today():
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# ═══════════════════════════════════════════════════════════════
+# WORKSHOP-AWARE STORAGE LAYER
+# ═══════════════════════════════════════════════════════════════
+def _current_wid():
+    try:
+        return get_current_workshop() or "default"
+    except Exception:
+        return "default"
+
+
+def _row_matches(row, wid):
+    """When multi-tenant is OFF, everything matches (backwards compatible)."""
+    if not MULTI_TENANT:
+        return True
+    return (row.get("workshop_id") or "default") == wid
+
+
 def store_list(t):
-    if db.is_ready():
-        return db.get_all(t)
-    return list(MEM[t].values())
+    wid = _current_wid()
+    rows = db.get_all(t) if db.is_ready() else list(MEM[t].values())
+    if not MULTI_TENANT:
+        return rows
+    return [r for r in rows if _row_matches(r, wid)]
 
 
 def store_get(t, i):
-    if db.is_ready():
-        return db.get_one(t, i)
-    return MEM[t].get(i)
+    wid = _current_wid()
+    row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
+    if not row:
+        return None
+    if MULTI_TENANT and not _row_matches(row, wid):
+        return None
+    return row
 
 
 def store_save(t, i, row):
+    wid = _current_wid()
+    # tag with workshop_id (harmless in single-tenant mode)
+    if MULTI_TENANT and "workshop_id" not in row:
+        row["workshop_id"] = wid
     if db.is_ready():
-        return db.update(t, i, row) if db.get_one(t, i) else db.insert(t, row)
+        exists = db.get_one(t, i)
+        return db.update(t, i, row) if exists else db.insert(t, row)
     MEM[t][i] = row
     return row
 
 
 def store_delete(t, i):
+    # in multi-tenant mode, refuse to delete another workshop's row
+    if MULTI_TENANT:
+        row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
+        if row and not _row_matches(row, _current_wid()):
+            return False
     if db.is_ready():
         return db.delete(t, i)
     MEM[t].pop(i, None)
@@ -355,14 +427,20 @@ def store_delete(t, i):
 
 
 def get_workshop_data():
+    wid = _current_wid()
     if db.is_ready():
         w = db.get_workshop()
         if w:
-            return w
+            if MULTI_TENANT and (w.get("workshop_id") or "default") != wid:
+                pass  # fall through
+            else:
+                return w
     return WORKSHOP
 
 
 def save_workshop_data(d):
+    if MULTI_TENANT and "workshop_id" not in d:
+        d["workshop_id"] = _current_wid()
     if db.is_ready():
         return db.save_workshop(d)
     WORKSHOP.update(d)
@@ -486,6 +564,8 @@ async def home():
 def health():
     return {"status": "healthy",
             "database": ("supabase" if db.is_ready() else "memory"),
+            "multi_tenant": MULTI_TENANT,
+            "current_workshop": _current_wid(),
             "time": datetime.now().isoformat()}
 
 
@@ -508,6 +588,9 @@ def debug_env():
         "PAYFAST_CONFIGURED": bool(os.getenv("PAYFAST_MERCHANT_ID", "").strip()),
         "STRIPE_CONFIGURED": bool(os.getenv("STRIPE_SECRET_KEY", "").strip()),
         "PUBLIC_BASE_URL_set": bool(os.getenv("PUBLIC_BASE_URL", "").strip()),
+        "MULTI_TENANT": MULTI_TENANT,
+        "SESSION_SECRET_set": bool(os.getenv("SESSION_SECRET", "").strip()),
+        "SUPER_ADMIN_PIN_set": bool(os.getenv("SUPER_ADMIN_PIN", "").strip()),
     }
 
 
