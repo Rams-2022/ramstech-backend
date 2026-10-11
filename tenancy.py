@@ -194,7 +194,6 @@ def tenancy_current(request: Request):
 
 @router.get("/api/tenancy/debug/gate")
 def debug_gate(request: Request):
-    """Diagnostic — shows exactly what the middleware sees for this request."""
     token = request.cookies.get(COOKIE_NAME)
     session = _verify(token)
     return {
@@ -717,6 +716,7 @@ _PUBLIC_PREFIXES = (
     "/manifest.json",
     "/service-worker.js",
     "/sw.js",
+    "/kit",
 )
 
 
@@ -748,13 +748,11 @@ async def tenancy_middleware(request: Request, call_next):
         token = request.cookies.get(COOKIE_NAME)
         session = _verify(token)
         if not session:
-            # API paths → JSON 401, no exceptions
             if path.startswith("/api/"):
                 return JSONResponse(
                     {"detail": "Not authenticated", "login": "/login"},
                     status_code=401,
                 )
-            # Browser paths → redirect to login
             nxt = path if path.startswith("/") else "/"
             return RedirectResponse(
                 f"/login?next={nxt}", status_code=302)
