@@ -66,6 +66,8 @@ auto_remind_start = None
 payments_router = None
 portal_router = None
 PORTAL_HTML = ""
+profit_router = None
+PROFIT_DASHBOARD_HTML = ""
 
 try:
     from event_bus import EVENT_BUS_HTML
@@ -252,6 +254,11 @@ try:
 except Exception as _e:
     print(f"[main] portal unavailable: {_e}")
 
+try:
+    from profit_dashboard import router as profit_router, PROFIT_DASHBOARD_HTML
+except Exception as _e:
+    print(f"[main] profit_dashboard unavailable: {_e}")
+
 app = FastAPI(title="RamsTech")
 
 if ai_router:
@@ -300,6 +307,8 @@ if payments_router:
     app.include_router(payments_router)
 if portal_router:
     app.include_router(portal_router)
+if profit_router:
+    app.include_router(profit_router)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
@@ -458,6 +467,8 @@ async def home():
             inject += PORTAL_HTML
         if AUTO_REMIND_HTML:
             inject += AUTO_REMIND_HTML
+        if PROFIT_DASHBOARD_HTML:
+            inject += PROFIT_DASHBOARD_HTML
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
