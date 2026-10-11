@@ -16,6 +16,10 @@ Webhook setup (in provider dashboard):
   Yoco:      https://yourdomain.com/api/payments/webhook/yoco
   PayFast:   https://yourdomain.com/api/payments/webhook/payfast
   Stripe:    https://yourdomain.com/api/payments/webhook/stripe
+
+Idempotency: webhooks store a `payment_refs` array on each invoice.
+Duplicate webhook deliveries are detected by (provider, ref) and ignored,
+so a retried callback never double-credits an invoice.
 """
 import os
 import re
@@ -58,7 +62,6 @@ def provider_status():
 
 
 def _public_base():
-    """Base URL for redirects. Set PUBLIC_BASE_URL on Render."""
     base = os.getenv("PUBLIC_BASE_URL", "").strip()
     return base.rstrip("/") if base else "https://ramstech.onrender.com"
 
@@ -67,11 +70,6 @@ def _public_base():
 # CORE — create a payment link for an invoice
 # ═══════════════════════════════════════════════════════════════
 def create_payment_link(invoice):
-    """
-    Returns dict:
-      {success, provider, url, ref, error, amount}
-    Never raises.
-    """
     try:
         amount_rands = float(invoice.get("total", 0)) - float(invoice.get("amount_paid", 0))
         if amount_rands <= 0.005:
@@ -97,7 +95,6 @@ def create_payment_link(invoice):
 
 # ═══════════════════════════════════════════════════════════════
 # YOCO CHECKOUT
-# Docs: https://developer.yoco.com/online/api-reference/checkout/
 # ═══════════════════════════════════════════════════════════════
 def _yoco_checkout(invoice_id, amount_cents, description):
     key = os.getenv("YOCO_SECRET_KEY", "").strip()
@@ -144,8 +141,7 @@ def _yoco_checkout(invoice_id, amount_cents, description):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PAYFAST (custom integration — via standard payment form)
-# Docs: https://developers.payfast.co.za/docs
+# PAYFAST
 # ═══════════════════════════════════════════════════════════════
 def _payfast_link(invoice_id, amount_rands, description):
     merchant_id = os.getenv("PAYFAST_MERCHANT_ID", "").strip()
@@ -166,7 +162,6 @@ def _payfast_link(invoice_id, amount_rands, description):
         "item_description": (description or "")[:255],
     }
 
-    # build signature string in PayFast's exact order
     sig_str = urllib.parse.urlencode(form)
     if passphrase:
         sig_str += f"&passphrase={urllib.parse.quote_plus(passphrase)}"
@@ -180,7 +175,7 @@ def _payfast_link(invoice_id, amount_rands, description):
 
 
 # ═══════════════════════════════════════════════════════════════
-# STRIPE CHECKOUT
+# STRIPE
 # ═══════════════════════════════════════════════════════════════
 def _stripe_link(invoice_id, amount_cents, description):
     key = os.getenv("STRIPE_SECRET_KEY", "").strip()
@@ -235,15 +230,13 @@ def _console_link(invoice_id, amount_rands, description):
 # ═══════════════════════════════════════════════════════════════
 # PUBLIC ENDPOINTS — /pay/*
 # ═══════════════════════════════════════════════════════════════
-@router.get("/pay/{invoice_id}", response_class=RedirectResponse)
+@router.get("/pay/{invoice_id}")
 def pay_redirect(invoice_id: str):
-    """Customer taps this from WhatsApp — sends them straight to checkout."""
     from main import store_get
     inv = store_get("invoices", invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
 
-    # reuse an existing live link if we made one recently
     existing = inv.get("payment_link")
     if existing and existing.get("url") and not inv.get("paid"):
         return RedirectResponse(existing["url"], status_code=302)
@@ -277,8 +270,6 @@ padding:40px 28px;box-shadow:0 4px 20px rgba(0,0,0,0.06)}}
 .icon{{font-size:56px;color:{color};margin-bottom:16px}}
 h1{{margin:0 0 8px;font-size:22px;letter-spacing:-0.3px}}
 p{{margin:0;color:#666;line-height:1.6;font-size:15px}}
-.back{{display:inline-block;margin-top:24px;color:#111;font-weight:600;
-text-decoration:none;border-bottom:2px solid #111;padding-bottom:2px}}
 </style></head><body>
 <div class="card">
   <div class="icon">{icon}</div>
@@ -320,27 +311,55 @@ def pay_demo(inv: str = "", amount: str = "0"):
 
 # ═══════════════════════════════════════════════════════════════
 # WEBHOOKS — provider notifies us payment succeeded
+# IDEMPOTENT: safe to retry, safe if provider double-fires.
 # ═══════════════════════════════════════════════════════════════
 def _mark_paid(invoice_id, amount, provider, ref):
     from main import store_get, store_save
     inv = store_get("invoices", invoice_id)
     if not inv:
         return {"success": False, "error": "Invoice not found"}
-    if inv.get("paid"):
-        return {"success": True, "already": True}
 
-    inv["amount_paid"] = float(inv.get("amount_paid", 0)) + float(amount)
+    # idempotency check #1 — has this exact (provider, ref) already been applied?
+    refs = inv.get("payment_refs") or []
+    if ref:
+        for r in refs:
+            if r.get("ref") == ref and r.get("provider") == provider:
+                print(f"[payments] duplicate webhook ignored: {provider}:{ref}")
+                return {"success": True, "already": True, "duplicate": True,
+                        "invoice_id": invoice_id,
+                        "paid": bool(inv.get("paid"))}
+
+    # idempotency check #2 — is the invoice already fully paid?
+    if inv.get("paid"):
+        print(f"[payments] invoice {invoice_id} already paid — ignoring webhook")
+        return {"success": True, "already": True, "invoice_id": invoice_id,
+                "paid": True}
+
+    amount = float(amount or 0)
+    inv["amount_paid"] = float(inv.get("amount_paid", 0)) + amount
     inv["paid"] = inv["amount_paid"] >= float(inv.get("total", 0)) - 0.005
-    inv["payment_received"] = {
+
+    # record this payment for audit + future idempotency
+    entry = {
+        "ref": ref,
+        "provider": provider,
+        "amount": amount,
         "at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    refs.append(entry)
+    inv["payment_refs"] = refs
+
+    inv["payment_received"] = {
+        "at": entry["at"],
         "provider": provider,
         "ref": ref,
-        "amount": float(amount),
+        "amount": amount,
     }
     store_save("invoices", invoice_id, inv)
-    print(f"[payments] invoice {invoice_id} marked paid via {provider} "
-          f"(R{amount:.2f})")
-    return {"success": True, "invoice_id": invoice_id, "paid": inv["paid"]}
+    print(f"[payments] invoice {invoice_id} credited via {provider} "
+          f"(R{amount:.2f}, ref={ref})")
+    return {"success": True, "invoice_id": invoice_id, "paid": inv["paid"],
+            "credited": amount}
 
 
 @router.post("/api/payments/webhook/yoco")
@@ -351,11 +370,9 @@ async def webhook_yoco(request: Request):
     except Exception:
         raise HTTPException(400, "Invalid JSON")
 
-    # Optional signature verification — set YOCO_WEBHOOK_SECRET to enable
     secret = os.getenv("YOCO_WEBHOOK_SECRET", "").strip()
     if secret:
         sig_header = request.headers.get("webhook-signature", "")
-        # Yoco format: "v1,<base64>" — verify HMAC-SHA256 over the raw body
         try:
             received = sig_header.split(",", 1)[1] if "," in sig_header else sig_header
             expected = base64.b64encode(
@@ -369,7 +386,6 @@ async def webhook_yoco(request: Request):
         except Exception as e:
             print(f"[payments] yoco signature check error: {e}")
 
-    # Yoco sends: {type: "payment.succeeded", payload: {metadata: {invoiceId}, amount, id}}
     event_type = event.get("type") or event.get("eventType") or ""
     if "succeeded" not in event_type.lower():
         return {"success": True, "ignored": event_type}
@@ -388,12 +404,10 @@ async def webhook_yoco(request: Request):
 
 @router.post("/api/payments/webhook/payfast")
 async def webhook_payfast(request: Request):
-    """PayFast sends form-encoded data. We verify signature then mark paid."""
     form = dict(await request.form())
     if not form:
         raise HTTPException(400, "Empty payload")
 
-    # PayFast signature check
     passphrase = os.getenv("PAYFAST_PASSPHRASE", "").strip()
     received_sig = form.pop("signature", "")
     sig_str = urllib.parse.urlencode(form)
@@ -405,15 +419,15 @@ async def webhook_payfast(request: Request):
         print("[payments] payfast signature mismatch")
         raise HTTPException(401, "Bad signature")
 
-    # PayFast status: COMPLETE, FAILED, PENDING, CANCELLED
     status = (form.get("payment_status") or "").upper()
     invoice_id = form.get("m_payment_id") or ""
     amount = float(form.get("amount_gross") or 0)
+    ref = form.get("pf_payment_id", "")
 
     if status != "COMPLETE":
         return {"success": True, "ignored": status}
 
-    return _mark_paid(invoice_id, amount, "payfast", form.get("pf_payment_id", ""))
+    return _mark_paid(invoice_id, amount, "payfast", ref)
 
 
 @router.post("/api/payments/webhook/stripe")
@@ -428,7 +442,6 @@ async def webhook_stripe(request: Request):
     if secret:
         sig_header = request.headers.get("stripe-signature", "")
         try:
-            # Stripe format: t=...,v1=...
             parts = dict(p.split("=", 1) for p in sig_header.split(","))
             ts = parts.get("t", "")
             v1 = parts.get("v1", "")
@@ -447,11 +460,12 @@ async def webhook_stripe(request: Request):
     session = event.get("data", {}).get("object", {})
     invoice_id = session.get("metadata", {}).get("invoiceId")
     amount_total = session.get("amount_total", 0)
+    ref = session.get("id", "")
 
     if not invoice_id:
         return {"success": False, "error": "no invoiceId in session"}
 
-    return _mark_paid(invoice_id, amount_total / 100, "stripe", session.get("id", ""))
+    return _mark_paid(invoice_id, amount_total / 100, "stripe", ref)
 
 
 # ═══════════════════════════════════════════════════════════════
