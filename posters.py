@@ -404,6 +404,405 @@ def poster_5(size: str = ""):
 
 
 # ═══════════════════════════════════════════════════════════════
+# POSTER 6 — AGED DEBTORS DASHBOARD (real UI mockup)
+# ═══════════════════════════════════════════════════════════════
+@router.get("/posters/6", response_class=HTMLResponse)
+def poster_6(size: str = ""):
+    def row(name, age, amount, bucket_color, bucket_label):
+        return f"""
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;padding:3.5% 0;
+                    border-bottom:1px solid #f0f0f0">
+          <div>
+            <div style="font-weight:800;font-size:clamp(11px,2.2vw,14px);
+                        color:#111">{name}</div>
+            <div style="font-size:clamp(9px,1.8vw,11px);color:#888;
+                        margin-top:2px">
+              <span style="background:{bucket_color};color:#fff;
+                           padding:1px 7px;border-radius:10px;
+                           font-weight:700;font-size:clamp(8px,1.6vw,10px);
+                           text-transform:uppercase;letter-spacing:0.3px">
+                {bucket_label}
+              </span>
+            </div>
+          </div>
+          <div style="font-weight:900;font-size:clamp(12px,2.4vw,16px);
+                      color:#111;font-variant-numeric:tabular-nums">
+            R{amount}
+          </div>
+        </div>
+        """
+    body = f"""
+    <div style="flex:1;background:#f5f5f5;padding:6% 5%;display:flex;
+                flex-direction:column;overflow:hidden">
+      <div style="text-align:center;margin-bottom:5%">
+        <div style="font-size:clamp(10px,1.9vw,12px);color:#888;
+                    font-weight:800;text-transform:uppercase;
+                    letter-spacing:1.5px">
+          RAMSTECH · AGED DEBTORS
+        </div>
+        <div style="font-size:clamp(22px,5vw,34px);font-weight:900;
+                    letter-spacing:-1.2px;color:#111;margin-top:3%">
+          You are owed
+        </div>
+        <div style="font-size:clamp(38px,9vw,64px);font-weight:900;
+                    letter-spacing:-2px;color:#dc2626;
+                    line-height:1;margin-top:1%">
+          R47,500
+        </div>
+      </div>
+
+      <div style="background:#fff;border-radius:14px;padding:4% 5%;
+                  box-shadow:0 4px 16px rgba(0,0,0,0.06);flex:1;
+                  display:flex;flex-direction:column">
+        {row("Thabo Motors", "90+ days", "12,400", "#7f1d1d", "90+ days")}
+        {row("Sipho Logistics", "60 days", "9,850", "#dc2626", "60 days")}
+        {row("Auto Care SA", "30 days", "8,200", "#f59e0b", "30 days")}
+        {row("Mike's Bakkie", "Current", "6,400", "#16a34a", "Current")}
+        {row("Fleet Services", "90+ days", "5,900", "#7f1d1d", "90+ days")}
+        {row("Johan Motors", "30 days", "4,750", "#f59e0b", "30 days")}
+      </div>
+
+      <div style="margin-top:4%;background:#16a34a;color:#fff;
+                  padding:3.5% 5%;border-radius:10px;text-align:center;
+                  font-weight:900;font-size:clamp(11px,2.2vw,14px);
+                  letter-spacing:0.3px">
+        💬 Chase all overdue → 1 tap
+      </div>
+    </div>
+    """
+    return HTMLResponse(_wrap(size, body))
+
+
+# ═══════════════════════════════════════════════════════════════
+# POSTER 7 — WHATSAPP REMINDER THREAD
+# ═══════════════════════════════════════════════════════════════
+@router.get("/posters/7", response_class=HTMLResponse)
+def poster_7(size: str = ""):
+    def bubble(text, side="left", time=""):
+        if side == "right":
+            bg, align, radius = "#dcf8c6", "flex-end", "14px 4px 14px 14px"
+            color = "#111"
+        else:
+            bg, align, radius = "#fff", "flex-start", "4px 14px 14px 14px"
+            color = "#111"
+        return f"""
+        <div style="display:flex;justify-content:{align};
+                    margin-bottom:3%">
+          <div style="max-width:80%;background:{bg};color:{color};
+                      padding:3% 3.5%;border-radius:{radius};
+                      font-size:clamp(10px,1.9vw,12px);line-height:1.5;
+                      box-shadow:0 1px 2px rgba(0,0,0,0.08)">
+            {text}
+            <div style="font-size:clamp(8px,1.5vw,9px);color:#888;
+                        margin-top:4px;text-align:right">{time}</div>
+          </div>
+        </div>
+        """
+    body = f"""
+    <div style="flex:1;background:#0a0a0a;display:flex;
+                flex-direction:column;overflow:hidden">
+      <!-- Header -->
+      <div style="background:#075e54;color:#fff;padding:4% 5%;
+                  display:flex;align-items:center;gap:3%">
+        <div style="width:clamp(28px,6vw,36px);height:clamp(28px,6vw,36px);
+                    border-radius:50%;background:#25d366;color:#fff;
+                    display:flex;align-items:center;justify-content:center;
+                    font-weight:900;font-size:clamp(12px,2.4vw,16px)">R</div>
+        <div>
+          <div style="font-weight:800;font-size:clamp(11px,2.2vw,14px)">
+            RamsTech Bot
+          </div>
+          <div style="font-size:clamp(9px,1.7vw,11px);opacity:0.85">
+            Automated reminder
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat area -->
+      <div style="flex:1;background:#ece5dd;padding:5% 4%;
+                  display:flex;flex-direction:column;justify-content:center">
+        {bubble("Hi <b>Thabo Motors</b>, friendly reminder: your balance of <b>R12,400</b> is now 90+ days overdue. Please arrange payment or contact us to discuss a plan.", "left", "09:00")}
+        {bubble("Pay now: ramstech.co.za/pay/abc123", "left", "09:00")}
+        {bubble("✓✓ Paid R12,400", "right", "10:34")}
+        {bubble("<b>Invoice abc123 — PAID</b><br>Thank you! Your account is now up to date.", "left", "10:34")}
+      </div>
+
+      <!-- Footer brand -->
+      <div style="background:#16a34a;color:#fff;padding:4% 5%;
+                  text-align:center">
+        <div style="font-weight:900;font-size:clamp(11px,2.2vw,14px);
+                    letter-spacing:0.5px">
+          Zero phone calls. Zero chasing.
+        </div>
+        <div style="font-size:clamp(9px,1.8vw,11px);margin-top:2%;
+                    opacity:0.9">
+          RAMSTECH · Chases your money for you
+        </div>
+      </div>
+    </div>
+    """
+    return HTMLResponse(_wrap(size, body))
+
+
+# ═══════════════════════════════════════════════════════════════
+# POSTER 8 — CUSTOMER PORTAL (phone screen mockup)
+# ═══════════════════════════════════════════════════════════════
+@router.get("/posters/8", response_class=HTMLResponse)
+def poster_8(size: str = ""):
+    body = """
+    <div style="flex:1;background:linear-gradient(160deg,#0a0a0a 0%,#1a1a1a 100%);
+                padding:6% 5%;display:flex;flex-direction:column;
+                align-items:center;justify-content:center">
+      <div style="font-size:clamp(10px,1.9vw,12px);color:#16a34a;
+                  font-weight:800;text-transform:uppercase;
+                  letter-spacing:1.8px;margin-bottom:5%;text-align:center">
+        THE CUSTOMER'S VIEW
+      </div>
+
+      <!-- Phone frame -->
+      <div style="width:min(70%,280px);background:#fff;border-radius:28px;
+                  padding:5% 4%;box-shadow:0 20px 60px rgba(0,0,0,0.6)">
+
+        <!-- Hero card -->
+        <div style="background:#111;color:#fff;border-radius:16px;
+                    padding:5% 5%;margin-bottom:3%">
+          <div style="font-size:clamp(10px,1.9vw,12px);font-weight:800">
+            Hi Thabo
+          </div>
+          <div style="font-size:clamp(8px,1.6vw,10px);color:#888;
+                      margin-top:1%">
+            Rams Auto · your account
+          </div>
+          <div style="margin-top:5%;padding-top:5%;
+                      border-top:1px solid #333">
+            <div style="font-size:clamp(7px,1.5vw,9px);color:#888;
+                        font-weight:700;text-transform:uppercase;
+                        letter-spacing:1px">
+              Outstanding balance
+            </div>
+            <div style="font-size:clamp(20px,4.5vw,28px);font-weight:900;
+                        letter-spacing:-1px;color:#f87171;margin-top:2%">
+              R12,400
+            </div>
+          </div>
+        </div>
+
+        <!-- Invoice card -->
+        <div style="background:#fafafa;border-radius:12px;padding:4%;
+                    margin-bottom:2%">
+          <div style="display:flex;justify-content:space-between;
+                      align-items:center;margin-bottom:4%">
+            <div>
+              <div style="font-size:clamp(9px,1.7vw,11px);font-weight:800">
+                #abc123
+              </div>
+              <div style="font-size:clamp(7px,1.5vw,9px);color:#888">
+                Due 30 Sep
+              </div>
+            </div>
+            <div style="font-size:clamp(11px,2.2vw,14px);font-weight:900;
+                        color:#dc2626">
+              R12,400
+            </div>
+          </div>
+          <div style="background:#fecaca;color:#991b1b;display:inline-block;
+                      padding:2px 8px;border-radius:10px;
+                      font-size:clamp(7px,1.4vw,9px);font-weight:800;
+                      text-transform:uppercase;letter-spacing:0.5px">
+            Overdue
+          </div>
+          <div style="margin-top:4%;background:#16a34a;color:#fff;
+                      padding:3.5%;border-radius:8px;text-align:center;
+                      font-weight:800;font-size:clamp(9px,1.8vw,11px)">
+            Pay R12,400 now
+          </div>
+        </div>
+
+        <!-- Book service card -->
+        <div style="background:#f0fdf4;border-radius:12px;padding:4%;
+                    text-align:center">
+          <div style="font-size:clamp(8px,1.6vw,10px);color:#166534;
+                      font-weight:800">
+            📅 Book your next service
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:6%;text-align:center;color:#fff">
+        <div style="font-size:clamp(12px,2.4vw,16px);font-weight:900;
+                    letter-spacing:-0.3px">
+          Every customer gets their own portal.
+        </div>
+        <div style="font-size:clamp(9px,1.8vw,11px);color:#888;
+                    margin-top:2%">
+          Powered by RAMSTECH
+        </div>
+      </div>
+    </div>
+    """
+    return HTMLResponse(_wrap(size, body))
+
+
+# ═══════════════════════════════════════════════════════════════
+# POSTER 9 — PROFIT DASHBOARD
+# ═══════════════════════════════════════════════════════════════
+@router.get("/posters/9", response_class=HTMLResponse)
+def poster_9(size: str = ""):
+    def kpi(label, value, color="#111"):
+        return f"""
+        <div style="background:#fafafa;border:1px solid #e5e5e5;
+                    border-radius:10px;padding:5% 4%">
+          <div style="font-size:clamp(7px,1.5vw,9px);font-weight:800;
+                      text-transform:uppercase;letter-spacing:1px;
+                      color:#888">{label}</div>
+          <div style="font-size:clamp(14px,3vw,20px);font-weight:900;
+                      letter-spacing:-0.7px;color:{color};
+                      margin-top:3%">{value}</div>
+        </div>
+        """
+    def bar(label, value, pct, color="#16a34a"):
+        return f"""
+        <div style="display:flex;align-items:center;gap:3%;
+                    margin-bottom:3.5%">
+          <div style="font-size:clamp(9px,1.8vw,11px);font-weight:700;
+                      width:30%;color:#333">{label}</div>
+          <div style="flex:1;height:6px;background:#f0f0f0;
+                      border-radius:4px;overflow:hidden">
+            <div style="width:{pct}%;height:100%;background:{color};
+                        border-radius:4px"></div>
+          </div>
+          <div style="font-size:clamp(9px,1.8vw,11px);font-weight:800;
+                      color:#111;min-width:60px;text-align:right;
+                      font-variant-numeric:tabular-nums">{value}</div>
+        </div>
+        """
+    body = f"""
+    <div style="flex:1;background:#fff;padding:6% 5%;display:flex;
+                flex-direction:column">
+      <div style="font-size:clamp(9px,1.9vw,12px);color:#16a34a;
+                  font-weight:800;text-transform:uppercase;
+                  letter-spacing:1.8px">
+        PROFIT DASHBOARD
+      </div>
+      <div style="font-size:clamp(20px,4.5vw,30px);font-weight:900;
+                  letter-spacing:-1px;color:#111;margin-top:2%;
+                  line-height:1.1">
+        Which jobs actually<br>make you money?
+      </div>
+
+      <!-- KPI grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;
+                  gap:3%;margin-top:5%">
+        {kpi("Revenue", "R284,500")}
+        {kpi("Total cost", "R198,200")}
+        {kpi("Gross profit", "R86,300", "#16a34a")}
+        {kpi("Avg margin", "30.3%", "#16a34a")}
+      </div>
+
+      <!-- By tech -->
+      <div style="margin-top:6%;font-size:clamp(9px,1.9vw,12px);
+                  font-weight:900;color:#111;
+                  text-transform:uppercase;letter-spacing:1px">
+        Profit by technician
+      </div>
+      <div style="margin-top:3%">
+        {bar("Sipho M.", "R34,200", 85)}
+        {bar("Thabo K.", "R28,900", 72)}
+        {bar("Johan v.", "R15,300", 38)}
+        {bar("Bongani N.", "R7,900", 20, "#dc2626")}
+      </div>
+
+      <!-- Bottom CTA -->
+      <div style="margin-top:auto;padding-top:5%">
+        <div style="background:#111;color:#fff;border-radius:10px;
+                    padding:4% 5%;text-align:center">
+          <div style="font-weight:900;font-size:clamp(11px,2.2vw,14px)">
+            Know exactly where your money goes.
+          </div>
+          <div style="font-size:clamp(9px,1.8vw,11px);color:#888;
+                      margin-top:2%">
+            RAMSTECH · 15-min demo
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+    return HTMLResponse(_wrap(size, body))
+
+
+# ═══════════════════════════════════════════════════════════════
+# POSTER 10 — FULL FEATURE STACK (everything at a glance)
+# ═══════════════════════════════════════════════════════════════
+@router.get("/posters/10", response_class=HTMLResponse)
+def poster_10(size: str = ""):
+    def item(icon, title, sub):
+        return f"""
+        <div style="display:flex;gap:3%;align-items:flex-start;
+                    padding:3% 0;border-bottom:1px solid #f0f0f0">
+          <div style="flex-shrink:0;font-size:clamp(16px,3.2vw,22px);
+                      width:8%">{icon}</div>
+          <div style="flex:1">
+            <div style="font-weight:800;
+                        font-size:clamp(11px,2.2vw,13px);
+                        color:#111">{title}</div>
+            <div style="font-size:clamp(9px,1.8vw,11px);color:#666;
+                        margin-top:1px;line-height:1.4">{sub}</div>
+          </div>
+        </div>
+        """
+    body = f"""
+    <div style="flex:1;background:#fff;padding:6% 5%;
+                display:flex;flex-direction:column">
+      <div style="font-size:clamp(9px,1.9vw,12px);color:#16a34a;
+                  font-weight:800;text-transform:uppercase;
+                  letter-spacing:1.8px">
+        EVERYTHING IN RAMSTECH
+      </div>
+      <div style="font-size:clamp(20px,4.5vw,30px);font-weight:900;
+                  letter-spacing:-1.2px;color:#111;margin-top:2%;
+                  line-height:1.05">
+        One app.<br>Runs the whole shop.
+      </div>
+
+      <div style="margin-top:4%;flex:1;overflow:hidden">
+        {item("💰", "Aged Debtors Report", "Who owes what — colour-coded by how overdue")}
+        {item("💬", "WhatsApp Reminders", "Sent automatically with tone that matches urgency")}
+        {item("💳", "Pay-Now Links", "Yoco / PayFast / Stripe. Customer taps, pays.")}
+        {item("⚙", "Auto-Reminder Scheduler", "Chases everyone 30+ days overdue. You sleep.")}
+        {item("🔗", "Customer Portal", "Self-serve invoices, payments, and bookings")}
+        {item("📊", "Profit Dashboard", "Which jobs, techs, and services actually make money")}
+        {item("🤖", "AI Diagnostics", "Photo a problem → causes, steps, safety warnings")}
+        {item("🎨", "AI Paint Match", "Snap the panel → colour codes + mixing formula")}
+        {item("🔧", "VIN + Fault Codes", "Decode any VIN, search any DTC")}
+        {item("📱", "Works Offline", "Install to home screen. Works on any phone.")}
+      </div>
+
+      <div style="margin-top:5%;background:#111;color:#fff;
+                  padding:4% 5%;border-radius:10px;
+                  display:flex;justify-content:space-between;
+                  align-items:center">
+        <div>
+          <div style="font-weight:900;font-size:clamp(12px,2.4vw,15px)">
+            RAMSTECH
+          </div>
+          <div style="font-size:clamp(8px,1.6vw,10px);color:#888;
+                      margin-top:1px">
+            Built for SA workshops
+          </div>
+        </div>
+        <div style="background:#16a34a;color:#fff;padding:2.5% 5%;
+                    border-radius:8px;font-weight:800;
+                    font-size:clamp(9px,1.8vw,11px)">
+          15-min demo →
+        </div>
+      </div>
+    </div>
+    """
+    return HTMLResponse(_wrap(size, body))
+
+
+# ═══════════════════════════════════════════════════════════════
 # INDEX
 # ═══════════════════════════════════════════════════════════════
 @router.get("/posters", response_class=HTMLResponse)
@@ -415,17 +814,19 @@ def posters_index(size: str = ""):
 <title>RamsTech Posters</title>
 <style>
 body{{font-family:-apple-system,sans-serif;background:#111;color:#fff;
-  padding:30px 20px;max-width:500px;margin:0 auto}}
+  padding:30px 20px;max-width:520px;margin:0 auto}}
 h1{{font-size:22px;margin:0 0 6px;letter-spacing:-0.5px}}
 p{{color:#888;font-size:13px;margin:0 0 24px}}
-a{{display:block;padding:16px 20px;background:#1a1a1a;
+h2{{font-size:11px;text-transform:uppercase;letter-spacing:2px;
+  color:#16a34a;font-weight:800;margin:24px 0 10px}}
+a{{display:block;padding:14px 18px;background:#1a1a1a;
   border:1px solid #2a2a2a;border-radius:12px;
-  text-decoration:none;color:#fff;margin-bottom:10px;
+  text-decoration:none;color:#fff;margin-bottom:8px;
   font-weight:600;font-size:14px}}
 a:hover{{background:#222;border-color:#444}}
 a .sub{{display:block;color:#888;font-size:12px;
   font-weight:400;margin-top:3px}}
-.toggle{{display:flex;gap:8px;margin-bottom:20px}}
+.toggle{{display:flex;gap:8px;margin-bottom:12px}}
 .toggle a{{flex:1;text-align:center;padding:10px;margin:0;
   font-size:13px;font-weight:700}}
 .toggle a.on{{background:#fff;color:#111;border-color:#fff}}
@@ -438,19 +839,39 @@ a .sub{{display:block;color:#888;font-size:12px;
   <a href="/posters?size=story" class="{'on' if size == 'story' else ''}">Story (9:16)</a>
 </div>
 
+<h2>Hooks &amp; Offers</h2>
 <a href="/posters/1{qs}">1. Pain Hook
   <span class="sub">"R47,500 sitting in overdue invoices" — highest converting</span>
-</a>
-<a href="/posters/2{qs}">2. How It Works
-  <span class="sub">The 4-step money loop, visualised</span>
-</a>
-<a href="/posters/3{qs}">3. Feature Grid
-  <span class="sub">6 features. Shows the depth of the app.</span>
 </a>
 <a href="/posters/4{qs}">4. Before / After
   <span class="sub">Split-screen. Best for shares and comments.</span>
 </a>
 <a href="/posters/5{qs}">5. Founding Member Offer
   <span class="sub">R749/mo. First 5 workshops. Urgency + price.</span>
+</a>
+
+<h2>Show the app</h2>
+<a href="/posters/6{qs}">6. Aged Debtors Dashboard
+  <span class="sub">Real UI mockup — shows the money view</span>
+</a>
+<a href="/posters/7{qs}">7. WhatsApp Thread
+  <span class="sub">The customer's side. Proves it works.</span>
+</a>
+<a href="/posters/8{qs}">8. Customer Portal
+  <span class="sub">Phone mockup — the self-serve experience</span>
+</a>
+<a href="/posters/9{qs}">9. Profit Dashboard
+  <span class="sub">Shows which techs make money. Visual, punchy.</span>
+</a>
+
+<h2>The full pitch</h2>
+<a href="/posters/2{qs}">2. How It Works
+  <span class="sub">The 4-step money loop, visualised</span>
+</a>
+<a href="/posters/3{qs}">3. Feature Grid
+  <span class="sub">6 features. Shows the depth.</span>
+</a>
+<a href="/posters/10{qs}">10. Full Feature Stack
+  <span class="sub">All 10 features in one poster. Best for closing.</span>
 </a>
 </body></html>""")
