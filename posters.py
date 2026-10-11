@@ -396,7 +396,7 @@ def poster_5(size: str = ""):
                   border-radius:12px;font-weight:800;
                   font-size:clamp(12px,2.5vw,15px);
                   letter-spacing:0.3px">
-        DM us for a 15-min demo →
+       WhatsApp 075 434 9233 → 
       </div>
     </div>
     """
