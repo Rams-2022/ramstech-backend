@@ -1,12 +1,11 @@
 """
-Aged Debtors Report — with WhatsApp reminders and Yoco payment links.
+Aged Debtors Report — with WhatsApp reminders, pay links, and portal links.
 """
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 import csv, io
 
-# ── WhatsApp sender (fail-safe) ──────────────────────────────────
 try:
     from whatsapp import send_whatsapp, provider_status
 except Exception as _e:
@@ -21,7 +20,6 @@ except Exception as _e:
         return {"provider": "unavailable"}
 
 
-# ── Payment link creator (fail-safe) ─────────────────────────────
 try:
     from payments import create_payment_link, _public_base
 except Exception as _e:
@@ -93,7 +91,6 @@ def _outstanding(inv):
     return max(0.0, float(inv.get("total", 0)) - float(inv.get("amount_paid", 0)))
 
 
-# ── main report ──────────────────────────────────────────────────
 @router.get("/api/debtors")
 def aged_debtors():
     invoices = _list("invoices")
@@ -164,7 +161,6 @@ def aged_debtors():
     }
 
 
-# ── statement for one customer ───────────────────────────────────
 @router.get("/api/debtors/{customer_name}")
 def customer_statement(customer_name: str):
     name = customer_name.strip()
@@ -196,33 +192,6 @@ def customer_statement(customer_name: str):
     }
 
 
-# ── ensure every unpaid invoice has a live payment link ──────────
-def _ensure_payment_links(invoices):
-    """
-    Returns {invoice_id: pay_url} for all invoices.
-    Creates links on demand if missing; reuses cached ones.
-    """
-    links = {}
-    for inv in invoices:
-        cached = inv.get("payment_link") or {}
-        if cached.get("url"):
-            links[inv["id"]] = cached["url"]
-            continue
-        link = create_payment_link(inv)
-        if link.get("success"):
-            inv["payment_link"] = {
-                "url": link["url"],
-                "provider": link["provider"],
-                "ref": link["ref"],
-                "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "amount": link["amount"],
-            }
-            _save("invoices", inv["id"], inv)
-            links[inv["id"]] = link["url"]
-    return links
-
-
-# ── send reminder (WhatsApp + pay link) ──────────────────────────
 @router.post("/api/debtors/{customer_name}/remind")
 async def send_reminder(customer_name: str, r: Request):
     try:
@@ -252,7 +221,7 @@ async def send_reminder(customer_name: str, r: Request):
     tone = "urgent" if oldest >= 90 else "firm" if oldest >= 60 else "friendly"
     msg = custom or _build_reminder(customer_name, total, oldest, tone)
 
-    # Append payment links for each unpaid invoice
+    # Append payment + portal links
     if include_link and invoices:
         base = _public_base()
         if len(invoices) == 1:
@@ -262,12 +231,15 @@ async def send_reminder(customer_name: str, r: Request):
             msg += f"\n\nPay now: {pay_url}"
         else:
             msg += "\n\nPay invoices:"
-            for inv in invoices[:5]:  # cap to keep message short
+            for inv in invoices[:5]:
                 cached = inv.get("payment_link") or {}
                 pay_url = cached.get("url") or f"{base}/pay/{inv['id']}"
                 msg += f"\n• R{_outstanding(inv):.2f} — {pay_url}"
 
-    # ── SEND ─────────────────────────────────────────────────────
+        if phone:
+            portal_url = f"{base}/portal/{phone}"
+            msg += f"\n\nView all invoices & book a service:\n{portal_url}"
+
     if channel == "console":
         print(f"[debtors] console → {customer_name}: {msg}")
         send_result = {"success": True, "provider": "console",
@@ -279,7 +251,6 @@ async def send_reminder(customer_name: str, r: Request):
     else:
         send_result = send_whatsapp(phone, msg)
 
-    # ── LOG ──────────────────────────────────────────────────────
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     for inv in invoices:
         rem = inv.get("reminders", [])
@@ -327,7 +298,6 @@ def whatsapp_status():
     return provider_status()
 
 
-# ── CSV export ───────────────────────────────────────────────────
 @router.get("/api/debtors/export/csv")
 def export_debtors_csv():
     out = io.StringIO()
@@ -354,9 +324,6 @@ def export_debtors_csv():
                  f"attachment; filename=aged_debtors_{datetime.now().strftime('%Y%m%d')}.csv"})
 
 
-# ═══════════════════════════════════════════════════════════════
-# UI PANEL — unchanged except invoice rows now flag "Pay link ready"
-# ═══════════════════════════════════════════════════════════════
 AGED_DEBTORS_HTML = """
 <style>
   #rt-debtors-btn {
