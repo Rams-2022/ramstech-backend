@@ -69,6 +69,7 @@ PORTAL_HTML = ""
 profit_router = None
 PROFIT_DASHBOARD_HTML = ""
 sales_kit_router = None
+posters_router = None
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -274,6 +275,11 @@ try:
 except Exception as _e:
     print(f"[main] sales_kit unavailable: {_e}")
 
+try:
+    from posters import router as posters_router
+except Exception as _e:
+    print(f"[main] posters unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -354,6 +360,8 @@ if profit_router:
     app.include_router(profit_router)
 if sales_kit_router:
     app.include_router(sales_kit_router)
+if posters_router:
+    app.include_router(posters_router)
 if tenancy_router:
     app.include_router(tenancy_router)
 
@@ -379,7 +387,6 @@ def today():
 # WORKSHOP-AWARE STORAGE LAYER
 # ═══════════════════════════════════════════════════════════════
 
-# Tables that must NEVER be tagged with workshop_id.
 _UNTAGGED_TABLES = {"workshops"}
 
 
