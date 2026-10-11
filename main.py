@@ -59,11 +59,13 @@ guide_router = None
 workshop_router = None
 workshop_api_router = None
 aged_debtors_router = None
-payments_router = None
 AGED_DEBTORS_HTML = ""
 auto_remind_router = None
 AUTO_REMIND_HTML = ""
 auto_remind_start = None
+payments_router = None
+portal_router = None
+PORTAL_HTML = ""
 
 try:
     from event_bus import EVENT_BUS_HTML
@@ -233,17 +235,22 @@ try:
 except Exception as _e:
     print(f"[main] aged_debtors unavailable: {_e}")
 
-try: 
-    from payments import router as payments_router
-except Exception as _e:
-    print(f"[main] payments unavailable: {_e}")
-
 try:
     from auto_remind import (router as auto_remind_router,
                              AUTO_REMIND_HTML,
                              start_scheduler as auto_remind_start)
 except Exception as _e:
     print(f"[main] auto_remind unavailable: {_e}")
+
+try:
+    from payments import router as payments_router
+except Exception as _e:
+    print(f"[main] payments unavailable: {_e}")
+
+try:
+    from portal import router as portal_router, PORTAL_HTML
+except Exception as _e:
+    print(f"[main] portal unavailable: {_e}")
 
 app = FastAPI(title="RamsTech")
 
@@ -287,10 +294,12 @@ if workshop_api_router:
     app.include_router(workshop_api_router)
 if aged_debtors_router:
     app.include_router(aged_debtors_router)
-if payments_router:
-    app.include_router(payments_router)
 if auto_remind_router:
     app.include_router(auto_remind_router)
+if payments_router:
+    app.include_router(payments_router)
+if portal_router:
+    app.include_router(portal_router)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
@@ -399,12 +408,10 @@ async def home():
     idx = html.rfind("</body>")
     if idx != -1:
         inject = ""
-        # EVENT BUS + HANDLERS FIRST — everything else depends on them
         if EVENT_BUS_HTML:
             inject += EVENT_BUS_HTML
         if EVENT_HANDLERS_HTML:
             inject += EVENT_HANDLERS_HTML
-        # Core UI panels
         if JOB_STATUS_HTML:
             inject += JOB_STATUS_HTML
         if AI_PANEL_HTML:
@@ -425,19 +432,16 @@ async def home():
             inject += STAFF_ADMIN_HTML
         if AUDIT_HTML:
             inject += AUDIT_HTML
-        # Visual polish
         if design_html:
             inject += design_html
         if theme_html:
             inject += theme_html
-        # Performance + reliability
         if instant_html:
             inject += instant_html
         if search_html:
             inject += search_html
         if queue_html:
             inject += queue_html
-        # Intake flows
         if PHOTO_INTAKE_HTML:
             inject += PHOTO_INTAKE_HTML
         if VOICE_INTAKE_HTML:
@@ -448,17 +452,16 @@ async def home():
             inject += STAFF_MERGE_HTML
         if TAB_CONSOLIDATE_HTML:
             inject += TAB_CONSOLIDATE_HTML
-        # Financial
         if AGED_DEBTORS_HTML:
             inject += AGED_DEBTORS_HTML
+        if PORTAL_HTML:
+            inject += PORTAL_HTML
         if AUTO_REMIND_HTML:
             inject += AUTO_REMIND_HTML
-        # Live sync + push
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
             inject += PUSH_NOTIFY_HTML
-        # PWA last
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -490,6 +493,10 @@ def debug_env():
         "CLICKATELL_CONFIGURED": bool(os.getenv("CLICKATELL_API_KEY", "").strip()),
         "TWILIO_CONFIGURED": bool(os.getenv("TWILIO_ACCOUNT_SID", "").strip()),
         "META_WA_CONFIGURED": bool(os.getenv("META_WA_TOKEN", "").strip()),
+        "YOCO_CONFIGURED": bool(os.getenv("YOCO_SECRET_KEY", "").strip()),
+        "PAYFAST_CONFIGURED": bool(os.getenv("PAYFAST_MERCHANT_ID", "").strip()),
+        "STRIPE_CONFIGURED": bool(os.getenv("STRIPE_SECRET_KEY", "").strip()),
+        "PUBLIC_BASE_URL_set": bool(os.getenv("PUBLIC_BASE_URL", "").strip()),
     }
 
 
