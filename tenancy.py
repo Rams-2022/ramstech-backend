@@ -5,9 +5,9 @@ Design: OFF by default. Set MULTI_TENANT=1 on Render to enable.
 When OFF: every row behaves as workshop_id="default" — zero behaviour change.
 When ON:  every read/write is scoped to the requesting workshop.
 
-Includes an auth gate that redirects unauthenticated requests to /login
-when multi-tenant mode is ON. Public paths (login, pay, portal, webhooks)
-are always allowed through.
+Auth gate: when MULTI_TENANT=1, unauthenticated requests to non-public
+paths are blocked. API paths always get JSON 401; browser paths get
+redirected to /login.
 """
 import os
 import hmac
@@ -50,7 +50,7 @@ def set_current_workshop(wid):
 
 
 # ═══════════════════════════════════════════════════════════════
-# WORKSHOP CODE NORMALIZATION
+# SLUGIFY
 # ═══════════════════════════════════════════════════════════════
 def _slugify(s):
     s = (s or "").strip().lower()
@@ -60,7 +60,7 @@ def _slugify(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# SESSION COOKIE — signed, stateless
+# SESSION COOKIE
 # ═══════════════════════════════════════════════════════════════
 def _sign(payload):
     raw = base64.urlsafe_b64encode(
@@ -192,6 +192,24 @@ def tenancy_current(request: Request):
     }
 
 
+@router.get("/api/tenancy/debug/gate")
+def debug_gate(request: Request):
+    """Diagnostic — shows exactly what the middleware sees for this request."""
+    token = request.cookies.get(COOKIE_NAME)
+    session = _verify(token)
+    return {
+        "multi_tenant": MULTI_TENANT,
+        "cookie_name": COOKIE_NAME,
+        "cookie_present": bool(token),
+        "cookie_length": len(token) if token else 0,
+        "session_valid": bool(session),
+        "session_ws": session.get("ws") if session else None,
+        "path": str(request.url.path),
+        "is_public": _is_public(str(request.url.path)),
+        "is_api": str(request.url.path).startswith("/api/"),
+    }
+
+
 @router.get("/api/tenancy/workshops")
 def list_workshops(request: Request):
     pin = request.query_params.get("admin_pin") or \
@@ -277,7 +295,7 @@ async def do_login(request: Request):
     resp.set_cookie(
         COOKIE_NAME, token,
         max_age=SESSION_DAYS * 24 * 3600,
-        httponly=True, samesite="lax", secure=False,
+        httponly=True, samesite="lax", secure=False, path="/",
     )
     return resp
 
@@ -285,7 +303,7 @@ async def do_login(request: Request):
 @router.get("/logout")
 def do_logout():
     resp = RedirectResponse("/login", status_code=302)
-    resp.delete_cookie(COOKIE_NAME)
+    resp.delete_cookie(COOKIE_NAME, path="/")
     return resp
 
 
@@ -413,7 +431,7 @@ if (params.get("ws") && !document.getElementById("ws").value) {
 
 
 # ═══════════════════════════════════════════════════════════════
-# ADMIN UI — create & manage workshops
+# ADMIN UI
 # ═══════════════════════════════════════════════════════════════
 @router.get("/admin", response_class=HTMLResponse)
 def admin_page():
@@ -456,8 +474,6 @@ def _admin_html():
   }
   button:active{transform:scale(0.99)}
   button.secondary{background:#333}
-  button:disabled{background:#333;color:#666;cursor:not-allowed}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .err,.ok{
     padding:12px;border-radius:10px;font-size:13px;
     margin-bottom:14px;display:none;
@@ -681,8 +697,6 @@ if (PIN) { document.getElementById("pin").value = PIN; unlock(); }
 # MIDDLEWARE — tenancy context + auth gate
 # ═══════════════════════════════════════════════════════════════
 
-# Paths that are ALWAYS allowed through, even without login.
-# Everything else requires a valid session when MULTI_TENANT=1.
 _PUBLIC_PREFIXES = (
     "/login",
     "/logout",
@@ -700,6 +714,9 @@ _PUBLIC_PREFIXES = (
     "/api/auto-remind/status",
     "/favicon.ico",
     "/robots.txt",
+    "/manifest.json",
+    "/service-worker.js",
+    "/sw.js",
 )
 
 
@@ -711,34 +728,42 @@ def _is_public(path):
 
 
 async def tenancy_middleware(request: Request, call_next):
-    """Set workshop context AND gate unauthenticated requests."""
+    """
+    When MULTI_TENANT=1:
+      • Blocks unauthenticated requests to non-public paths
+      • API paths (starting with /api/) always get JSON 401
+      • Browser paths get redirected to /login
+      • Authenticated requests are scoped to the workshop in the cookie
+    When MULTI_TENANT=0:
+      • Everything falls through unchanged, current workshop = "default"
+    """
     if not MULTI_TENANT:
         _current_workshop.set("default")
         return await call_next(request)
 
-    # ── Auth gate ────────────────────────────────────────────
     path = request.url.path
+
+    # ── Auth gate ────────────────────────────────────────────
     if not _is_public(path):
         token = request.cookies.get(COOKIE_NAME)
         session = _verify(token)
         if not session:
-            # API request → 401 JSON. Browser request → redirect.
-            accept = request.headers.get("accept", "") or ""
-            is_html = "text/html" in accept or path == "/"
-            if is_html:
-                nxt = path if path.startswith("/") else "/"
-                return RedirectResponse(
-                    f"/login?next={nxt}", status_code=302)
-            return JSONResponse(
-                {"detail": "Not authenticated", "login": "/login"},
-                status_code=401,
-            )
+            # API paths → JSON 401, no exceptions
+            if path.startswith("/api/"):
+                return JSONResponse(
+                    {"detail": "Not authenticated", "login": "/login"},
+                    status_code=401,
+                )
+            # Browser paths → redirect to login
+            nxt = path if path.startswith("/") else "/"
+            return RedirectResponse(
+                f"/login?next={nxt}", status_code=302)
 
-    # ── Workshop context ────────────────────────────────────
+    # ── Workshop context for the duration of the request ────
     info = resolve_workshop(request)
-    token = _current_workshop.set(info["id"])
+    ctx_token = _current_workshop.set(info["id"])
     try:
         response = await call_next(request)
     finally:
-        _current_workshop.reset(token)
+        _current_workshop.reset(ctx_token)
     return response
