@@ -370,6 +370,13 @@ def today():
 # ═══════════════════════════════════════════════════════════════
 # WORKSHOP-AWARE STORAGE LAYER
 # ═══════════════════════════════════════════════════════════════
+
+# Tables that must NEVER be tagged with workshop_id.
+# The "workshops" table is global metadata — one row per tenant,
+# not scoped by tenant.
+_UNTAGGED_TABLES = {"workshops"}
+
+
 def _current_wid():
     try:
         return get_current_workshop() or "default"
@@ -389,6 +396,9 @@ def store_list(t):
     rows = db.get_all(t) if db.is_ready() else list(MEM[t].values())
     if not MULTI_TENANT:
         return rows
+    # meta tables (like "workshops") are never filtered
+    if t in _UNTAGGED_TABLES:
+        return rows
     return [r for r in rows if _row_matches(r, wid)]
 
 
@@ -397,6 +407,9 @@ def store_get(t, i):
     row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
     if not row:
         return None
+    # meta tables (like "workshops") are never filtered
+    if t in _UNTAGGED_TABLES:
+        return row
     if MULTI_TENANT and not _row_matches(row, wid):
         return None
     return row
@@ -404,8 +417,8 @@ def store_get(t, i):
 
 def store_save(t, i, row):
     wid = _current_wid()
-    # tag with workshop_id (harmless in single-tenant mode)
-    if MULTI_TENANT and "workshop_id" not in row:
+    # tag with workshop_id — except meta tables like "workshops"
+    if MULTI_TENANT and t not in _UNTAGGED_TABLES and "workshop_id" not in row:
         row["workshop_id"] = wid
     if db.is_ready():
         exists = db.get_one(t, i)
@@ -415,6 +428,13 @@ def store_save(t, i, row):
 
 
 def store_delete(t, i):
+    # meta tables — always allowed
+    if t in _UNTAGGED_TABLES:
+        if db.is_ready():
+            return db.delete(t, i)
+        MEM[t].pop(i, None)
+        return True
+
     # in multi-tenant mode, refuse to delete another workshop's row
     if MULTI_TENANT:
         row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
@@ -432,7 +452,7 @@ def get_workshop_data():
         w = db.get_workshop()
         if w:
             if MULTI_TENANT and (w.get("workshop_id") or "default") != wid:
-                pass  # fall through
+                pass  # fall through to default
             else:
                 return w
     return WORKSHOP
