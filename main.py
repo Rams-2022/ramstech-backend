@@ -68,6 +68,7 @@ portal_router = None
 PORTAL_HTML = ""
 profit_router = None
 PROFIT_DASHBOARD_HTML = ""
+sales_kit_router = None
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -268,6 +269,11 @@ try:
 except Exception as _e:
     print(f"[main] profit_dashboard unavailable: {_e}")
 
+try:
+    from sales_kit import router as sales_kit_router
+except Exception as _e:
+    print(f"[main] sales_kit unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -346,6 +352,8 @@ if portal_router:
     app.include_router(portal_router)
 if profit_router:
     app.include_router(profit_router)
+if sales_kit_router:
+    app.include_router(sales_kit_router)
 if tenancy_router:
     app.include_router(tenancy_router)
 
@@ -372,8 +380,6 @@ def today():
 # ═══════════════════════════════════════════════════════════════
 
 # Tables that must NEVER be tagged with workshop_id.
-# The "workshops" table is global metadata — one row per tenant,
-# not scoped by tenant.
 _UNTAGGED_TABLES = {"workshops"}
 
 
@@ -385,7 +391,6 @@ def _current_wid():
 
 
 def _row_matches(row, wid):
-    """When multi-tenant is OFF, everything matches (backwards compatible)."""
     if not MULTI_TENANT:
         return True
     return (row.get("workshop_id") or "default") == wid
@@ -396,7 +401,6 @@ def store_list(t):
     rows = db.get_all(t) if db.is_ready() else list(MEM[t].values())
     if not MULTI_TENANT:
         return rows
-    # meta tables (like "workshops") are never filtered
     if t in _UNTAGGED_TABLES:
         return rows
     return [r for r in rows if _row_matches(r, wid)]
@@ -407,7 +411,6 @@ def store_get(t, i):
     row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
     if not row:
         return None
-    # meta tables (like "workshops") are never filtered
     if t in _UNTAGGED_TABLES:
         return row
     if MULTI_TENANT and not _row_matches(row, wid):
@@ -417,7 +420,6 @@ def store_get(t, i):
 
 def store_save(t, i, row):
     wid = _current_wid()
-    # tag with workshop_id — except meta tables like "workshops"
     if MULTI_TENANT and t not in _UNTAGGED_TABLES and "workshop_id" not in row:
         row["workshop_id"] = wid
     if db.is_ready():
@@ -428,14 +430,11 @@ def store_save(t, i, row):
 
 
 def store_delete(t, i):
-    # meta tables — always allowed
     if t in _UNTAGGED_TABLES:
         if db.is_ready():
             return db.delete(t, i)
         MEM[t].pop(i, None)
         return True
-
-    # in multi-tenant mode, refuse to delete another workshop's row
     if MULTI_TENANT:
         row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
         if row and not _row_matches(row, _current_wid()):
@@ -452,7 +451,7 @@ def get_workshop_data():
         w = db.get_workshop()
         if w:
             if MULTI_TENANT and (w.get("workshop_id") or "default") != wid:
-                pass  # fall through to default
+                pass
             else:
                 return w
     return WORKSHOP
@@ -468,7 +467,7 @@ def save_workshop_data(d):
 
 
 # ═══════════════════════════════════════════════════════════════
-# STARTUP — kick off auto-reminder scheduler
+# STARTUP
 # ═══════════════════════════════════════════════════════════════
 @app.on_event("startup")
 async def _startup_scheduler():
@@ -480,7 +479,7 @@ async def _startup_scheduler():
 
 
 # ═══════════════════════════════════════════════════════════════
-# REAL-TIME CONFIG + PUSH SERVICE WORKER
+# REALTIME + PUSH
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/realtime/config")
 def realtime_config():
@@ -507,7 +506,7 @@ def push_service_worker():
 
 
 # ═══════════════════════════════════════════════════════════════
-# HOME — injects all UI modules before </body>
+# HOME
 # ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
@@ -1142,7 +1141,7 @@ def del_inv(iid: str):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PURCHASE ORDERS (legacy)
+# PURCHASE ORDERS
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/purchase-orders")
 def list_pos():
