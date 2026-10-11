@@ -5,11 +5,9 @@ Design: OFF by default. Set MULTI_TENANT=1 on Render to enable.
 When OFF: every row behaves as workshop_id="default" — zero behaviour change.
 When ON:  every read/write is scoped to the requesting workshop.
 
-How requests are resolved to a workshop (in priority order):
-  1. Signed session cookie "rt_session" (from /login)
-  2. Query param ?ws=<code> (for super-admin testing)
-  3. Subdomain <code>.yourdomain.com (if you set it up later)
-  4. Fallback: "default"
+Includes an auth gate that redirects unauthenticated requests to /login
+when multi-tenant mode is ON. Public paths (login, pay, portal, webhooks)
+are always allowed through.
 """
 import os
 import hmac
@@ -65,7 +63,6 @@ def _slugify(s):
 # SESSION COOKIE — signed, stateless
 # ═══════════════════════════════════════════════════════════════
 def _sign(payload):
-    """payload dict → signed string. base64(json).hmac."""
     raw = base64.urlsafe_b64encode(
         json.dumps(payload, separators=(",", ":")).encode()
     ).decode().rstrip("=")
@@ -83,12 +80,10 @@ def _verify(token):
     if not hmac.compare_digest(sig, expected):
         return None
     try:
-        # re-pad base64
         pad = "=" * (-len(raw) % 4)
         data = json.loads(base64.urlsafe_b64decode(raw + pad).decode())
     except Exception:
         return None
-    # expiry check
     exp = data.get("exp")
     if exp and datetime.utcnow().timestamp() > exp:
         return None
@@ -108,7 +103,6 @@ def _make_session(workshop_id, user="owner", role="owner"):
 # REQUEST → WORKSHOP RESOLUTION
 # ═══════════════════════════════════════════════════════════════
 def resolve_workshop(request):
-    # 1. signed cookie
     token = request.cookies.get(COOKIE_NAME)
     session = _verify(token)
     if session and session.get("ws"):
@@ -119,19 +113,17 @@ def resolve_workshop(request):
             "source": "cookie",
         }
 
-    # 2. query param (super-admin/testing only)
     qs = request.query_params.get("ws")
     if qs and SUPER_ADMIN_PIN and \
        request.query_params.get("admin_pin") == SUPER_ADMIN_PIN:
         return {"id": _slugify(qs), "user": "admin", "role": "super", "source": "query"}
 
-    # 3. subdomain: <code>.ramstech.onrender.com
     host = (request.headers.get("host") or "").split(":")[0]
     parts = host.split(".")
     if len(parts) >= 3 and parts[0] not in ("www", "api", "app"):
-        return {"id": _slugify(parts[0]), "user": "owner", "role": "owner", "source": "subdomain"}
+        return {"id": _slugify(parts[0]), "user": "owner", "role": "owner",
+                "source": "subdomain"}
 
-    # 4. fallback
     return {"id": "default", "user": "guest", "role": "guest", "source": "fallback"}
 
 
@@ -139,9 +131,7 @@ def resolve_workshop(request):
 # WORKSHOPS STORE
 # ═══════════════════════════════════════════════════════════════
 def _list_workshops():
-    """Uses main's store but bypasses tenant filter (super-admin view)."""
     from main import store_list as _store_list
-    # temporarily force default context
     tok = _current_workshop.set("default")
     try:
         return _store_list("workshops")
@@ -167,11 +157,7 @@ def _save_workshop(rec):
         _current_workshop.reset(tok)
 
 
-# ═══════════════════════════════════════════════════════════════
-# AUTH HELPERS
-# ═══════════════════════════════════════════════════════════════
 def _check_pin(workshop_id, pin):
-    """Return workshop record if PIN matches, else None."""
     w = _get_workshop(workshop_id)
     if not w:
         return None
@@ -183,7 +169,7 @@ def _check_pin(workshop_id, pin):
 
 
 # ═══════════════════════════════════════════════════════════════
-# ROUTES
+# ROUTES — API
 # ═══════════════════════════════════════════════════════════════
 @router.get("/api/tenancy/status")
 def tenancy_status():
@@ -208,13 +194,11 @@ def tenancy_current(request: Request):
 
 @router.get("/api/tenancy/workshops")
 def list_workshops(request: Request):
-    """Super-admin only."""
     pin = request.query_params.get("admin_pin") or \
           request.headers.get("x-admin-pin")
     if not SUPER_ADMIN_PIN or pin != SUPER_ADMIN_PIN:
         raise HTTPException(403, "Super-admin PIN required")
     items = _list_workshops()
-    # scrub pins
     safe = []
     for w in items:
         safe.append({k: v for k, v in w.items() if k != "owner_pin"})
@@ -267,9 +251,12 @@ def deactivate_workshop(wid: str, request: Request):
     return {"success": True}
 
 
+# ═══════════════════════════════════════════════════════════════
+# ROUTES — Auth
+# ═══════════════════════════════════════════════════════════════
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, next: str = "/"):
-    return HTMLResponse(_login_html(next))
+def login_page(request: Request, next: str = "/", ws: str = ""):
+    return HTMLResponse(_login_html(next, ws))
 
 
 @router.post("/api/login")
@@ -305,7 +292,7 @@ def do_logout():
 # ═══════════════════════════════════════════════════════════════
 # LOGIN PAGE HTML
 # ═══════════════════════════════════════════════════════════════
-def _login_html(next_url):
+def _login_html(next_url, ws=""):
     return """<!doctype html>
 <html><head>
 <meta charset="utf-8">
@@ -368,7 +355,7 @@ def _login_html(next_url):
   <form onsubmit="return doLogin(event)">
     <label>Workshop code</label>
     <input name="workshop" id="ws" placeholder="e.g. rams-auto"
-           autocomplete="username" required autofocus>
+           autocomplete="username" required autofocus value=""" + json.dumps(ws or "") + """>
 
     <label>Owner PIN</label>
     <input name="pin" id="pin" type="password" inputmode="numeric"
@@ -417,15 +404,16 @@ async function doLogin(e){
   return false;
 }
 
-// prefill workshop code from query string ?ws=xxx
 const params = new URLSearchParams(window.location.search);
-if (params.get("ws")) document.getElementById("ws").value = params.get("ws");
+if (params.get("ws") && !document.getElementById("ws").value) {
+  document.getElementById("ws").value = params.get("ws");
+}
 </script>
 </body></html>"""
 
 
 # ═══════════════════════════════════════════════════════════════
-# ADMIN UI — create & manage workshops from a phone-friendly page
+# ADMIN UI — create & manage workshops
 # ═══════════════════════════════════════════════════════════════
 @router.get("/admin", response_class=HTMLResponse)
 def admin_page():
@@ -481,9 +469,7 @@ def _admin_html():
     display:flex;align-items:center;justify-content:space-between;
     margin-bottom:16px;
   }
-  .ws-list{
-    display:flex;flex-direction:column;gap:10px;
-  }
+  .ws-list{display:flex;flex-direction:column;gap:10px}
   .ws-item{
     background:#222;padding:14px;border-radius:10px;
     display:flex;align-items:center;justify-content:space-between;
@@ -519,7 +505,7 @@ def _admin_html():
 <body>
 <div class="wrap">
   <h1>Super Admin</h1>
-  <p class="sub">Manage workshops · create · list · deactivate</p>
+  <p class="sub">Manage workshops · create · list · share login links</p>
 
   <div class="card">
     <div class="err" id="err"></div>
@@ -686,21 +672,69 @@ function esc(s){
     {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
 
-// auto-unlock if PIN already saved this session
 if (PIN) { document.getElementById("pin").value = PIN; unlock(); }
 </script>
 </body></html>"""
 
 
 # ═══════════════════════════════════════════════════════════════
-# MIDDLEWARE HOOK (called from main.py)
+# MIDDLEWARE — tenancy context + auth gate
 # ═══════════════════════════════════════════════════════════════
+
+# Paths that are ALWAYS allowed through, even without login.
+# Everything else requires a valid session when MULTI_TENANT=1.
+_PUBLIC_PREFIXES = (
+    "/login",
+    "/logout",
+    "/api/login",
+    "/admin",
+    "/api/tenancy/",
+    "/health",
+    "/push-sw.js",
+    "/api/realtime/config",
+    "/pay/",
+    "/portal/",
+    "/api/portal/",
+    "/api/payments/webhook/",
+    "/api/auto-remind/run",
+    "/api/auto-remind/status",
+    "/favicon.ico",
+    "/robots.txt",
+)
+
+
+def _is_public(path):
+    for p in _PUBLIC_PREFIXES:
+        if path == p or path.startswith(p):
+            return True
+    return False
+
+
 async def tenancy_middleware(request: Request, call_next):
-    """Set context var for the duration of the request."""
+    """Set workshop context AND gate unauthenticated requests."""
     if not MULTI_TENANT:
         _current_workshop.set("default")
         return await call_next(request)
 
+    # ── Auth gate ────────────────────────────────────────────
+    path = request.url.path
+    if not _is_public(path):
+        token = request.cookies.get(COOKIE_NAME)
+        session = _verify(token)
+        if not session:
+            # API request → 401 JSON. Browser request → redirect.
+            accept = request.headers.get("accept", "") or ""
+            is_html = "text/html" in accept or path == "/"
+            if is_html:
+                nxt = path if path.startswith("/") else "/"
+                return RedirectResponse(
+                    f"/login?next={nxt}", status_code=302)
+            return JSONResponse(
+                {"detail": "Not authenticated", "login": "/login"},
+                status_code=401,
+            )
+
+    # ── Workshop context ────────────────────────────────────
     info = resolve_workshop(request)
     token = _current_workshop.set(info["id"])
     try:
