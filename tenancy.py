@@ -7,6 +7,7 @@ Handles:
   • Auth gate: blocks unauthenticated requests when MULTI_TENANT=1
   • Login with owner PIN (workshops table) or staff PIN (staff table)
   • Admin UI at /admin for creating and managing workshops
+  • Backup & restore endpoints (own PIN gate)
 
 Design: OFF by default. Set MULTI_TENANT=1 on Render to enable.
 When OFF: every row behaves as workshop_id="default" — zero behaviour change.
@@ -758,6 +759,8 @@ _PUBLIC_PREFIXES = (
     "/sw.js",
     "/kit",
     "/posters",
+    "/admin/backup",
+    "/api/backup/",
 )
 
 
