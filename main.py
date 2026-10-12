@@ -72,6 +72,8 @@ sales_kit_router = None
 posters_router = None
 staff_roles_router = None
 STAFF_ROLES_HTML = ""
+damage_report_router = None
+DAMAGE_REPORT_HTML = ""
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -287,6 +289,11 @@ try:
 except Exception as _e:
     print(f"[main] staff_roles unavailable: {_e}")
 
+try:
+    from damage_report import router as damage_report_router, DAMAGE_REPORT_HTML
+except Exception as _e:
+    print(f"[main] damage_report unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -370,6 +377,8 @@ if posters_router:
     app.include_router(posters_router)
 if staff_roles_router:
     app.include_router(staff_roles_router)
+if damage_report_router:
+    app.include_router(damage_report_router)
 if tenancy_router:
     app.include_router(tenancy_router)
 
@@ -378,7 +387,7 @@ db.init()
 
 MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
                        "inventory", "purchase_orders", "staff", "clockins", "expenses",
-                       "fuel_logs", "workshops"]}
+                       "fuel_logs", "workshops", "damage_reports"]}
 WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "",
             "logo": "RT", "labour_rate": 450}
 
@@ -580,6 +589,8 @@ async def home():
             inject += AUTO_REMIND_HTML
         if PROFIT_DASHBOARD_HTML:
             inject += PROFIT_DASHBOARD_HTML
+        if DAMAGE_REPORT_HTML:
+            inject += DAMAGE_REPORT_HTML
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
