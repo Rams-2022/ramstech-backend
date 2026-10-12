@@ -70,6 +70,8 @@ profit_router = None
 PROFIT_DASHBOARD_HTML = ""
 sales_kit_router = None
 posters_router = None
+staff_roles_router = None
+STAFF_ROLES_HTML = ""
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -280,6 +282,11 @@ try:
 except Exception as _e:
     print(f"[main] posters unavailable: {_e}")
 
+try:
+    from staff_roles import router as staff_roles_router, STAFF_ROLES_HTML
+except Exception as _e:
+    print(f"[main] staff_roles unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -306,7 +313,6 @@ except Exception as _e:
 
 app = FastAPI(title="RamsTech")
 
-# ── Register tenancy middleware FIRST so it wraps everything ─
 if HAS_TENANCY and tenancy_middleware:
     app.middleware("http")(tenancy_middleware)
 
@@ -362,6 +368,8 @@ if sales_kit_router:
     app.include_router(sales_kit_router)
 if posters_router:
     app.include_router(posters_router)
+if staff_roles_router:
+    app.include_router(staff_roles_router)
 if tenancy_router:
     app.include_router(tenancy_router)
 
@@ -386,7 +394,6 @@ def today():
 # ═══════════════════════════════════════════════════════════════
 # WORKSHOP-AWARE STORAGE LAYER
 # ═══════════════════════════════════════════════════════════════
-
 _UNTAGGED_TABLES = {"workshops"}
 
 
@@ -577,6 +584,8 @@ async def home():
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
             inject += PUSH_NOTIFY_HTML
+        if STAFF_ROLES_HTML:
+            inject += STAFF_ROLES_HTML
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
@@ -1195,9 +1204,12 @@ def list_staff():
 async def add_staff(r: Request):
     d = await r.json()
     sid = str(uuid.uuid4())[:8]
+    pin = str(d.get("pin") or "").strip()
     s = {"id": sid, "name": d.get("name", ""), "role": d.get("role", ""),
          "phone": d.get("phone", ""), "email": d.get("email", ""),
-         "hourly_rate": float(d.get("hourly_rate", 150)), "created": today()}
+         "hourly_rate": float(d.get("hourly_rate", 150)),
+         "pin": pin, "active": True,
+         "created": today()}
     store_save("staff", sid, s)
     return {"success": True, "staff": s}
 
