@@ -74,6 +74,8 @@ staff_roles_router = None
 STAFF_ROLES_HTML = ""
 damage_report_router = None
 DAMAGE_REPORT_HTML = ""
+backup_router = None
+BACKUP_HTML = ""
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -294,6 +296,11 @@ try:
 except Exception as _e:
     print(f"[main] damage_report unavailable: {_e}")
 
+try:
+    from backup import router as backup_router, BACKUP_HTML
+except Exception as _e:
+    print(f"[main] backup unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -379,6 +386,8 @@ if staff_roles_router:
     app.include_router(staff_roles_router)
 if damage_report_router:
     app.include_router(damage_report_router)
+if backup_router:
+    app.include_router(backup_router)
 if tenancy_router:
     app.include_router(tenancy_router)
 
@@ -490,7 +499,7 @@ def save_workshop_data(d):
 
 
 # ═══════════════════════════════════════════════════════════════
-# STARTUP
+# STARTUP — schedulers
 # ═══════════════════════════════════════════════════════════════
 @app.on_event("startup")
 async def _startup_scheduler():
@@ -499,6 +508,28 @@ async def _startup_scheduler():
             auto_remind_start()
         except Exception as e:
             print(f"[main] auto_remind scheduler failed: {e}")
+
+    # Daily backup — runs in-process every 24h
+    try:
+        import asyncio
+
+        async def _daily_backup():
+            await asyncio.sleep(120)  # 2 min after boot
+            while True:
+                try:
+                    from backup import build_backup, save_backup_to_disk
+                    snap = build_backup()
+                    fname = save_backup_to_disk(snap)
+                    print(f"[backup] saved {fname.name} "
+                          f"({snap['meta']['total_rows']} rows)")
+                except Exception as e:
+                    print(f"[backup] daily backup failed: {e}")
+                await asyncio.sleep(24 * 3600)
+
+        asyncio.get_event_loop().create_task(_daily_backup())
+        print("[main] daily backup scheduler started")
+    except Exception as e:
+        print(f"[main] backup scheduler failed: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -591,6 +622,8 @@ async def home():
             inject += PROFIT_DASHBOARD_HTML
         if DAMAGE_REPORT_HTML:
             inject += DAMAGE_REPORT_HTML
+        if BACKUP_HTML:
+            inject += BACKUP_HTML
         if REALTIME_SYNC_HTML:
             inject += REALTIME_SYNC_HTML
         if PUSH_NOTIFY_HTML:
