@@ -282,32 +282,69 @@ DOCK_HTML = """
     "rt-debtors-btn", "rt-profit-btn", "rt-dmg-btn"
   ];
 
+  // Text/emoji patterns that identify the stray avatar button
+  var STRAY_CONTENT_PATTERNS = [
+    "\uD83D\uDC77",       // 👷 construction worker
+    "\uD83E\uDDD1",       // 🧑 person
+    "\uD83D\uDC64",       // 👤 silhouette
+    "\uD83D\uDD27",       // 🔧 wrench
+    "\uD83E\uDDBB",       // 🦻 hearing aid — unlikely but harmless
+    "\uD83D\uDC68",       // 👨 man
+    "\uD83D\uDC69",       // 👩 woman
+    "\uD83E\uDDF0",       // 🧰 toolbox
+    "\uD83D\uDCBC",       // 💼 briefcase
+    "avatar", "profile", "user-btn", "userBtn", "help-btn",
+    "chat-btn", "chatbot", "support"
+  ];
+
   function detectFloatingButtons(){
     try {
-      var nodes = document.body.querySelectorAll("button, div, a");
+      var nodes = document.body.querySelectorAll("button, div, a, img, span");
       for (var i = 0; i < nodes.length; i++){
         var el = nodes[i];
         if (el.id && KEEP_IDS.indexOf(el.id) !== -1) continue;
         if (el.classList && el.classList.contains("rt-floating-detected")) continue;
-        if (el.closest("#rt-dock, #rt-debtors-overlay, #rt-profit-overlay, " +
-                       "#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) {
-          continue;
-        }
+        if (el.closest("#rt-dock, #rt-dock-backdrop")) continue;
+        if (el.closest("#rt-debtors-overlay, #rt-profit-overlay")) continue;
+        if (el.closest("#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) continue;
+
         var cs = window.getComputedStyle(el);
         if (cs.position !== "fixed") continue;
-        if (cs.display === "none") continue;
+        if (cs.display === "none" || cs.visibility === "hidden") continue;
+
         var r = el.getBoundingClientRect();
-        if (r.width < 24 || r.width > 110) continue;
-        if (r.height < 24 || r.height > 110) continue;
+        if (r.width < 20 || r.width > 130) continue;
+        if (r.height < 20 || r.height > 130) continue;
 
         var isTopLeft = (r.left < 120 && r.top < 220);
-        var isBottomLeft = (r.left < 220 && r.top > window.innerHeight - 320);
+        var isBottomLeft = (r.left < 260 && r.top > window.innerHeight - 400);
         var isBottomRight = (r.left > window.innerWidth - 220 &&
-                             r.top > window.innerHeight - 320);
+                             r.top > window.innerHeight - 400);
 
-        if (isTopLeft || isBottomLeft || isBottomRight){
+        var shouldHide = isTopLeft || isBottomLeft || isBottomRight;
+
+        // Content-based detection (catches emoji avatar even if position is odd)
+        if (!shouldHide) {
+          var content = (el.textContent || "") + " " +
+                        (el.className || "") + " " +
+                        (el.id || "") + " " +
+                        ((el.getAttribute && el.getAttribute("aria-label")) || "") + " " +
+                        ((el.getAttribute && el.getAttribute("title")) || "");
+          for (var p = 0; p < STRAY_CONTENT_PATTERNS.length; p++){
+            if (content.indexOf(STRAY_CONTENT_PATTERNS[p]) !== -1){
+              if (r.left < 320 || r.top > window.innerHeight - 400){
+                shouldHide = true;
+              }
+              break;
+            }
+          }
+        }
+
+        if (shouldHide){
           el.classList.add("rt-floating-detected");
           el.dataset.rtFloating = "1";
+          console.log("[dock] hiding stray FAB:",
+                      el.tagName, el.id || el.className || "(no id)");
         }
       }
     } catch(e) {}
