@@ -282,20 +282,11 @@ DOCK_HTML = """
     "rt-debtors-btn", "rt-profit-btn", "rt-dmg-btn"
   ];
 
-  // Text/emoji patterns that identify the stray avatar button
-  var STRAY_CONTENT_PATTERNS = [
-    "\uD83D\uDC77",       // 👷 construction worker
-    "\uD83E\uDDD1",       // 🧑 person
-    "\uD83D\uDC64",       // 👤 silhouette
-    "\uD83D\uDD27",       // 🔧 wrench
-    "\uD83E\uDDBB",       // 🦻 hearing aid — unlikely but harmless
-    "\uD83D\uDC68",       // 👨 man
-    "\uD83D\uDC69",       // 👩 woman
-    "\uD83E\uDDF0",       // 🧰 toolbox
-    "\uD83D\uDCBC",       // 💼 briefcase
-    "avatar", "profile", "user-btn", "userBtn", "help-btn",
-    "chat-btn", "chatbot", "support"
-  ];
+  // Text patterns that identify the stray avatar button
+var STRAY_CONTENT_PATTERNS = [
+  "avatar", "profile", "user-btn", "userBtn", "help-btn",
+  "chat-btn", "chatbot", "support", "assistant", "floating-user"
+];
 
   function detectFloatingButtons(){
     try {
