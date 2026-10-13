@@ -1,15 +1,14 @@
 """
-Consolidated Function Dock — with tab-aware visibility.
+Consolidated Function Dock — with screen-aware visibility and
+defensive handlers that never leave the UI in a frozen state.
 
 Behaviour:
-  • All floating UI (dock FAB, role badge, search button, avatar) 
-    only visible when the HOME tab is active
-  • Auto-hides on every other tab (DASH, AI, JOBS, MORE, categories)
+  • All floating UI (dock FAB, role badge, search button, avatar)
+    only visible on the HOME tab with no modal open
+  • Auto-hides on every other tab (DASH, AI, JOBS, MORE)
   • Auto-hides when any modal opens
   • Owner-only dock items hidden for non-owner roles
-
-Detection: watches the bottom nav for the tab highlighted "active"
-by class, background colour, or aria-selected.
+  • Defensive: dock closes immediately on tap, even if handler fails
 """
 
 DOCK_HTML = """
@@ -43,7 +42,6 @@ DOCK_HTML = """
     visibility: hidden !important;
   }
 
-  /* Smooth transitions */
   #rt-dock,
   #rt-role-badge {
     transition: opacity 0.25s ease, transform 0.25s ease,
@@ -210,19 +208,47 @@ DOCK_HTML = """
   // ═══════════════════════════════════════════════════════════
   window.rtDockToggle = function(e){
     if (e) e.stopPropagation();
-    document.getElementById("rt-dock").classList.toggle("open");
+    var dock = document.getElementById("rt-dock");
+    if (!dock) return;
+    dock.classList.toggle("open");
   };
+
   window.rtDockClose = function(){
-    document.getElementById("rt-dock").classList.remove("open");
+    var dock = document.getElementById("rt-dock");
+    if (dock) dock.classList.remove("open");
+    var bd = document.getElementById("rt-dock-backdrop");
+    if (bd) bd.style.pointerEvents = "none";
   };
+
   window.rtDockRun = function(fnName){
-    rtDockClose();
+    // Close the dock immediately — BEFORE anything else can fail
+    try { rtDockClose(); } catch(e) {}
+
+    // Clear any lingering pointer-events from a stuck backdrop
+    try {
+      var bd = document.getElementById("rt-dock-backdrop");
+      if (bd) {
+        bd.style.pointerEvents = "none";
+        bd.style.opacity = "0";
+      }
+    } catch(e) {}
+
+    // Run the handler after a beat
     setTimeout(function(){
       try {
         if (typeof window[fnName] === "function") {
           window[fnName]();
         } else {
           console.warn("[dock] handler not found:", fnName);
+          // Soft warning — no blocking alert
+          var t = document.createElement("div");
+          t.textContent = "Tool unavailable on this screen";
+          t.style.cssText =
+            "position:fixed;bottom:170px;right:16px;background:#111;color:#fff;" +
+            "padding:10px 16px;border-radius:20px;font-size:12px;font-weight:700;" +
+            "z-index:99999;font-family:-apple-system,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.25)";
+          document.body.appendChild(t);
+          setTimeout(function(){ t.remove(); }, 2000);
         }
       } catch(e) {
         console.error("[dock] error running", fnName, e);
@@ -237,27 +263,17 @@ DOCK_HTML = """
   // ═══════════════════════════════════════════════════════════
   // ACTIVE-TAB DETECTION
   // ═══════════════════════════════════════════════════════════
-  // The bottom nav shows tabs: HOME, DASH, AI, JOBS, MORE.
-  // The active tab is visually highlighted (orange text/color,
-  // active class, or aria-selected). We detect it by looking
-  // for the tab whose label text contains "HOME" and checking
-  // if it's the currently active one.
-
   function getBottomNavTabs(){
-    // Common containers for a bottom nav
     var containers = document.querySelectorAll(
       "nav, [class*='bottom'], [class*='tabbar'], [class*='tab-bar'], " +
       "[class*='nav'], [role='tablist']"
     );
     var tabs = [];
     for (var i = 0; i < containers.length; i++){
-      var cs = window.getComputedStyle(containers[i]);
       var r = containers[i].getBoundingClientRect();
-      // Bottom nav: fixed/absolute near the bottom, full width
       if (r.top < window.innerHeight * 0.7) continue;
       if (r.height < 40 || r.height > 120) continue;
       if (r.width < window.innerWidth * 0.7) continue;
-      // Grab clickable children
       var items = containers[i].querySelectorAll(
         "button, a, [role='tab'], [class*='tab'], [class*='nav-item']"
       );
@@ -272,35 +288,29 @@ DOCK_HTML = """
     for (var i = 0; i < tabs.length; i++){
       var t = tabs[i];
       var cs = window.getComputedStyle(t);
-      // Active signals: class contains "active", aria-selected, or orange text
       var cls = (t.className || "").toString().toLowerCase();
       var aria = (t.getAttribute("aria-selected") || "").toLowerCase();
       var isActiveClass = cls.indexOf("active") !== -1
                        || cls.indexOf("selected") !== -1
                        || cls.indexOf("current") !== -1;
       var isAriaActive = aria === "true";
-      // Orange highlight used by this app (~#E65100 / rgb(230,81,0))
       var color = cs.color || "";
-      var isOrangeText = color.indexOf("230") !== -1 && color.indexOf("81") !== -1;
-      // Also check background — some designs invert the active tab
       var bg = cs.backgroundColor || "";
+      var isOrangeText = color.indexOf("230") !== -1 && color.indexOf("81") !== -1;
       var isOrangeBg = bg.indexOf("230") !== -1 && bg.indexOf("81") !== -1;
 
       if (isActiveClass || isAriaActive || isOrangeText || isOrangeBg){
         return (t.textContent || "").trim().toUpperCase();
       }
     }
-    // Fallback: check if HOME tab is the only one without dimmed opacity
     return "";
   }
 
   function isOnHomeTab(){
     var label = getActiveTabLabel();
     if (label) return label.indexOf("HOME") !== -1;
-    // Fallback: if we can't detect, look at the URL/hash
     var h = (window.location.hash || "").toLowerCase();
     if (h && h !== "#" && h !== "#home" && h !== "#/") return false;
-    // Default: assume home (safer — don't hide unnecessarily)
     return true;
   }
 
@@ -347,7 +357,6 @@ DOCK_HTML = """
         if (el.closest("#rt-dock, #rt-dock-backdrop")) continue;
         if (el.closest("#rt-debtors-overlay, #rt-profit-overlay")) continue;
         if (el.closest("#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) continue;
-        // Skip elements inside the bottom nav itself
         if (el.closest("nav, [role='tablist']")) continue;
 
         var cs = window.getComputedStyle(el);
@@ -357,7 +366,6 @@ DOCK_HTML = """
         if (r.width < 30 || r.width > 110) continue;
         if (r.height < 30 || r.height > 110) continue;
 
-        // Corner zones
         var isTopLeft = (r.left < 120 && r.top < 220);
         var isBottomLeft = (r.left < 260 && r.top > vh - 400);
         var isBottomRight = (r.left > vw - 220 && r.top > vh - 400);
@@ -378,19 +386,25 @@ DOCK_HTML = """
   }
 
   // ═══════════════════════════════════════════════════════════
-  // MASTER UPDATE
+  // MASTER UPDATE — with state-change guard to prevent loops
   // ═══════════════════════════════════════════════════════════
+  var _lastState = "";
   function updateVisibility(){
-    detectFloatingButtons();
-    var onHome = isOnHomeTab();
-    var modalOpen = anyModalOpen();
-    document.body.classList.toggle("rt-not-home", !onHome);
-    document.body.classList.toggle("rt-modal-open", modalOpen);
+    try {
+      detectFloatingButtons();
+      var onHome = isOnHomeTab();
+      var modalOpen = anyModalOpen();
+      var state = (onHome ? "1" : "0") + (modalOpen ? "1" : "0");
+      if (state === _lastState) return;
+      _lastState = state;
+      document.body.classList.toggle("rt-not-home", !onHome);
+      document.body.classList.toggle("rt-modal-open", modalOpen);
 
-    if (!onHome || modalOpen) {
-      var dock = document.getElementById("rt-dock");
-      if (dock) dock.classList.remove("open");
-    }
+      if (!onHome || modalOpen) {
+        var dock = document.getElementById("rt-dock");
+        if (dock) dock.classList.remove("open");
+      }
+    } catch(e) { console.error("[dock] update error:", e); }
   }
 
   function watchModals(){
@@ -398,18 +412,24 @@ DOCK_HTML = """
       var el = document.querySelector(sel);
       if (!el || el.__rtDockWatched) return;
       el.__rtDockWatched = true;
-      new MutationObserver(updateVisibility).observe(el, {
+      new MutationObserver(function(){
+        _lastState = "";  // force a re-check
+        updateVisibility();
+      }).observe(el, {
         attributes: true, attributeFilter: ["class", "style"]
       });
     });
   }
 
   // ═══════════════════════════════════════════════════════════
-  // RUN + OBSERVE
+  // RUN + OBSERVE (debounced)
   // ═══════════════════════════════════════════════════════════
   function runAll(){
-    watchModals();
-    updateVisibility();
+    try {
+      watchModals();
+      _lastState = "";
+      updateVisibility();
+    } catch(e) { console.error("[dock] runAll error:", e); }
   }
 
   if (document.readyState === "loading") {
@@ -417,26 +437,33 @@ DOCK_HTML = """
   } else {
     runAll();
   }
-  // Frequent polling catches tab switches the MutationObserver might miss
   setInterval(updateVisibility, 400);
   setTimeout(runAll, 500);
   setTimeout(runAll, 1500);
   setTimeout(runAll, 3000);
 
+  // Debounced observer — runs at most once every 300ms
+  var _observerTimer = null;
   try {
     new MutationObserver(function(){
-      watchModals();
-      updateVisibility();
+      if (_observerTimer) return;
+      _observerTimer = setTimeout(function(){
+        _observerTimer = null;
+        try {
+          watchModals();
+          updateVisibility();
+        } catch(e) { console.error("[dock] observer error:", e); }
+      }, 300);
     }).observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["class", "style", "hidden"]
+      attributeFilter: ["class", "style"]
     });
   } catch(e) {}
 
-  window.addEventListener("hashchange", updateVisibility);
-  window.addEventListener("popstate", updateVisibility);
+  window.addEventListener("hashchange", function(){ _lastState = ""; updateVisibility(); });
+  window.addEventListener("popstate", function(){ _lastState = ""; updateVisibility(); });
 
   // ═══════════════════════════════════════════════════════════
   // Hide owner-only items for non-owner roles
@@ -465,4 +492,5 @@ def dock_status():
         "auto_hide_on_modal": True,
         "home_only": True,
         "tab_aware": True,
+        "defensive": True,
     }
