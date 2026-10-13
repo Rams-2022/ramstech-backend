@@ -76,6 +76,7 @@ damage_report_router = None
 DAMAGE_REPORT_HTML = ""
 backup_router = None
 BACKUP_HTML = ""
+dock_html = ""
 
 # ── Tenancy ──────────────────────────────────────────────────
 HAS_TENANCY = False
@@ -301,6 +302,11 @@ try:
 except Exception as _e:
     print(f"[main] backup unavailable: {_e}")
 
+try:
+    from dock import DOCK_HTML as dock_html
+except Exception as _e:
+    print(f"[main] dock unavailable: {_e}")
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
@@ -514,7 +520,7 @@ async def _startup_scheduler():
         import asyncio
 
         async def _daily_backup():
-            await asyncio.sleep(120)  # 2 min after boot
+            await asyncio.sleep(120)
             while True:
                 try:
                     from backup import build_backup, save_backup_to_disk
@@ -630,6 +636,8 @@ async def home():
             inject += PUSH_NOTIFY_HTML
         if STAFF_ROLES_HTML:
             inject += STAFF_ROLES_HTML
+        if dock_html:
+            inject += dock_html
         if PWA_HTML:
             inject += PWA_HTML
         html = html[:idx] + inject + html[idx:]
