@@ -1,17 +1,15 @@
 """
-Consolidated Function Dock — with screen-aware visibility.
+Consolidated Function Dock — with tab-aware visibility.
 
 Behaviour:
-  • All floating UI (dock FAB, role badge, search button) only visible
-    when on the HOME screen with no modal open
-  • Auto-hides when the user navigates into a category
-  • Auto-hides when any modal opens (Debtors, Profit, Check-In, Staff, Backup)
-  • Auto-hides stray floating avatar buttons everywhere
+  • All floating UI (dock FAB, role badge, search button, avatar) 
+    only visible when the HOME tab is active
+  • Auto-hides on every other tab (DASH, AI, JOBS, MORE, categories)
+  • Auto-hides when any modal opens
   • Owner-only dock items hidden for non-owner roles
 
-Home detection: the app's home screen shows the "CHOOSE A CATEGORY"
-heading and no "Back to Categories" button. When either signal flips,
-we hide/show accordingly.
+Detection: watches the bottom nav for the tab highlighted "active"
+by class, background colour, or aria-selected.
 """
 
 DOCK_HTML = """
@@ -35,7 +33,7 @@ DOCK_HTML = """
   }
 
   /* ═══════════════════════════════════════════════════════════
-     HOME-ONLY RULE — hides all floating UI when not on home
+     HIDE FLOATING UI when not on HOME tab
      ═══════════════════════════════════════════════════════════ */
   body.rt-not-home #rt-dock,
   body.rt-not-home #rt-role-badge,
@@ -53,7 +51,7 @@ DOCK_HTML = """
   }
 
   /* ═══════════════════════════════════════════════════════════
-     MODAL RULE — hides all floating UI when a modal is open
+     HIDE FLOATING UI when a modal is open
      ═══════════════════════════════════════════════════════════ */
   body.rt-modal-open #rt-dock,
   body.rt-modal-open #rt-role-badge,
@@ -237,19 +235,73 @@ DOCK_HTML = """
   });
 
   // ═══════════════════════════════════════════════════════════
-  // HOME DETECTION
+  // ACTIVE-TAB DETECTION
   // ═══════════════════════════════════════════════════════════
-  function isOnHomeScreen(){
-    try {
-      var text = (document.body.innerText || "").toUpperCase();
-      if (text.indexOf("BACK TO CATEGORIES") !== -1) return false;
-      if (text.indexOf("CHOOSE A CATEGORY") !== -1) return true;
-      var grids = document.querySelectorAll('[class*="categor"], [id*="categor"]');
-      if (grids.length > 0) return true;
-      return true;
-    } catch(e) {
-      return true;
+  // The bottom nav shows tabs: HOME, DASH, AI, JOBS, MORE.
+  // The active tab is visually highlighted (orange text/color,
+  // active class, or aria-selected). We detect it by looking
+  // for the tab whose label text contains "HOME" and checking
+  // if it's the currently active one.
+
+  function getBottomNavTabs(){
+    // Common containers for a bottom nav
+    var containers = document.querySelectorAll(
+      "nav, [class*='bottom'], [class*='tabbar'], [class*='tab-bar'], " +
+      "[class*='nav'], [role='tablist']"
+    );
+    var tabs = [];
+    for (var i = 0; i < containers.length; i++){
+      var cs = window.getComputedStyle(containers[i]);
+      var r = containers[i].getBoundingClientRect();
+      // Bottom nav: fixed/absolute near the bottom, full width
+      if (r.top < window.innerHeight * 0.7) continue;
+      if (r.height < 40 || r.height > 120) continue;
+      if (r.width < window.innerWidth * 0.7) continue;
+      // Grab clickable children
+      var items = containers[i].querySelectorAll(
+        "button, a, [role='tab'], [class*='tab'], [class*='nav-item']"
+      );
+      for (var j = 0; j < items.length; j++) tabs.push(items[j]);
+      if (tabs.length > 0) return tabs;
     }
+    return tabs;
+  }
+
+  function getActiveTabLabel(){
+    var tabs = getBottomNavTabs();
+    for (var i = 0; i < tabs.length; i++){
+      var t = tabs[i];
+      var cs = window.getComputedStyle(t);
+      // Active signals: class contains "active", aria-selected, or orange text
+      var cls = (t.className || "").toString().toLowerCase();
+      var aria = (t.getAttribute("aria-selected") || "").toLowerCase();
+      var isActiveClass = cls.indexOf("active") !== -1
+                       || cls.indexOf("selected") !== -1
+                       || cls.indexOf("current") !== -1;
+      var isAriaActive = aria === "true";
+      // Orange highlight used by this app (~#E65100 / rgb(230,81,0))
+      var color = cs.color || "";
+      var isOrangeText = color.indexOf("230") !== -1 && color.indexOf("81") !== -1;
+      // Also check background — some designs invert the active tab
+      var bg = cs.backgroundColor || "";
+      var isOrangeBg = bg.indexOf("230") !== -1 && bg.indexOf("81") !== -1;
+
+      if (isActiveClass || isAriaActive || isOrangeText || isOrangeBg){
+        return (t.textContent || "").trim().toUpperCase();
+      }
+    }
+    // Fallback: check if HOME tab is the only one without dimmed opacity
+    return "";
+  }
+
+  function isOnHomeTab(){
+    var label = getActiveTabLabel();
+    if (label) return label.indexOf("HOME") !== -1;
+    // Fallback: if we can't detect, look at the URL/hash
+    var h = (window.location.hash || "").toLowerCase();
+    if (h && h !== "#" && h !== "#home" && h !== "#/") return false;
+    // Default: assume home (safer — don't hide unnecessarily)
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -272,7 +324,7 @@ DOCK_HTML = """
   }
 
   // ═══════════════════════════════════════════════════════════
-  // FLOATING ELEMENT DETECTION
+  // STRAY FLOATING BUTTON DETECTION
   // ═══════════════════════════════════════════════════════════
   var KEEP_IDS = [
     "rt-dock", "rt-dock-fab", "rt-dock-menu", "rt-dock-backdrop",
@@ -282,15 +334,12 @@ DOCK_HTML = """
     "rt-debtors-btn", "rt-profit-btn", "rt-dmg-btn"
   ];
 
-  // Text patterns that identify the stray avatar button
-var STRAY_CONTENT_PATTERNS = [
-  "avatar", "profile", "user-btn", "userBtn", "help-btn",
-  "chat-btn", "chatbot", "support", "assistant", "floating-user"
-];
-
   function detectFloatingButtons(){
     try {
-      var nodes = document.body.querySelectorAll("button, div, a, img, span");
+      var nodes = document.body.querySelectorAll("button, div, a, img, span, svg");
+      var vh = window.innerHeight;
+      var vw = window.innerWidth;
+
       for (var i = 0; i < nodes.length; i++){
         var el = nodes[i];
         if (el.id && KEEP_IDS.indexOf(el.id) !== -1) continue;
@@ -298,44 +347,31 @@ var STRAY_CONTENT_PATTERNS = [
         if (el.closest("#rt-dock, #rt-dock-backdrop")) continue;
         if (el.closest("#rt-debtors-overlay, #rt-profit-overlay")) continue;
         if (el.closest("#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) continue;
+        // Skip elements inside the bottom nav itself
+        if (el.closest("nav, [role='tablist']")) continue;
 
         var cs = window.getComputedStyle(el);
-        if (cs.position !== "fixed") continue;
         if (cs.display === "none" || cs.visibility === "hidden") continue;
 
         var r = el.getBoundingClientRect();
-        if (r.width < 20 || r.width > 130) continue;
-        if (r.height < 20 || r.height > 130) continue;
+        if (r.width < 30 || r.width > 110) continue;
+        if (r.height < 30 || r.height > 110) continue;
 
+        // Corner zones
         var isTopLeft = (r.left < 120 && r.top < 220);
-        var isBottomLeft = (r.left < 260 && r.top > window.innerHeight - 400);
-        var isBottomRight = (r.left > window.innerWidth - 220 &&
-                             r.top > window.innerHeight - 400);
+        var isBottomLeft = (r.left < 260 && r.top > vh - 400);
+        var isBottomRight = (r.left > vw - 220 && r.top > vh - 400);
 
-        var shouldHide = isTopLeft || isBottomLeft || isBottomRight;
+        var isFixed = (cs.position === "fixed");
+        var z = parseInt(cs.zIndex, 10);
+        var isHighZ = !isNaN(z) && z >= 9000;
 
-        // Content-based detection (catches emoji avatar even if position is odd)
-        if (!shouldHide) {
-          var content = (el.textContent || "") + " " +
-                        (el.className || "") + " " +
-                        (el.id || "") + " " +
-                        ((el.getAttribute && el.getAttribute("aria-label")) || "") + " " +
-                        ((el.getAttribute && el.getAttribute("title")) || "");
-          for (var p = 0; p < STRAY_CONTENT_PATTERNS.length; p++){
-            if (content.indexOf(STRAY_CONTENT_PATTERNS[p]) !== -1){
-              if (r.left < 320 || r.top > window.innerHeight - 400){
-                shouldHide = true;
-              }
-              break;
-            }
-          }
-        }
+        var isFloaty = isFixed || isHighZ;
+        var inCorner = isTopLeft || isBottomLeft || isBottomRight;
 
-        if (shouldHide){
+        if (isFloaty && inCorner){
           el.classList.add("rt-floating-detected");
           el.dataset.rtFloating = "1";
-          console.log("[dock] hiding stray FAB:",
-                      el.tagName, el.id || el.className || "(no id)");
         }
       }
     } catch(e) {}
@@ -346,12 +382,12 @@ var STRAY_CONTENT_PATTERNS = [
   // ═══════════════════════════════════════════════════════════
   function updateVisibility(){
     detectFloatingButtons();
-    var isHome = isOnHomeScreen();
+    var onHome = isOnHomeTab();
     var modalOpen = anyModalOpen();
-    document.body.classList.toggle("rt-not-home", !isHome);
+    document.body.classList.toggle("rt-not-home", !onHome);
     document.body.classList.toggle("rt-modal-open", modalOpen);
 
-    if (!isHome || modalOpen) {
+    if (!onHome || modalOpen) {
       var dock = document.getElementById("rt-dock");
       if (dock) dock.classList.remove("open");
     }
@@ -381,10 +417,11 @@ var STRAY_CONTENT_PATTERNS = [
   } else {
     runAll();
   }
+  // Frequent polling catches tab switches the MutationObserver might miss
+  setInterval(updateVisibility, 400);
   setTimeout(runAll, 500);
   setTimeout(runAll, 1500);
   setTimeout(runAll, 3000);
-  setTimeout(runAll, 6000);
 
   try {
     new MutationObserver(function(){
@@ -427,4 +464,5 @@ def dock_status():
         "items": 5,
         "auto_hide_on_modal": True,
         "home_only": True,
+        "tab_aware": True,
     }
