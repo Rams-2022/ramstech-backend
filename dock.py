@@ -1,9 +1,11 @@
 """
-Consolidated Function Dock.
-Hides all scattered floating buttons and replaces them with
-a single expandable FAB in the bottom-right corner.
+Consolidated Function Dock — fixes layout conflicts.
 
-Respects /api/whoami to hide owner-only tools from staff.
+Fixes applied in this version:
+  • Dock FAB moved up so it doesn't overlap the bottom "MORE" nav tab
+  • Role badge (top-right) moved to bottom-left corner
+  • Stray avatar floating buttons (bottom-left) auto-hidden
+  • Legacy floating buttons (Debtors, Profit, Vehicle Check-In) hidden
 """
 
 DOCK_HTML = """
@@ -15,11 +17,22 @@ DOCK_HTML = """
     display: none !important;
   }
 
+  /* ── Reposition the role badge out of the top header ──── */
+  #rt-role-badge {
+    top: auto !important;
+    right: auto !important;
+    bottom: 24px !important;
+    left: 24px !important;
+    transform: scale(0.85) !important;
+    transform-origin: bottom left !important;
+    opacity: 0.92;
+  }
+
   /* ── The dock ──────────────────────────────────────────── */
   #rt-dock {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 96px;              /* clear the bottom nav bar */
+    right: 16px;
     z-index: 9998;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     display: flex;
@@ -90,7 +103,6 @@ DOCK_HTML = """
   #rt-dock.open .rt-dock-item:nth-child(3) { transition-delay: 0.12s; }
   #rt-dock.open .rt-dock-item:nth-child(4) { transition-delay: 0.16s; }
   #rt-dock.open .rt-dock-item:nth-child(5) { transition-delay: 0.20s; }
-  #rt-dock.open .rt-dock-item:nth-child(6) { transition-delay: 0.24s; }
 
   .rt-dock-item:hover {
     background: #f5f5f5;
@@ -117,13 +129,14 @@ DOCK_HTML = """
   }
 
   @media (max-width: 640px) {
-    #rt-dock { bottom: 20px; right: 16px; }
+    #rt-dock { bottom: 90px; right: 14px; }
     #rt-dock-fab { width: 52px; height: 52px; font-size: 24px; }
     .rt-dock-item { padding: 9px 14px 9px 12px; font-size: 12px; }
+    #rt-role-badge { bottom: 20px !important; left: 16px !important; }
   }
 
   @media print {
-    #rt-dock, #rt-dock-backdrop { display: none !important; }
+    #rt-dock, #rt-dock-backdrop, #rt-role-badge { display: none !important; }
   }
 </style>
 
@@ -183,6 +196,57 @@ DOCK_HTML = """
     if (e.key === "Escape") rtDockClose();
   });
 
+  // ── Hide stray floating avatar buttons ──────────────────
+  // Any fixed-position element in the bottom-left 220x300 area
+  // that isn't one of our known elements gets hidden.
+  var KEEP_IDS = [
+    "rt-dock", "rt-dock-fab", "rt-dock-menu", "rt-dock-backdrop",
+    "rt-role-badge",
+    "rt-debtors-overlay", "rt-profit-overlay", "rt-dmg-overlay",
+    "rt-staff-panel", "rt-backup-panel", "rt-debtors-btn",
+    "rt-profit-btn", "rt-dmg-btn"
+  ];
+  function hideStrayFabs(){
+    try {
+      var nodes = document.body.querySelectorAll("button, div, a");
+      for (var i = 0; i < nodes.length; i++){
+        var el = nodes[i];
+        if (el.id && KEEP_IDS.indexOf(el.id) !== -1) continue;
+        if (el.closest("#rt-dock, #rt-debtors-overlay, #rt-profit-overlay, " +
+                       "#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) {
+          continue;
+        }
+        var cs = window.getComputedStyle(el);
+        if (cs.position !== "fixed") continue;
+        var r = el.getBoundingClientRect();
+        if (r.width < 24 || r.width > 110) continue;
+        if (r.height < 24 || r.height > 110) continue;
+        // Bottom-left quadrant check
+        if (r.left > 220) continue;
+        if (r.top < window.innerHeight - 320) continue;
+        // Also skip if already hidden
+        if (cs.display === "none") continue;
+        // It's a stray FAB
+        el.style.display = "none";
+        console.log("[dock] hid stray FAB:", el.id || el.className || el.tagName);
+      }
+    } catch(e) { /* never break the app */ }
+  }
+
+  // Run now, on DOM ready, and whenever the DOM changes
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", hideStrayFabs);
+  } else {
+    hideStrayFabs();
+  }
+  setTimeout(hideStrayFabs, 800);
+  setTimeout(hideStrayFabs, 1800);
+  setTimeout(hideStrayFabs, 3500);
+  try {
+    var obs = new MutationObserver(function(){ hideStrayFabs(); });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch(e) {}
+
   // Hide owner-only items for non-owner roles
   fetch("/api/whoami")
     .then(function(r){ return r.json(); })
@@ -195,7 +259,7 @@ DOCK_HTML = """
           .forEach(function(el){ el.style.display = "none"; });
       }
     })
-    .catch(function(){ /* silent — never break the dock */ });
+    .catch(function(){ /* silent */ });
 })();
 </script>
 """
