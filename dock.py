@@ -1,11 +1,17 @@
 """
-Consolidated Function Dock — fixes layout conflicts.
+Consolidated Function Dock — with screen-aware visibility.
 
-Fixes applied in this version:
-  • Dock FAB moved up so it doesn't overlap the bottom "MORE" nav tab
-  • Role badge (top-right) moved to bottom-left corner
-  • Stray avatar floating buttons (bottom-left) auto-hidden
-  • Legacy floating buttons (Debtors, Profit, Vehicle Check-In) hidden
+Behaviour:
+  • All floating UI (dock FAB, role badge, search button) only visible
+    when on the HOME screen with no modal open
+  • Auto-hides when the user navigates into a category
+  • Auto-hides when any modal opens (Debtors, Profit, Check-In, Staff, Backup)
+  • Auto-hides stray floating avatar buttons everywhere
+  • Owner-only dock items hidden for non-owner roles
+
+Home detection: the app's home screen shows the "CHOOSE A CATEGORY"
+heading and no "Back to Categories" button. When either signal flips,
+we hide/show accordingly.
 """
 
 DOCK_HTML = """
@@ -17,21 +23,50 @@ DOCK_HTML = """
     display: none !important;
   }
 
-  /* ── Reposition the role badge out of the top header ──── */
+  /* ── Reposition the role badge above the bottom nav ──── */
   #rt-role-badge {
     top: auto !important;
     right: auto !important;
-    bottom: 24px !important;
-    left: 24px !important;
+    bottom: 100px !important;
+    left: 16px !important;
     transform: scale(0.85) !important;
     transform-origin: bottom left !important;
     opacity: 0.92;
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     HOME-ONLY RULE — hides all floating UI when not on home
+     ═══════════════════════════════════════════════════════════ */
+  body.rt-not-home #rt-dock,
+  body.rt-not-home #rt-role-badge,
+  body.rt-not-home .rt-floating-detected {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Smooth transitions */
+  #rt-dock,
+  #rt-role-badge {
+    transition: opacity 0.25s ease, transform 0.25s ease,
+                visibility 0.25s ease;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     MODAL RULE — hides all floating UI when a modal is open
+     ═══════════════════════════════════════════════════════════ */
+  body.rt-modal-open #rt-dock,
+  body.rt-modal-open #rt-role-badge,
+  body.rt-modal-open .rt-floating-detected {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+
   /* ── The dock ──────────────────────────────────────────── */
   #rt-dock {
     position: fixed;
-    bottom: 96px;              /* clear the bottom nav bar */
+    bottom: 96px;
     right: 16px;
     z-index: 9998;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -132,11 +167,12 @@ DOCK_HTML = """
     #rt-dock { bottom: 90px; right: 14px; }
     #rt-dock-fab { width: 52px; height: 52px; font-size: 24px; }
     .rt-dock-item { padding: 9px 14px 9px 12px; font-size: 12px; }
-    #rt-role-badge { bottom: 20px !important; left: 16px !important; }
+    #rt-role-badge { bottom: 96px !important; left: 14px !important; }
   }
 
   @media print {
-    #rt-dock, #rt-dock-backdrop, #rt-role-badge { display: none !important; }
+    #rt-dock, #rt-dock-backdrop, #rt-role-badge,
+    .rt-floating-detected { display: none !important; }
   }
 </style>
 
@@ -170,6 +206,10 @@ DOCK_HTML = """
 
 <script>
 (function(){
+
+  // ═══════════════════════════════════════════════════════════
+  // DOCK BEHAVIOUR
+  // ═══════════════════════════════════════════════════════════
   window.rtDockToggle = function(e){
     if (e) e.stopPropagation();
     document.getElementById("rt-dock").classList.toggle("open");
@@ -196,58 +236,146 @@ DOCK_HTML = """
     if (e.key === "Escape") rtDockClose();
   });
 
-  // ── Hide stray floating avatar buttons ──────────────────
-  // Any fixed-position element in the bottom-left 220x300 area
-  // that isn't one of our known elements gets hidden.
+  // ═══════════════════════════════════════════════════════════
+  // HOME DETECTION
+  // ═══════════════════════════════════════════════════════════
+  function isOnHomeScreen(){
+    try {
+      var text = (document.body.innerText || "").toUpperCase();
+      if (text.indexOf("BACK TO CATEGORIES") !== -1) return false;
+      if (text.indexOf("CHOOSE A CATEGORY") !== -1) return true;
+      var grids = document.querySelectorAll('[class*="categor"], [id*="categor"]');
+      if (grids.length > 0) return true;
+      return true;
+    } catch(e) {
+      return true;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // MODAL DETECTION
+  // ═══════════════════════════════════════════════════════════
+  var MODAL_SELECTORS = [
+    "#rt-debtors-overlay",
+    "#rt-profit-overlay",
+    "#rt-dmg-overlay",
+    "#rt-staff-panel",
+    "#rt-backup-panel"
+  ];
+
+  function anyModalOpen(){
+    for (var i = 0; i < MODAL_SELECTORS.length; i++){
+      var el = document.querySelector(MODAL_SELECTORS[i]);
+      if (el && el.classList.contains("open")) return true;
+    }
+    return false;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FLOATING ELEMENT DETECTION
+  // ═══════════════════════════════════════════════════════════
   var KEEP_IDS = [
     "rt-dock", "rt-dock-fab", "rt-dock-menu", "rt-dock-backdrop",
     "rt-role-badge",
     "rt-debtors-overlay", "rt-profit-overlay", "rt-dmg-overlay",
-    "rt-staff-panel", "rt-backup-panel", "rt-debtors-btn",
-    "rt-profit-btn", "rt-dmg-btn"
+    "rt-staff-panel", "rt-backup-panel",
+    "rt-debtors-btn", "rt-profit-btn", "rt-dmg-btn"
   ];
-  function hideStrayFabs(){
+
+  function detectFloatingButtons(){
     try {
       var nodes = document.body.querySelectorAll("button, div, a");
       for (var i = 0; i < nodes.length; i++){
         var el = nodes[i];
         if (el.id && KEEP_IDS.indexOf(el.id) !== -1) continue;
+        if (el.classList && el.classList.contains("rt-floating-detected")) continue;
         if (el.closest("#rt-dock, #rt-debtors-overlay, #rt-profit-overlay, " +
                        "#rt-dmg-overlay, #rt-staff-panel, #rt-backup-panel")) {
           continue;
         }
         var cs = window.getComputedStyle(el);
         if (cs.position !== "fixed") continue;
+        if (cs.display === "none") continue;
         var r = el.getBoundingClientRect();
         if (r.width < 24 || r.width > 110) continue;
         if (r.height < 24 || r.height > 110) continue;
-        // Bottom-left quadrant check
-        if (r.left > 220) continue;
-        if (r.top < window.innerHeight - 320) continue;
-        // Also skip if already hidden
-        if (cs.display === "none") continue;
-        // It's a stray FAB
-        el.style.display = "none";
-        console.log("[dock] hid stray FAB:", el.id || el.className || el.tagName);
+
+        var isTopLeft = (r.left < 120 && r.top < 220);
+        var isBottomLeft = (r.left < 220 && r.top > window.innerHeight - 320);
+        var isBottomRight = (r.left > window.innerWidth - 220 &&
+                             r.top > window.innerHeight - 320);
+
+        if (isTopLeft || isBottomLeft || isBottomRight){
+          el.classList.add("rt-floating-detected");
+          el.dataset.rtFloating = "1";
+        }
       }
-    } catch(e) { /* never break the app */ }
+    } catch(e) {}
   }
 
-  // Run now, on DOM ready, and whenever the DOM changes
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", hideStrayFabs);
-  } else {
-    hideStrayFabs();
+  // ═══════════════════════════════════════════════════════════
+  // MASTER UPDATE
+  // ═══════════════════════════════════════════════════════════
+  function updateVisibility(){
+    detectFloatingButtons();
+    var isHome = isOnHomeScreen();
+    var modalOpen = anyModalOpen();
+    document.body.classList.toggle("rt-not-home", !isHome);
+    document.body.classList.toggle("rt-modal-open", modalOpen);
+
+    if (!isHome || modalOpen) {
+      var dock = document.getElementById("rt-dock");
+      if (dock) dock.classList.remove("open");
+    }
   }
-  setTimeout(hideStrayFabs, 800);
-  setTimeout(hideStrayFabs, 1800);
-  setTimeout(hideStrayFabs, 3500);
+
+  function watchModals(){
+    MODAL_SELECTORS.forEach(function(sel){
+      var el = document.querySelector(sel);
+      if (!el || el.__rtDockWatched) return;
+      el.__rtDockWatched = true;
+      new MutationObserver(updateVisibility).observe(el, {
+        attributes: true, attributeFilter: ["class", "style"]
+      });
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // RUN + OBSERVE
+  // ═══════════════════════════════════════════════════════════
+  function runAll(){
+    watchModals();
+    updateVisibility();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", runAll);
+  } else {
+    runAll();
+  }
+  setTimeout(runAll, 500);
+  setTimeout(runAll, 1500);
+  setTimeout(runAll, 3000);
+  setTimeout(runAll, 6000);
+
   try {
-    var obs = new MutationObserver(function(){ hideStrayFabs(); });
-    obs.observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(function(){
+      watchModals();
+      updateVisibility();
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style", "hidden"]
+    });
   } catch(e) {}
 
+  window.addEventListener("hashchange", updateVisibility);
+  window.addEventListener("popstate", updateVisibility);
+
+  // ═══════════════════════════════════════════════════════════
   // Hide owner-only items for non-owner roles
+  // ═══════════════════════════════════════════════════════════
   fetch("/api/whoami")
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -266,4 +394,9 @@ DOCK_HTML = """
 
 
 def dock_status():
-    return {"dock_enabled": True, "items": 5}
+    return {
+        "dock_enabled": True,
+        "items": 5,
+        "auto_hide_on_modal": True,
+        "home_only": True,
+    }
