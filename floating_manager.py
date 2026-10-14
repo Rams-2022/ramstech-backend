@@ -2,11 +2,7 @@
 
 Every floating element in the app is registered here with a list of
 panel IDs where it is allowed to appear. A single loop then toggles
-every element based on the current active panel — no more scattered
-visibility logic in every module.
-
-To change where a floating button appears, edit ONLY the REGISTRY
-array below. That's it.
+every element based on the current active panel.
 """
 from fastapi import APIRouter
 
@@ -17,100 +13,105 @@ FLOATING_MANAGER_HTML = r"""
 (function(){
   // ═══════════════════════════════════════════════════════════
   // REGISTRY — every floating element and where it may appear
-  //
-  //   selector : CSS selector for the floating element(s)
-  //   showOn   : array of panel IDs where it may appear
-  //              use ['*'] to allow on every panel
-  //   hideOn   : only used when showOn is ['*'] — panels to skip
   // ═══════════════════════════════════════════════════════════
   var REGISTRY = [
-
-    // ── AI Robot 🤖 — Diagnostics only ───────────────────────
     {
       selector: '#aiFab',
       showOn: [
-        'chat',       // AI Chat
-        'codes',      // Fault Codes
-        'problems',   // Common Problems
-        'vin',        // VIN Decoder
-        'paint',      // Paint Match
-        'photo',      // Photo Diagnosis
-        'wiring',     // Wiring Library
-        'obd',        // OBD-II PIDs
-        'bulbs',      // Bulb Chart
-        'batteries',  // Battery Sizes
-        'tyres',      // Tyre Sizes
-        'fuses',      // Fuse Box Diagrams
-        'service',    // Service Calculator
-        'inspect',    // Inspection Checklists
-        'boltcalc',   // Bolt Torque Calculator
-        'torque'      // Torque Specs
+        'chat','codes','problems','vin','paint','photo',
+        'wiring','obd','bulbs','batteries','tyres','fuses',
+        'service','inspect','boltcalc','torque'
       ]
     },
-
-    // ── Black + dock FAB — Home only ─────────────────────────
     {
       selector: '#rt-dock',
       showOn: ['home']
     },
-
-    // ── Owner badge — Home only ──────────────────────────────
     {
       selector: '#rt-role-badge',
       showOn: ['home']
     }
-
-    // ── To add more floating buttons later, add an entry: ────
-    // { selector: '#someFab', showOn: ['jobs','invoices'] }
   ];
 
-  // ═══════════════════════════════════════════════════════════
-  // CORE — apply visibility based on the active panel
-  // ═══════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────
+  // STATE CACHE — remember the last state so we don't fight
+  // ourselves by re-setting the same class/style repeatedly.
+  // ─────────────────────────────────────────────────────────
+  var _lastState = {};        // selector → "1" or "0"
+  var _applying = false;      // re-entrancy guard for the observer
+  var _lastPanelId = null;
+
   function activePanelId(){
     var active = document.querySelector('.panel.active');
     return active ? active.id : '';
   }
 
-  function applyVisibility(){
-    var currentId = activePanelId();
-    REGISTRY.forEach(function(entry){
-      var elements;
-      try { elements = document.querySelectorAll(entry.selector); }
-      catch(e){ return; }
-      if(!elements.length) return;
+  function applyVisibility(force){
+    // Re-entrancy guard: never let the observer fire while we're already applying
+    if(_applying && !force) return;
+    _applying = true;
 
-      var shouldShow;
-      if(entry.showOn.indexOf('*') >= 0){
-        var exclude = entry.hideOn || [];
-        shouldShow = exclude.indexOf(currentId) === -1;
-      } else {
-        shouldShow = entry.showOn.indexOf(currentId) >= 0;
+    try{
+      var currentId = activePanelId();
+
+      // Fast-path: if nothing changed and not forced, skip DOM work entirely
+      if(!force && currentId === _lastPanelId){
+        _applying = false;
+        return;
       }
+      _lastPanelId = currentId;
 
-      elements.forEach(function(el){
-        if(shouldShow){
-          el.classList.add('show');
-          el.style.removeProperty('display');
-          el.style.removeProperty('visibility');
-          el.style.removeProperty('opacity');
-          el.style.removeProperty('pointer-events');
+      REGISTRY.forEach(function(entry){
+        var shouldShow;
+        if(entry.showOn.indexOf('*') >= 0){
+          var exclude = entry.hideOn || [];
+          shouldShow = exclude.indexOf(currentId) === -1;
         } else {
-          el.classList.remove('show');
-          el.style.setProperty('display', 'none', 'important');
-          el.style.setProperty('visibility', 'hidden', 'important');
+          shouldShow = entry.showOn.indexOf(currentId) >= 0;
         }
+
+        // Compare to last state — if same, don't touch the DOM
+        var want = shouldShow ? '1' : '0';
+        if(_lastState[entry.selector] === want) return;
+        _lastState[entry.selector] = want;
+
+        var elements;
+        try { elements = document.querySelectorAll(entry.selector); }
+        catch(e){ return; }
+        if(!elements.length) return;
+
+        elements.forEach(function(el){
+          if(shouldShow){
+            el.classList.add('show');
+            el.style.removeProperty('display');
+            el.style.removeProperty('visibility');
+          } else {
+            el.classList.remove('show');
+            el.style.setProperty('display', 'none', 'important');
+          }
+        });
       });
-    });
+    } catch(e){
+      console.error('[floating_manager]', e);
+    }
+
+    _applying = false;
   }
 
-  // ── Initial run ────────────────────────────────────────────
-  applyVisibility();
+  // ── Initial run ──────────────────────────────────────────
+  applyVisibility(true);
 
-  // ── React to any DOM change (tab switches, class toggles) ──
+  // ── React to class changes (tab switches) ────────────────
+  // We ONLY observe class changes, and the guard + state cache
+  // prevent our own mutations from re-triggering us in a loop.
   try{
+    var _mutTimer = null;
     new MutationObserver(function(){
-      applyVisibility();
+      if(_mutTimer) return;
+      _mutTimer = setTimeout(function(){
+        _mutTimer = null;
+        applyVisibility(false);
+      }, 40);
     }).observe(document.body, {
       subtree: true,
       attributes: true,
@@ -118,21 +119,21 @@ FLOATING_MANAGER_HTML = r"""
     });
   }catch(e){}
 
-  // ── Fast fallback poll (belt-and-braces) ───────────────────
-  setInterval(applyVisibility, 150);
+  // ── Light fallback poll (every 400ms — not 150!) ────────
+  setInterval(function(){ applyVisibility(false); }, 400);
 
-  // ── Hook into showTab so it fires instantly ────────────────
+  // ── Hook into showTab so it fires instantly ──────────────
   function tryHookShowTab(){
     if(typeof window.showTab === 'function' && !window._fmHooked){
       window._fmHooked = true;
       var orig = window.showTab;
       window.showTab = function(name, el){
         var r = orig.apply(this, arguments);
-        applyVisibility();
-        setTimeout(applyVisibility, 0);
-        setTimeout(applyVisibility, 40);
-        setTimeout(applyVisibility, 150);
-        setTimeout(applyVisibility, 350);
+        // Force re-evaluation because the panel id changed
+        _lastPanelId = null;
+        applyVisibility(true);
+        setTimeout(function(){ _lastPanelId = null; applyVisibility(true); }, 0);
+        setTimeout(function(){ _lastPanelId = null; applyVisibility(true); }, 80);
         return r;
       };
     }
@@ -140,10 +141,8 @@ FLOATING_MANAGER_HTML = r"""
   tryHookShowTab();
   setTimeout(tryHookShowTab, 500);
   setTimeout(tryHookShowTab, 1500);
-  setTimeout(tryHookShowTab, 3000);
 
-  // ── Expose for manual control ──────────────────────────────
-  window.refreshFloating = applyVisibility;
+  window.refreshFloating = function(){ _lastPanelId = null; applyVisibility(true); };
   window.FLOATING_REGISTRY = REGISTRY;
 
   console.log('✓ Floating manager active — ' + REGISTRY.length + ' entries');
