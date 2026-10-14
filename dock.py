@@ -6,6 +6,7 @@ Behaviour:
   • All floating UI (dock FAB, role badge, search button, avatar)
     only visible on the HOME tab with no modal open
   • Auto-hides on every other tab (DASH, AI, JOBS, MORE)
+  • Auto-hides on sub-tabs inside Home (e.g. Fault Codes, VIN, Paint)
   • Auto-hides when any modal opens
   • Owner-only dock items hidden for non-owner roles
   • Defensive: dock closes immediately on tap, even if handler fails
@@ -306,9 +307,25 @@ DOCK_HTML = """
     return "";
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // HOME DETECTION — PRIMARY: check which .panel is active
+  // Sub-tabs like Fault Codes, VIN, Paint are NOT Home.
+  // ═══════════════════════════════════════════════════════════
   function isOnHomeTab(){
+    // PRIMARY CHECK: which panel is currently `.active`?
+    // Your app uses a single-page tab system where only one panel
+    // has class="active" at a time.
+    var activePanel = document.querySelector('.panel.active');
+    if (activePanel) {
+      // Only the "home" panel counts as Home. Sub-tabs like "codes",
+      // "vin", "jobs", "paint", etc. are NOT Home.
+      return activePanel.id === 'home';
+    }
+
+    // FALLBACK: bottom nav label check
     var label = getActiveTabLabel();
     if (label) return label.indexOf("HOME") !== -1;
+
     var h = (window.location.hash || "").toLowerCase();
     if (h && h !== "#" && h !== "#home" && h !== "#/") return false;
     return true;
@@ -437,12 +454,19 @@ DOCK_HTML = """
   } else {
     runAll();
   }
-  setInterval(updateVisibility, 400);
+
+  // Fast polling — sub-tabs feel instant
+  setInterval(updateVisibility, 100);
+
+  // Extra safety runs after async DOM settles
   setTimeout(runAll, 500);
   setTimeout(runAll, 1500);
   setTimeout(runAll, 3000);
 
-  // Debounced observer — runs at most once every 300ms
+  // ═══════════════════════════════════════════════════════════
+  // DEBOUNCED OBSERVER — runs at most once every 30ms
+  // This is what makes the dock hide INSTANTLY when you tap a tile
+  // ═══════════════════════════════════════════════════════════
   var _observerTimer = null;
   try {
     new MutationObserver(function(){
@@ -453,7 +477,7 @@ DOCK_HTML = """
           watchModals();
           updateVisibility();
         } catch(e) { console.error("[dock] observer error:", e); }
-      }, 300);
+      }, 30);
     }).observe(document.body, {
       childList: true,
       subtree: true,
@@ -492,5 +516,6 @@ def dock_status():
         "auto_hide_on_modal": True,
         "home_only": True,
         "tab_aware": True,
+        "sub_tab_aware": True,
         "defensive": True,
     }
