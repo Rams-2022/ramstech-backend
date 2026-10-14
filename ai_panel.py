@@ -4,10 +4,17 @@ AI_PANEL_HTML = r"""
   position:fixed;bottom:170px;right:18px;width:60px;height:60px;border-radius:50%;
   background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
   cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
-  display:none;align-items:center;justify-content:center;
+  align-items:center;justify-content:center;
   transition:opacity .18s ease,transform .18s ease;
+  /* Default: hidden via opacity + visibility — no display toggle */
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
 }
 #aiFab.show{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
   display:flex !important;
 }
 #aiFab:active{transform:scale(.92);}
@@ -81,9 +88,8 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 var _m = 'code', _pic = null, _rec = null;
 
 // ─────────────────────────────────────────────────────────────
-// NOTE: FAB visibility is now handled by floating_manager.py.
-// Do NOT add visibility logic here. If you want to change where
-// the robot appears, edit the REGISTRY in floating_manager.py.
+// FAB visibility is handled by floating_manager.py via the
+// `.show` class. Do NOT touch #aiFab.style.display here.
 // ─────────────────────────────────────────────────────────────
 
 function aiToggle(){
