@@ -1,9 +1,4 @@
-"""Central controller for all floating buttons.
-
-Every floating element in the app is registered here with a list of
-panel IDs where it is allowed to appear. A single loop then toggles
-every element based on the current active panel.
-"""
+"""Central controller for all floating buttons."""
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -11,9 +6,6 @@ router = APIRouter()
 FLOATING_MANAGER_HTML = r"""
 <script>
 (function(){
-  // ═══════════════════════════════════════════════════════════
-  // REGISTRY — every floating element and where it may appear
-  // ═══════════════════════════════════════════════════════════
   var REGISTRY = [
     {
       selector: '#aiFab',
@@ -33,13 +25,9 @@ FLOATING_MANAGER_HTML = r"""
     }
   ];
 
-  // ─────────────────────────────────────────────────────────
-  // STATE CACHE — remember the last state so we don't fight
-  // ourselves by re-setting the same class/style repeatedly.
-  // ─────────────────────────────────────────────────────────
-  var _lastState = {};        // selector → "1" or "0"
-  var _applying = false;      // re-entrancy guard for the observer
+  var _lastState = {};
   var _lastPanelId = null;
+  var _applying = false;
 
   function activePanelId(){
     var active = document.querySelector('.panel.active');
@@ -47,14 +35,12 @@ FLOATING_MANAGER_HTML = r"""
   }
 
   function applyVisibility(force){
-    // Re-entrancy guard: never let the observer fire while we're already applying
     if(_applying && !force) return;
     _applying = true;
 
     try{
       var currentId = activePanelId();
 
-      // Fast-path: if nothing changed and not forced, skip DOM work entirely
       if(!force && currentId === _lastPanelId){
         _applying = false;
         return;
@@ -70,7 +56,6 @@ FLOATING_MANAGER_HTML = r"""
           shouldShow = entry.showOn.indexOf(currentId) >= 0;
         }
 
-        // Compare to last state — if same, don't touch the DOM
         var want = shouldShow ? '1' : '0';
         if(_lastState[entry.selector] === want) return;
         _lastState[entry.selector] = want;
@@ -81,13 +66,11 @@ FLOATING_MANAGER_HTML = r"""
         if(!elements.length) return;
 
         elements.forEach(function(el){
+          // ONLY toggle the class — never touch inline style
           if(shouldShow){
             el.classList.add('show');
-            el.style.removeProperty('display');
-            el.style.removeProperty('visibility');
           } else {
             el.classList.remove('show');
-            el.style.setProperty('display', 'none', 'important');
           }
         });
       });
@@ -98,12 +81,9 @@ FLOATING_MANAGER_HTML = r"""
     _applying = false;
   }
 
-  // ── Initial run ──────────────────────────────────────────
   applyVisibility(true);
 
-  // ── React to class changes (tab switches) ────────────────
-  // We ONLY observe class changes, and the guard + state cache
-  // prevent our own mutations from re-triggering us in a loop.
+  // React to class changes — debounced
   try{
     var _mutTimer = null;
     new MutationObserver(function(){
@@ -119,21 +99,21 @@ FLOATING_MANAGER_HTML = r"""
     });
   }catch(e){}
 
-  // ── Light fallback poll (every 400ms — not 150!) ────────
+  // Fallback poll
   setInterval(function(){ applyVisibility(false); }, 400);
 
-  // ── Hook into showTab so it fires instantly ──────────────
+  // Hook showTab for instant reaction
   function tryHookShowTab(){
     if(typeof window.showTab === 'function' && !window._fmHooked){
       window._fmHooked = true;
       var orig = window.showTab;
       window.showTab = function(name, el){
         var r = orig.apply(this, arguments);
-        // Force re-evaluation because the panel id changed
         _lastPanelId = null;
         applyVisibility(true);
         setTimeout(function(){ _lastPanelId = null; applyVisibility(true); }, 0);
         setTimeout(function(){ _lastPanelId = null; applyVisibility(true); }, 80);
+        setTimeout(function(){ _lastPanelId = null; applyVisibility(true); }, 250);
         return r;
       };
     }
@@ -141,9 +121,9 @@ FLOATING_MANAGER_HTML = r"""
   tryHookShowTab();
   setTimeout(tryHookShowTab, 500);
   setTimeout(tryHookShowTab, 1500);
+  setTimeout(tryHookShowTab, 3000);
 
   window.refreshFloating = function(){ _lastPanelId = null; applyVisibility(true); };
-  window.FLOATING_REGISTRY = REGISTRY;
 
   console.log('✓ Floating manager active — ' + REGISTRY.length + ' entries');
 })();
@@ -152,8 +132,4 @@ FLOATING_MANAGER_HTML = r"""
 
 
 def floating_status():
-    return {
-        "enabled": True,
-        "registered": 3,
-        "centralized": True,
-    }
+    return {"enabled": True, "registered": 3, "centralized": True}
