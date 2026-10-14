@@ -80,33 +80,12 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 <script>
 var _m = 'code', _pic = null, _rec = null;
 
-// ═══════════════════════════════════════════════════════
-// PANEL IDS WHERE THE ROBOT FAB SHOULD BE VISIBLE
-// These are the diagnostic-only tabs. Add/remove IDs here
-// to control where the AI floating button appears.
-// ═══════════════════════════════════════════════════════
-var _DIAG_TABS = [
-  'chat',       // AI Chat
-  'codes',      // Fault Codes
-  'problems',   // Common Problems
-  'vin',        // VIN Decoder
-  'paint',      // Paint Match
-  'photo',      // Photo Diagnosis
-  'wiring',     // Wiring Library
-  'obd',        // OBD-II PIDs
-  'bulbs',      // Bulb Chart
-  'batteries',  // Battery Sizes
-  'tyres',      // Tyre Sizes
-  'fuses',      // Fuse Box Diagrams
-  'service',    // Service Calculator
-  'inspect',    // Inspection Checklists
-  'boltcalc',   // Bolt Torque Calculator
-  'torque'      // Torque Specs
-];
+// ─────────────────────────────────────────────────────────────
+// NOTE: FAB visibility is now handled by floating_manager.py.
+// Do NOT add visibility logic here. If you want to change where
+// the robot appears, edit the REGISTRY in floating_manager.py.
+// ─────────────────────────────────────────────────────────────
 
-// ═══════════════════════════════════════════════════════
-// PANEL TOGGLE
-// ═══════════════════════════════════════════════════════
 function aiToggle(){
   var p = document.getElementById('aiPanel');
   p.style.display = (p.style.display === 'block') ? 'none' : 'block';
@@ -225,66 +204,7 @@ async function aiSubmit(){
   b.textContent = 'Get Answer';
 }
 
-// ═══════════════════════════════════════════════════════
-// FAB VISIBILITY — shows ONLY when the active panel id
-// matches one of the diagnostic tabs in _DIAG_TABS.
-// ═══════════════════════════════════════════════════════
-function aiUpdateFab(){
-  try{
-    var fab = document.getElementById('aiFab');
-    if(!fab) return;
-    var active = document.querySelector('.panel.active');
-    var id = active ? active.id : '';
-    if(_DIAG_TABS.indexOf(id) >= 0){
-      fab.classList.add('show');
-    } else {
-      fab.classList.remove('show');
-    }
-  } catch(e){}
-}
-
-// Run immediately (in case we load straight into a diag tab)
-aiUpdateFab();
-
-// 1) Hook into showTab so we react the instant a tab changes
-(function hookShowTab(){
-  function tryHook(){
-    if (typeof window.showTab === 'function' && !window._aiFabHooked) {
-      window._aiFabHooked = true;
-      var _origShowTab = window.showTab;
-      window.showTab = function(name, el){
-        var result = _origShowTab.apply(this, arguments);
-        aiUpdateFab();
-        setTimeout(aiUpdateFab, 0);
-        setTimeout(aiUpdateFab, 40);
-        setTimeout(aiUpdateFab, 120);
-        setTimeout(aiUpdateFab, 300);
-        return result;
-      };
-      aiUpdateFab();
-    }
-  }
-  tryHook();
-  setTimeout(tryHook, 300);
-  setTimeout(tryHook, 1000);
-  setTimeout(tryHook, 2500);
-})();
-
-// 2) React to any click on tiles / nav items / back buttons
-document.addEventListener('click', function(e){
-  if (e.target.closest('.bnav-item, .tile, .cat-card, .back-btn, .tile-label, .tile-icon')) {
-    setTimeout(aiUpdateFab, 0);
-    setTimeout(aiUpdateFab, 40);
-    setTimeout(aiUpdateFab, 120);
-    setTimeout(aiUpdateFab, 300);
-    setTimeout(aiUpdateFab, 600);
-  }
-}, true);
-
-// 3) Fast fallback polling
-setInterval(aiUpdateFab, 150);
-
-// 4) Close AI panel when clicking outside the modal card
+// Close AI panel when clicking outside the modal card
 document.getElementById('aiPanel').addEventListener('click', function(e){
   if(e.target === this) aiToggle();
 });
