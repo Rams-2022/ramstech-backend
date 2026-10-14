@@ -1851,15 +1851,12 @@ loadSettings();
 
 function exportJobsCSV() { window.location.href = '/api/export/jobs'; }
 function exportCustomersCSV() { window.location.href = '/api/export/customers'; }
-</script>
+
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL FLOATING-ELEMENT VISIBILITY GUARD
 // Only shows floating elements when the HOME panel is active.
-// This overrides anything injected by dock.py, design_polish.py,
-// instant_mode.py, smart_search.py, pwa.py, or any other module.
 // ═══════════════════════════════════════════════════════════════
 (function() {
-  // IDs/classes we know belong to floating overlays
   var FLOATING_SELECTORS = [
     '#rt-dock', '#rt-dock-fab', '#rt-dock-menu', '#rt-dock-backdrop',
     '#rt-role-badge',
@@ -1873,10 +1870,8 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     '[data-dock]', '[data-floating]'
   ];
 
-  // Also target any element with position:fixed in the 4 corners
   function findFloatingElements() {
     var found = [];
-    // 1. Match known selectors
     FLOATING_SELECTORS.forEach(function(sel) {
       try {
         document.querySelectorAll(sel).forEach(function(el) {
@@ -1885,13 +1880,12 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
       } catch(e) {}
     });
 
-    // 2. Match any fixed-position element in a corner with high z-index
     var vw = window.innerWidth, vh = window.innerHeight;
     var all = document.querySelectorAll('body *');
     for (var i = 0; i < all.length; i++) {
       var el = all[i];
       if (el.closest('#rt-dock-backdrop, #sigModal, [role="dialog"], .modal')) continue;
-      if (el.closest('#home')) continue; // never hide anything inside Home panel
+      if (el.closest('#home')) continue;
       var cs = window.getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
@@ -1901,9 +1895,9 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
       if (r.width < 20 || r.width > 200) continue;
       if (r.height < 20 || r.height > 200) continue;
       var inCorner =
-        (r.left < 120 && r.top < 260) ||           // top-left
-        (r.left < 260 && r.top > vh - 420) ||      // bottom-left
-        (r.left > vw - 220 && r.top > vh - 420);   // bottom-right
+        (r.left < 120 && r.top < 260) ||
+        (r.left < 260 && r.top > vh - 420) ||
+        (r.left > vw - 220 && r.top > vh - 420);
       if (inCorner) found.push(el);
     }
     return found;
@@ -1919,7 +1913,6 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     var onHome = isHomeActive();
     var elements = findFloatingElements();
     elements.forEach(function(el) {
-      // Never touch elements INSIDE the home panel — they belong to Home
       if (el.closest('#home')) {
         el.style.display = '';
         el.style.visibility = '';
@@ -1928,13 +1921,11 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
         return;
       }
       if (onHome) {
-        // On Home: restore default styling
         el.style.display = '';
         el.style.visibility = '';
         el.style.opacity = '';
         el.style.pointerEvents = '';
       } else {
-        // Not on Home: hard-hide
         el.style.setProperty('display', 'none', 'important');
         el.style.setProperty('visibility', 'hidden', 'important');
         el.style.setProperty('opacity', '0', 'important');
@@ -1943,13 +1934,9 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     });
   }
 
-  // Run immediately
   enforce();
-
-  // Re-run fast — catches every tab switch within 100ms
   setInterval(enforce, 100);
 
-  // Also re-run on any DOM mutation (tab switch triggers this)
   try {
     var _t = null;
     new MutationObserver(function() {
@@ -1961,7 +1948,6 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     });
   } catch(e) {}
 
-  // Also hook into showTab so it fires instantly
   if (typeof window.showTab === 'function') {
     var _origShowTab = window.showTab;
     window.showTab = function(name, el) {
@@ -1973,5 +1959,7 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     };
   }
 })();
+
+</script>
 </body>
 </html>"""
