@@ -1,12 +1,17 @@
 AI_PANEL_HTML = r"""
 <style>
-#aiFab{position:fixed;bottom:170px;right:18px;width:60px;height:60px;border-radius:50%;
-background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
-cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
-display:none;align-items:center;justify-content:center;
-transition:opacity .2s ease,transform .2s ease;}
-#aiFab.show{display:flex;}
+#aiFab{
+  position:fixed;bottom:170px;right:18px;width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
+  cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
+  display:none;align-items:center;justify-content:center;
+  transition:opacity .18s ease,transform .18s ease;
+}
+#aiFab.show{
+  display:flex !important;
+}
 #aiFab:active{transform:scale(.92);}
+
 #aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;
 padding:12px;overflow:auto;}
 #aiInner{max-width:640px;margin:20px auto;background:#0f1520;color:#e6edf5;
@@ -73,15 +78,35 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 </div>
 
 <script>
-var _m='code', _pic=null, _rec=null;
+var _m = 'code', _pic = null, _rec = null;
 
-// Diagnostic-only tabs — the AI robot is ONLY shown on these
+// ═══════════════════════════════════════════════════════
+// PANEL IDS WHERE THE ROBOT FAB SHOULD BE VISIBLE
+// These are the diagnostic-only tabs. Add/remove IDs here
+// to control where the AI floating button appears.
+// ═══════════════════════════════════════════════════════
 var _DIAG_TABS = [
-  'chat','codes','problems','vin','paint','photo',
-  'wiring','obd','bulbs','batteries','tyres','fuses',
-  'service','inspect','boltcalc','torque'
+  'chat',       // AI Chat
+  'codes',      // Fault Codes
+  'problems',   // Common Problems
+  'vin',        // VIN Decoder
+  'paint',      // Paint Match
+  'photo',      // Photo Diagnosis
+  'wiring',     // Wiring Library
+  'obd',        // OBD-II PIDs
+  'bulbs',      // Bulb Chart
+  'batteries',  // Battery Sizes
+  'tyres',      // Tyre Sizes
+  'fuses',      // Fuse Box Diagrams
+  'service',    // Service Calculator
+  'inspect',    // Inspection Checklists
+  'boltcalc',   // Bolt Torque Calculator
+  'torque'      // Torque Specs
 ];
 
+// ═══════════════════════════════════════════════════════
+// PANEL TOGGLE
+// ═══════════════════════════════════════════════════════
 function aiToggle(){
   var p = document.getElementById('aiPanel');
   p.style.display = (p.style.display === 'block') ? 'none' : 'block';
@@ -92,9 +117,9 @@ function aiMode(m){
   document.querySelectorAll('.aiTab').forEach(function(t){
     t.classList.toggle('active', t.dataset.m === m);
   });
-  document.getElementById('aiCode').style.display = (m === 'code') ? 'block' : 'none';
+  document.getElementById('aiCode').style.display = (m === 'code')    ? 'block' : 'none';
   document.getElementById('aiSym').style.display  = (m === 'symptom') ? 'block' : 'none';
-  document.getElementById('aiAsk').style.display  = (m === 'ask') ? 'block' : 'none';
+  document.getElementById('aiAsk').style.display  = (m === 'ask')     ? 'block' : 'none';
   document.getElementById('aiBtn').textContent = {code:'Explain Code', symptom:'Find Codes', ask:'Ask AI'}[m];
 }
 
@@ -110,6 +135,7 @@ function aiPicLoad(e){
   };
   r.readAsDataURL(f);
 }
+
 function aiPicClear(){
   _pic = null;
   document.getElementById('aiPic').value = '';
@@ -144,11 +170,13 @@ async function aiSubmit(){
   if(_m === 'code'){
     var cd = document.getElementById('aiCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
     if(!cd){ alert('Type a code'); return; }
-    ep = '/api/fault-codes/ai'; body = {code: cd, vehicle: v};
+    ep = '/api/fault-codes/ai';
+    body = {code: cd, vehicle: v};
   } else if(_m === 'symptom'){
     var q = document.getElementById('aiSym').value.trim();
     if(!q){ alert('Describe symptom'); return; }
-    ep = '/api/fault-codes/ai-search'; body = {query: q, vehicle: v};
+    ep = '/api/fault-codes/ai-search';
+    body = {query: q, vehicle: v};
   } else {
     var q2 = document.getElementById('aiAsk').value.trim();
     if(!q2 && !_pic){ alert('Type a question or attach a photo'); return; }
@@ -185,7 +213,8 @@ async function aiSubmit(){
       c.style.display = 'flex';
     }
 
-    r.textContent = (d.reply || d.answer || 'No reply') + (d.provider ? '\n\n— via ' + d.provider : '');
+    r.textContent = (d.reply || d.answer || 'No reply') +
+                    (d.provider ? '\n\n— via ' + d.provider : '');
     r.style.display = 'block';
   } catch(e){
     r.textContent = 'Error: ' + e.message;
@@ -197,7 +226,8 @@ async function aiSubmit(){
 }
 
 // ═══════════════════════════════════════════════════════
-// FAB VISIBILITY — only shows on diagnostic tabs
+// FAB VISIBILITY — shows ONLY when the active panel id
+// matches one of the diagnostic tabs in _DIAG_TABS.
 // ═══════════════════════════════════════════════════════
 function aiUpdateFab(){
   try{
@@ -205,36 +235,56 @@ function aiUpdateFab(){
     if(!fab) return;
     var active = document.querySelector('.panel.active');
     var id = active ? active.id : '';
-    var show = _DIAG_TABS.indexOf(id) >= 0;
-    fab.classList.toggle('show', show);
+    if(_DIAG_TABS.indexOf(id) >= 0){
+      fab.classList.add('show');
+    } else {
+      fab.classList.remove('show');
+    }
   } catch(e){}
 }
 
-// Run immediately, on every panel change (via observer), and as a fallback
-setTimeout(aiUpdateFab, 100);
+// Run immediately (in case we load straight into a diag tab)
+aiUpdateFab();
 
-// React instantly to showTab / class changes on .panel elements
-try{
-  new MutationObserver(function(){
-    aiUpdateFab();
-  }).observe(document.body, {
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['class']
-  });
-} catch(e){}
+// 1) Hook into showTab so we react the instant a tab changes
+(function hookShowTab(){
+  function tryHook(){
+    if (typeof window.showTab === 'function' && !window._aiFabHooked) {
+      window._aiFabHooked = true;
+      var _origShowTab = window.showTab;
+      window.showTab = function(name, el){
+        var result = _origShowTab.apply(this, arguments);
+        aiUpdateFab();
+        setTimeout(aiUpdateFab, 0);
+        setTimeout(aiUpdateFab, 40);
+        setTimeout(aiUpdateFab, 120);
+        setTimeout(aiUpdateFab, 300);
+        return result;
+      };
+      aiUpdateFab();
+    }
+  }
+  tryHook();
+  setTimeout(tryHook, 300);
+  setTimeout(tryHook, 1000);
+  setTimeout(tryHook, 2500);
+})();
 
-// Fallback poll (in case the observer misses something)
-setInterval(aiUpdateFab, 200);
-
-// Extra call after clicks (belt-and-braces)
+// 2) React to any click on tiles / nav items / back buttons
 document.addEventListener('click', function(e){
-  setTimeout(aiUpdateFab, 0);
-  setTimeout(aiUpdateFab, 80);
-  setTimeout(aiUpdateFab, 300);
-});
+  if (e.target.closest('.bnav-item, .tile, .cat-card, .back-btn, .tile-label, .tile-icon')) {
+    setTimeout(aiUpdateFab, 0);
+    setTimeout(aiUpdateFab, 40);
+    setTimeout(aiUpdateFab, 120);
+    setTimeout(aiUpdateFab, 300);
+    setTimeout(aiUpdateFab, 600);
+  }
+}, true);
 
-// Close AI panel when clicking outside the modal card
+// 3) Fast fallback polling
+setInterval(aiUpdateFab, 150);
+
+// 4) Close AI panel when clicking outside the modal card
 document.getElementById('aiPanel').addEventListener('click', function(e){
   if(e.target === this) aiToggle();
 });
