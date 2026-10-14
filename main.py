@@ -307,6 +307,12 @@ try:
 except Exception as _e:
     print(f"[main] dock unavailable: {_e}")
 
+try:
+    from floating_manager import FLOATING_MANAGER_HTML
+except Exception as _e:
+    print(f"[main] floating_manager unavailable: {_e}")
+    FLOATING_MANAGER_HTML = ""
+
 # ── Tenancy (optional, fail-safe) ───────────────────────────
 try:
     from tenancy import (
