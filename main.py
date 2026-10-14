@@ -646,6 +646,9 @@ async def home():
             inject += dock_html
         if PWA_HTML:
             inject += PWA_HTML
+# ── Floating manager LAST — overrides all module-level visibility ──
+        if FLOATING_MANAGER_HTML:
+            inject += FLOATING_MANAGER_HTML
         html = html[:idx] + inject + html[idx:]
     return html
 
