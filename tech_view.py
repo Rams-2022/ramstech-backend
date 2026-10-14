@@ -52,10 +52,6 @@ def tech_jobs(tech_name: str):
 
 TECH_HTML = r"""
 <style>
-#tvBtn{position:fixed;bottom:170px;left:18px;width:60px;height:60px;border-radius:50%;
-background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;border:none;font-size:26px;
-cursor:pointer;z-index:9996;box-shadow:0 6px 18px rgba(245,158,11,.5);
-display:flex;align-items:center;justify-content:center;}
 #tvModal{display:none;position:fixed;inset:0;background:#0a1018;z-index:9999;overflow:auto;}
 #tvInner{max-width:680px;margin:0 auto;padding:16px;color:#e6edf5;min-height:100vh;}
 .tvIn{width:100%;padding:14px;background:#0f1520;border:1px solid #1e2938;border-radius:10px;
@@ -88,8 +84,6 @@ padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600;}
 .tvSection{font-size:12px;font-weight:700;color:#7b8da3;text-transform:uppercase;
 letter-spacing:1.5px;margin:20px 0 10px;}
 </style>
-
-<button id="tvBtn" onclick="tvOpen()" title="Technician Mode">&#128119;</button>
 
 <div id="tvModal">
   <div id="tvInner">
@@ -321,5 +315,20 @@ function tvRefresh(){
   if(_tvJobId&&document.getElementById('tvJobDetail').style.display==='block'){tvOpenJob(_tvJobId);}
   else{tvShowJobs();}
 }
+
+// ─────────────────────────────────────────────────────────
+// HIDDEN ACCESS: open Technician Mode via URL hash #tech
+// Example: https://sttech.onrender.com/#tech
+// This replaces the floating yellow avatar button.
+// ─────────────────────────────────────────────────────────
+(function(){
+  function maybeOpenTech(){
+    if (location.hash === '#tech' || location.hash === '#technician') {
+      try { tvOpen(); } catch(e) {}
+    }
+  }
+  window.addEventListener('hashchange', maybeOpenTech);
+  setTimeout(maybeOpenTech, 900);
+})();
 </script>
 """
