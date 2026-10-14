@@ -3,7 +3,9 @@ AI_PANEL_HTML = r"""
 #aiFab{position:fixed;bottom:170px;right:18px;width:60px;height:60px;border-radius:50%;
 background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
 cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
-display:flex;align-items:center;justify-content:center;}
+display:none;align-items:center;justify-content:center;
+transition:opacity .2s ease,transform .2s ease;}
+#aiFab.show{display:flex;}
 #aiFab:active{transform:scale(.92);}
 #aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;
 padding:12px;overflow:auto;}
@@ -72,51 +74,169 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 
 <script>
 var _m='code', _pic=null, _rec=null;
-var _DIAG_TABS=['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
 
-function aiToggle(){var p=document.getElementById('aiPanel');p.style.display=p.style.display==='block'?'none':'block';}
-function aiMode(m){_m=m;document.querySelectorAll('.aiTab').forEach(function(t){t.classList.toggle('active',t.dataset.m===m);});
-document.getElementById('aiCode').style.display=m==='code'?'block':'none';
-document.getElementById('aiSym').style.display=m==='symptom'?'block':'none';
-document.getElementById('aiAsk').style.display=m==='ask'?'block':'none';
-document.getElementById('aiBtn').textContent={code:'Explain Code',symptom:'Find Codes',ask:'Ask AI'}[m];}
-function aiPicLoad(e){var f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024){alert('Max 5MB');return;}
-var r=new FileReader();r.onload=function(ev){_pic=ev.target.result.split(',')[1];document.getElementById('aiPhotoImg').src=ev.target.result;document.getElementById('aiPhotoPrev').style.display='block';};r.readAsDataURL(f);}
-function aiPicClear(){_pic=null;document.getElementById('aiPic').value='';document.getElementById('aiPhotoPrev').style.display='none';}
-function aiVoice(){var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Voice needs Chrome on Android');return;}
-if(_rec){try{_rec.stop();}catch(_){}}
-_rec=new SR();_rec.lang='en-ZA';_rec.interimResults=false;
-_rec.onresult=function(e){var t=e.results[0][0].transcript;t=t.replace(/\bp\s*zero\s*/gi,'P0').replace(/\bb\s*one\s*/gi,'B1');
-var f={code:'aiCode',symptom:'aiSym',ask:'aiAsk'}[_m];var el=document.getElementById(f);el.value=(el.value?el.value+' ':'')+t;};
-_rec.onerror=function(e){alert('Voice: '+e.error);};_rec.start();}
+// Diagnostic-only tabs — the AI robot is ONLY shown on these
+var _DIAG_TABS = [
+  'chat','codes','problems','vin','paint','photo',
+  'wiring','obd','bulbs','batteries','tyres','fuses',
+  'service','inspect','boltcalc','torque'
+];
+
+function aiToggle(){
+  var p = document.getElementById('aiPanel');
+  p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+}
+
+function aiMode(m){
+  _m = m;
+  document.querySelectorAll('.aiTab').forEach(function(t){
+    t.classList.toggle('active', t.dataset.m === m);
+  });
+  document.getElementById('aiCode').style.display = (m === 'code') ? 'block' : 'none';
+  document.getElementById('aiSym').style.display  = (m === 'symptom') ? 'block' : 'none';
+  document.getElementById('aiAsk').style.display  = (m === 'ask') ? 'block' : 'none';
+  document.getElementById('aiBtn').textContent = {code:'Explain Code', symptom:'Find Codes', ask:'Ask AI'}[m];
+}
+
+function aiPicLoad(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  if(f.size > 5*1024*1024){ alert('Max 5MB'); return; }
+  var r = new FileReader();
+  r.onload = function(ev){
+    _pic = ev.target.result.split(',')[1];
+    document.getElementById('aiPhotoImg').src = ev.target.result;
+    document.getElementById('aiPhotoPrev').style.display = 'block';
+  };
+  r.readAsDataURL(f);
+}
+function aiPicClear(){
+  _pic = null;
+  document.getElementById('aiPic').value = '';
+  document.getElementById('aiPhotoPrev').style.display = 'none';
+}
+
+function aiVoice(){
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert('Voice needs Chrome on Android'); return; }
+  if(_rec){ try{ _rec.stop(); }catch(_){} }
+  _rec = new SR();
+  _rec.lang = 'en-ZA';
+  _rec.interimResults = false;
+  _rec.onresult = function(e){
+    var t = e.results[0][0].transcript;
+    t = t.replace(/\bp\s*zero\s*/gi,'P0').replace(/\bb\s*one\s*/gi,'B1');
+    var f = {code:'aiCode', symptom:'aiSym', ask:'aiAsk'}[_m];
+    var el = document.getElementById(f);
+    el.value = (el.value ? el.value + ' ' : '') + t;
+  };
+  _rec.onerror = function(e){ alert('Voice: ' + e.error); };
+  _rec.start();
+}
 
 async function aiSubmit(){
-var v=document.getElementById('aiVeh').value.trim();
-var b=document.getElementById('aiBtn'),r=document.getElementById('aiReply'),c=document.getElementById('aiChips');
-var ep,body;
-if(_m==='code'){var cd=document.getElementById('aiCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(!cd){alert('Type a code');return;}ep='/api/fault-codes/ai';body={code:cd,vehicle:v};}
-else if(_m==='symptom'){var q=document.getElementById('aiSym').value.trim();if(!q){alert('Describe symptom');return;}ep='/api/fault-codes/ai-search';body={query:q,vehicle:v};}
-else{var q=document.getElementById('aiAsk').value.trim();if(!q&&!_pic){alert('Type a question or attach a photo');return;}ep='/api/ai-context';body={message:q||'Diagnose this photo',vehicle:v,active_tab:'',image_base64:_pic||null};}
-b.disabled=true;b.textContent='Thinking...';r.style.display='none';c.style.display='none';
-try{var res=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-var d=await res.json();
-if(_m==='symptom'&&d.local_matches&&d.local_matches.length){c.innerHTML='';d.local_matches.forEach(function(m){var ch=document.createElement('button');ch.className='aiChip';ch.textContent=m.code;ch.onclick=function(){aiMode('code');document.getElementById('aiCode').value=m.code;aiSubmit();};c.appendChild(ch);});c.style.display='flex';}
-r.textContent=(d.reply||d.answer||'No reply')+(d.provider?'\n\n— via '+d.provider:'');
-r.style.display='block';}catch(e){r.textContent='Error: '+e.message;r.style.display='block';}
-b.disabled=false;b.textContent='Get Answer';}
+  var v = document.getElementById('aiVeh').value.trim();
+  var b = document.getElementById('aiBtn');
+  var r = document.getElementById('aiReply');
+  var c = document.getElementById('aiChips');
+  var ep, body;
 
-function aiUpdateFab(){
-try{
-var fab=document.getElementById('aiFab');if(!fab)return;
-var active=document.querySelector('.panel.active');
-var id=active?active.id:'';
-var show=_DIAG_TABS.indexOf(id)>=0;
-fab.style.display=show?'flex':'none';
-}catch(e){}
+  if(_m === 'code'){
+    var cd = document.getElementById('aiCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!cd){ alert('Type a code'); return; }
+    ep = '/api/fault-codes/ai'; body = {code: cd, vehicle: v};
+  } else if(_m === 'symptom'){
+    var q = document.getElementById('aiSym').value.trim();
+    if(!q){ alert('Describe symptom'); return; }
+    ep = '/api/fault-codes/ai-search'; body = {query: q, vehicle: v};
+  } else {
+    var q2 = document.getElementById('aiAsk').value.trim();
+    if(!q2 && !_pic){ alert('Type a question or attach a photo'); return; }
+    ep = '/api/ai-context';
+    body = {message: q2 || 'Diagnose this photo', vehicle: v, active_tab: '', image_base64: _pic || null};
+  }
+
+  b.disabled = true;
+  b.textContent = 'Thinking...';
+  r.style.display = 'none';
+  c.style.display = 'none';
+
+  try{
+    var res = await fetch(ep, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    var d = await res.json();
+
+    if(_m === 'symptom' && d.local_matches && d.local_matches.length){
+      c.innerHTML = '';
+      d.local_matches.forEach(function(m){
+        var ch = document.createElement('button');
+        ch.className = 'aiChip';
+        ch.textContent = m.code;
+        ch.onclick = function(){
+          aiMode('code');
+          document.getElementById('aiCode').value = m.code;
+          aiSubmit();
+        };
+        c.appendChild(ch);
+      });
+      c.style.display = 'flex';
+    }
+
+    r.textContent = (d.reply || d.answer || 'No reply') + (d.provider ? '\n\n— via ' + d.provider : '');
+    r.style.display = 'block';
+  } catch(e){
+    r.textContent = 'Error: ' + e.message;
+    r.style.display = 'block';
+  }
+
+  b.disabled = false;
+  b.textContent = 'Get Answer';
 }
-setTimeout(aiUpdateFab,300);
-document.addEventListener('click',function(e){
-if(e.target.closest('.bnav-item')||e.target.closest('.tile')||e.target.closest('.cat-card')||e.target.closest('.back-btn')){setTimeout(aiUpdateFab,80);}});
-document.getElementById('aiPanel').addEventListener('click',function(e){if(e.target===this)aiToggle();});
+
+// ═══════════════════════════════════════════════════════
+// FAB VISIBILITY — only shows on diagnostic tabs
+// ═══════════════════════════════════════════════════════
+function aiUpdateFab(){
+  try{
+    var fab = document.getElementById('aiFab');
+    if(!fab) return;
+    var active = document.querySelector('.panel.active');
+    var id = active ? active.id : '';
+    var show = _DIAG_TABS.indexOf(id) >= 0;
+    fab.classList.toggle('show', show);
+  } catch(e){}
+}
+
+// Run immediately, on every panel change (via observer), and as a fallback
+setTimeout(aiUpdateFab, 100);
+
+// React instantly to showTab / class changes on .panel elements
+try{
+  new MutationObserver(function(){
+    aiUpdateFab();
+  }).observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
+  });
+} catch(e){}
+
+// Fallback poll (in case the observer misses something)
+setInterval(aiUpdateFab, 200);
+
+// Extra call after clicks (belt-and-braces)
+document.addEventListener('click', function(e){
+  setTimeout(aiUpdateFab, 0);
+  setTimeout(aiUpdateFab, 80);
+  setTimeout(aiUpdateFab, 300);
+});
+
+// Close AI panel when clicking outside the modal card
+document.getElementById('aiPanel').addEventListener('click', function(e){
+  if(e.target === this) aiToggle();
+});
 </script>
 """
