@@ -24,6 +24,7 @@ FLOATING_MANAGER_HTML = r"""
     {
       selector: '#rt-role-badge',
       showOn: ['home']
+      hideWhenVisible: ['#subView']
     }
   ];
 
@@ -56,6 +57,20 @@ if(entry.showOn.indexOf('*') >= 0){
   shouldShow = exclude.indexOf(currentId) === -1;
 } else {
   shouldShow = entry.showOn.indexOf(currentId) >= 0;
+}
+
+// Hide if any of hideWhenVisible selectors are currently shown
+if(shouldShow && entry.hideWhenVisible){
+  for(var i = 0; i < entry.hideWhenVisible.length; i++){
+    var hw = document.querySelector(entry.hideWhenVisible[i]);
+    if(hw){
+      var cs = window.getComputedStyle(hw);
+      if(cs.display !== 'none' && cs.visibility !== 'hidden'){
+        shouldShow = false;
+        break;
+      }
+    }
+  }
 }
 
 // Additional check: if any element in hideWhenVisible is showing,
