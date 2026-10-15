@@ -551,6 +551,17 @@ def realtime_config():
         "url": os.getenv("SUPABASE_URL", "").strip(),
         "anon_key": os.getenv("SUPABASE_ANON_KEY", "").strip(),
     }
+  
+
+@app.get("/debug/injection")
+def debug_injection():
+    return {
+        "AI_PANEL_HTML_length": len(AI_PANEL_HTML),
+        "FLOATING_MANAGER_HTML_length": len(FLOATING_MANAGER_HTML),
+        "DOCK_HTML_length": len(dock_html) if dock_html else 0,
+        "HTML_PAGE_has_body_close": "</body>" in HTML_PAGE,
+        "AI_PANEL_HTML_starts_with": AI_PANEL_HTML[:80] if AI_PANEL_HTML else "(empty)",
+    }
 
 
 @app.get("/push-sw.js")
