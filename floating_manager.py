@@ -6,9 +6,6 @@ router = APIRouter()
 FLOATING_MANAGER_HTML = r"""
 <script>
 (function(){
-  // ═══════════════════════════════════════════════════════════
-  // REGISTRY — every floating element and where it may appear
-  // ═══════════════════════════════════════════════════════════
   var REGISTRY = [
     {
       selector: '#aiFab',
@@ -16,17 +13,20 @@ FLOATING_MANAGER_HTML = r"""
         'chat','codes','problems','vin','paint','photo',
         'wiring','obd','bulbs','batteries','tyres','fuses',
         'service','inspect','boltcalc','torque'
-      ]
+      ],
+      forceInlineDisplay: true
     },
     {
       selector: '#rt-dock',
       showOn: ['home'],
-      hideWhenVisible: ['#subView']
+      hideWhenVisible: ['#subView'],
+      forceInlineDisplay: true
     },
     {
       selector: '#rt-role-badge',
       showOn: ['home'],
-      hideWhenVisible: ['#subView']
+      hideWhenVisible: ['#subView'],
+      forceInlineDisplay: true
     }
   ];
 
@@ -85,11 +85,22 @@ FLOATING_MANAGER_HTML = r"""
         if(!elements.length) return;
 
         elements.forEach(function(el){
-          // ONLY toggle the class — never touch inline style
           if(shouldShow){
             el.classList.add('show');
+            if(entry.forceInlineDisplay){
+              el.style.setProperty('display', 'flex', 'important');
+              el.style.setProperty('opacity', '1', 'important');
+              el.style.setProperty('visibility', 'visible', 'important');
+              el.style.setProperty('pointer-events', 'auto', 'important');
+            }
           } else {
             el.classList.remove('show');
+            if(entry.forceInlineDisplay){
+              el.style.setProperty('display', 'none', 'important');
+              el.style.setProperty('opacity', '0', 'important');
+              el.style.setProperty('visibility', 'hidden', 'important');
+              el.style.setProperty('pointer-events', 'none', 'important');
+            }
           }
         });
       });
@@ -102,7 +113,6 @@ FLOATING_MANAGER_HTML = r"""
 
   applyVisibility(true);
 
-  // React to class changes — debounced
   try{
     var _mutTimer = null;
     new MutationObserver(function(){
@@ -118,10 +128,8 @@ FLOATING_MANAGER_HTML = r"""
     });
   }catch(e){}
 
-  // Fallback poll
   setInterval(function(){ applyVisibility(false); }, 400);
 
-  // Hook showTab for instant reaction
   function tryHookShowTab(){
     if(typeof window.showTab === 'function' && !window._fmHooked){
       window._fmHooked = true;
