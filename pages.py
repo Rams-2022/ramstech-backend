@@ -1043,6 +1043,14 @@ function showTab(name, el) {
   if (panel) panel.classList.add('active');
   if (el) el.classList.add('active');
   window.scrollTo(0, 0);
+ // If leaving Home, ensure the sub-category view is hidden so it doesn't
+// overlap the panel we're about to show.
+if (name !== 'home') {
+  var subV = document.getElementById('subView');
+  var catV = document.getElementById('categoryView');
+  if (subV) subV.style.display = 'none';
+  if (catV) catV.style.display = 'none';
+} 
 
   const loaders = {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
