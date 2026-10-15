@@ -2009,6 +2009,28 @@ function runDebugCheck(){
   alert(txt);
 }
 
+// ─────────────────────────────────────────────
+// TEMP DEBUG: force-show the AI button if URL contains ?debugAI=1
+// ─────────────────────────────────────────────
+(function(){
+  if (location.search.indexOf('debugAI=1') !== -1) {
+    setTimeout(function(){
+      var fab = document.getElementById('aiFab');
+      if (fab) {
+        fab.style.cssText = 'position:fixed;bottom:230px;right:18px;width:60px;height:60px;' +
+          'border-radius:50%;background:#00a8e8;color:#fff;border:3px solid red;' +
+          'font-size:26px;z-index:999999;display:flex;align-items:center;' +
+          'justify-content:center;opacity:1;visibility:visible;pointer-events:auto;';
+        fab.textContent = '🤖';
+        console.log('DEBUG: AI button force-shown');
+      } else {
+        console.log('DEBUG: #aiFab NOT in DOM');
+        alert('#aiFab NOT in DOM. Searching everywhere...');
+      }
+    }, 2000);
+  }
+})();
+
 </script>
 </body>
 </html>"""
