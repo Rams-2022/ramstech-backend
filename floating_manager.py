@@ -15,10 +15,12 @@ FLOATING_MANAGER_HTML = r"""
         'service','inspect','boltcalc','torque'
       ]
     },
-    {
-      selector: '#rt-dock',
-      showOn: ['home']
-    },
+   {
+  selector: '#rt-dock',
+  showOn: ['home'],
+  // Also hide when the sub-category grid is showing inside Home
+  hideWhenVisible: ['#subView']
+}, 
     {
       selector: '#rt-role-badge',
       showOn: ['home']
