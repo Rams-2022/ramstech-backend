@@ -219,11 +219,8 @@ except Exception as _e:
     print(f"[main] staff_merge unavailable: {_e}")
     STAFF_MERGE_HTML = ""
 
-try:
-    from tab_consolidate import TAB_CONSOLIDATE_HTML
-except Exception as _e:
-    print(f"[main] tab_consolidate unavailable: {_e}")
-    TAB_CONSOLIDATE_HTML = ""
+TAB_CONSOLIDATE_HTML = ""
+print("[main] tab_consolidate DISABLED for debugging")
 
 try:
     from push_notify import router as push_router, PUSH_NOTIFY_HTML
