@@ -270,42 +270,31 @@ body .tile[onclick*="'wiring'"]{
   }
 
   // ═══════════════════════════════════════════════════════
-  // PATCH showTab SO IT ROUTES MERGED KEYS TO HUB
-  // ═══════════════════════════════════════════════════════
-  function patchShowTab(){
-    if(window._consShowTabPatched) return;
-    if(typeof window.showTab !== 'function') return;
-    var origShowTab = window.showTab;
-    window.showTab = function(name, el){
-      // Check if this tab is part of a merge
-      var merge = null;
-      var subKey = null;
-      merges.forEach(function(m){
-        m.views.forEach(function(v){
-          if(v.key === name){ merge = m; subKey = v.key; }
-        });
-      });
-      if(merge){
-        consHubOpen(merge.id);
-        if(subKey) setTimeout(function(){ consSubView(merge.id, subKey); }, 100);
-        return;
-      }
-      return origShowTab.apply(this, arguments);
-    };
-    window._consShowTabPatched = true;
-  }
+// ROUTE merged keys to the hub — WITHOUT wrapping showTab
+// (we expose consHubOpen globally, and the tiles call it directly)
+// ═══════════════════════════════════════════════════════
+window.consOpenMerged = function(name){
+  var merge = null, subKey = null;
+  merges.forEach(function(m){
+    m.views.forEach(function(v){
+      if(v.key === name){ merge = m; subKey = v.key; }
+    });
+  });
+  if(!merge) return false;
+  consHubOpen(merge.id);
+  if(subKey) setTimeout(function(){ consSubView(merge.id, subKey); }, 100);
+  return true;
+};
 
   // ═══════════════════════════════════════════════════════
   // RUN
   // ═══════════════════════════════════════════════════════
   setInterval(function(){
     injectTiles();
-    patchShowTab();
   }, 900);
 
   setTimeout(function(){
     injectTiles();
-    patchShowTab();
   }, 700);
 
   console.log('✓ Tab consolidation active');
