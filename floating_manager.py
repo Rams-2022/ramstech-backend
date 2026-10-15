@@ -49,12 +49,24 @@ FLOATING_MANAGER_HTML = r"""
 
       REGISTRY.forEach(function(entry){
         var shouldShow;
-        if(entry.showOn.indexOf('*') >= 0){
-          var exclude = entry.hideOn || [];
-          shouldShow = exclude.indexOf(currentId) === -1;
-        } else {
-          shouldShow = entry.showOn.indexOf(currentId) >= 0;
-        }
+if(entry.showOn.indexOf('*') >= 0){
+  var exclude = entry.hideOn || [];
+  shouldShow = exclude.indexOf(currentId) === -1;
+} else {
+  shouldShow = entry.showOn.indexOf(currentId) >= 0;
+}
+
+// Additional check: if any element in hideWhenVisible is showing,
+// force-hide this floating element.
+if(shouldShow && entry.hideWhenVisible){
+  for(var i = 0; i < entry.hideWhenVisible.length; i++){
+    var hw = document.querySelector(entry.hideWhenVisible[i]);
+    if(hw && hw.style.display !== 'none' && window.getComputedStyle(hw).display !== 'none'){
+      shouldShow = false;
+      break;
+    }
+  }
+}
 
         var want = shouldShow ? '1' : '0';
         if(_lastState[entry.selector] === want) return;
