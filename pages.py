@@ -1036,22 +1036,34 @@ function backToCategories() {
 // ═══════════════════════════════════
 const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 
-function showTab(name, el) {
+ function showTab(name, el) {
+  // 1. Hide all panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
-  const panel = document.getElementById(name);
-  if (panel) panel.classList.add('active');
-  if (el) el.classList.add('active');
-  window.scrollTo(0, 0);
- // If leaving Home, ensure the sub-category view is hidden so it doesn't
-// overlap the panel we're about to show.
-if (name !== 'home') {
+
+  // 2. Reset Home's internal views
   var subV = document.getElementById('subView');
   var catV = document.getElementById('categoryView');
   if (subV) subV.style.display = 'none';
-  if (catV) catV.style.display = 'none';
-} 
+  if (catV) catV.style.display = 'block';
 
+  // 3. Show the target panel
+  var panel = document.getElementById(name);
+  if (panel) panel.classList.add('active');
+
+  // 4. Update bottom-nav highlight
+  if (el) {
+    document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+
+  // 5. Tell the floating manager to refresh
+  if (typeof window.refreshFloating === 'function') {
+    setTimeout(window.refreshFloating, 0);
+    setTimeout(window.refreshFloating, 100);
+  }
+
+  // 6. Existing loaders
   const loaders = {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
     problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
@@ -1084,7 +1096,7 @@ if (name !== 'home') {
   };
   if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
 }
-
+  
 // THEME
 function toggleTheme() {
   document.body.classList.toggle('dark');
