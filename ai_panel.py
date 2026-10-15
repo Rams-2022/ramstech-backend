@@ -1,12 +1,11 @@
 AI_PANEL_HTML = r"""
 <style>
 #aiFab{
-  position:fixed;bottom:170px;right:18px;width:60px;height:60px;border-radius:50%;
+  position:fixed;bottom:230px;right:18px;width:60px;height:60px;border-radius:50%;
   background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
-  cursor:pointer;z-index:9997;box-shadow:0 6px 18px rgba(0,168,232,.45);
+  cursor:pointer;z-index:9999;box-shadow:0 6px 18px rgba(0,168,232,.45);
   align-items:center;justify-content:center;
   transition:opacity .18s ease,transform .18s ease;
-  /* Default: hidden via opacity + visibility — no display toggle */
   opacity:0;
   visibility:hidden;
   pointer-events:none;
