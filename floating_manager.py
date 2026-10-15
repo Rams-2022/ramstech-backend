@@ -6,6 +6,9 @@ router = APIRouter()
 FLOATING_MANAGER_HTML = r"""
 <script>
 (function(){
+  // ═══════════════════════════════════════════════════════════
+  // REGISTRY — every floating element and where it may appear
+  // ═══════════════════════════════════════════════════════════
   var REGISTRY = [
     {
       selector: '#aiFab',
@@ -15,15 +18,14 @@ FLOATING_MANAGER_HTML = r"""
         'service','inspect','boltcalc','torque'
       ]
     },
-   {
-  selector: '#rt-dock',
-  showOn: ['home'],
-  // Also hide when the sub-category grid is showing inside Home
-  hideWhenVisible: ['#subView']
-}, 
+    {
+      selector: '#rt-dock',
+      showOn: ['home'],
+      hideWhenVisible: ['#subView']
+    },
     {
       selector: '#rt-role-badge',
-      showOn: ['home']
+      showOn: ['home'],
       hideWhenVisible: ['#subView']
     }
   ];
@@ -52,38 +54,26 @@ FLOATING_MANAGER_HTML = r"""
 
       REGISTRY.forEach(function(entry){
         var shouldShow;
-if(entry.showOn.indexOf('*') >= 0){
-  var exclude = entry.hideOn || [];
-  shouldShow = exclude.indexOf(currentId) === -1;
-} else {
-  shouldShow = entry.showOn.indexOf(currentId) >= 0;
-}
+        if(entry.showOn.indexOf('*') >= 0){
+          var exclude = entry.hideOn || [];
+          shouldShow = exclude.indexOf(currentId) === -1;
+        } else {
+          shouldShow = entry.showOn.indexOf(currentId) >= 0;
+        }
 
-// Hide if any of hideWhenVisible selectors are currently shown
-if(shouldShow && entry.hideWhenVisible){
-  for(var i = 0; i < entry.hideWhenVisible.length; i++){
-    var hw = document.querySelector(entry.hideWhenVisible[i]);
-    if(hw){
-      var cs = window.getComputedStyle(hw);
-      if(cs.display !== 'none' && cs.visibility !== 'hidden'){
-        shouldShow = false;
-        break;
-      }
-    }
-  }
-}
-
-// Additional check: if any element in hideWhenVisible is showing,
-// force-hide this floating element.
-if(shouldShow && entry.hideWhenVisible){
-  for(var i = 0; i < entry.hideWhenVisible.length; i++){
-    var hw = document.querySelector(entry.hideWhenVisible[i]);
-    if(hw && hw.style.display !== 'none' && window.getComputedStyle(hw).display !== 'none'){
-      shouldShow = false;
-      break;
-    }
-  }
-}
+        // Hide if any of hideWhenVisible selectors are currently shown
+        if(shouldShow && entry.hideWhenVisible){
+          for(var i = 0; i < entry.hideWhenVisible.length; i++){
+            var hw = document.querySelector(entry.hideWhenVisible[i]);
+            if(hw){
+              var cs = window.getComputedStyle(hw);
+              if(cs.display !== 'none' && cs.visibility !== 'hidden'){
+                shouldShow = false;
+                break;
+              }
+            }
+          }
+        }
 
         var want = shouldShow ? '1' : '0';
         if(_lastState[entry.selector] === want) return;
@@ -152,7 +142,11 @@ if(shouldShow && entry.hideWhenVisible){
   setTimeout(tryHookShowTab, 1500);
   setTimeout(tryHookShowTab, 3000);
 
-  window.refreshFloating = function(){ _lastPanelId = null; applyVisibility(true); };
+  window.refreshFloating = function(){
+    _lastPanelId = null;
+    applyVisibility(true);
+  };
+  window.FLOATING_REGISTRY = REGISTRY;
 
   console.log('✓ Floating manager active — ' + REGISTRY.length + ' entries');
 })();
