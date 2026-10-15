@@ -359,6 +359,10 @@ body{background:white;color:black}
 <h1><span class="logo" id="logoDisplay">🔧</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
 <p id="wsSubtitle">AI Workshop Assistant v10.0</p>
 <div class="top-btns">
+<!-- TEMP DEBUG BUTTON — remove after fix -->
+<button onclick="runDebugCheck()" style="position:fixed;top:60px;left:8px;z-index:99999;
+background:red;color:#fff;border:none;padding:8px 12px;border-radius:8px;
+font-size:12px;font-weight:700;cursor:pointer;">🐞 DEBUG</button>
 <select class="lang-sel" id="langSel" onchange="setLang()">
 <option value="en">EN</option><option value="af">AF</option><option value="zu">ZU</option>
 </select>
@@ -1959,6 +1963,31 @@ function exportCustomersCSV() { window.location.href = '/api/export/customers'; 
     };
   }
 })();
+
+// TEMP DEBUG FUNCTION — remove after fix
+function runDebugCheck(){
+  var fab = document.getElementById('aiFab');
+  var active = document.querySelector('.panel.active');
+  var dock = document.getElementById('rt-dock');
+  var info = {
+    'ACTIVE PANEL': active ? active.id : 'none',
+    'FAB exists': !!fab,
+    'FAB class': fab ? fab.className : 'n/a',
+    'FAB display': fab ? getComputedStyle(fab).display : 'n/a',
+    'FAB opacity': fab ? getComputedStyle(fab).opacity : 'n/a',
+    'FAB z-index': fab ? getComputedStyle(fab).zIndex : 'n/a',
+    'FAB bottom': fab ? getComputedStyle(fab).bottom : 'n/a',
+    'FAB right': fab ? getComputedStyle(fab).right : 'n/a',
+    'DOCK exists': !!dock,
+    'DOCK display': dock ? getComputedStyle(dock).display : 'n/a',
+    'DOCK class': dock ? dock.className : 'n/a',
+  };
+  var txt = '';
+  for (var k in info) txt += k + ': ' + info[k] + '\n';
+  
+  // Show in a big readable alert
+  alert(txt);
+}
 
 </script>
 </body>
