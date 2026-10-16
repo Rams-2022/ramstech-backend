@@ -13,20 +13,17 @@ FLOATING_MANAGER_HTML = r"""
         'chat','codes','problems','vin','paint','photo',
         'wiring','obd','bulbs','batteries','tyres','fuses',
         'service','inspect','boltcalc','torque'
-      ],
-      forceInlineDisplay: true
+      ]
     },
     {
       selector: '#rt-dock',
       showOn: ['home'],
-      hideWhenVisible: ['#subView'],
-      forceInlineDisplay: true
+      hideWhenVisible: ['#subView']
     },
     {
       selector: '#rt-role-badge',
       showOn: ['home'],
-      hideWhenVisible: ['#subView'],
-      forceInlineDisplay: true
+      hideWhenVisible: ['#subView']
     }
   ];
 
@@ -61,7 +58,6 @@ FLOATING_MANAGER_HTML = r"""
           shouldShow = entry.showOn.indexOf(currentId) >= 0;
         }
 
-        // Hide if any of hideWhenVisible selectors are currently shown
         if(shouldShow && entry.hideWhenVisible){
           for(var i = 0; i < entry.hideWhenVisible.length; i++){
             var hw = document.querySelector(entry.hideWhenVisible[i]);
@@ -87,20 +83,16 @@ FLOATING_MANAGER_HTML = r"""
         elements.forEach(function(el){
           if(shouldShow){
             el.classList.add('show');
-            if(entry.forceInlineDisplay){
-              el.style.setProperty('display', 'flex', 'important');
-              el.style.setProperty('opacity', '1', 'important');
-              el.style.setProperty('visibility', 'visible', 'important');
-              el.style.setProperty('pointer-events', 'auto', 'important');
-            }
+            el.style.setProperty('display', (el.id === 'aiFab' || el.id === 'rt-dock-fab') ? 'flex' : 'block', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+            el.style.setProperty('pointer-events', 'auto', 'important');
           } else {
             el.classList.remove('show');
-            if(entry.forceInlineDisplay){
-              el.style.setProperty('display', 'none', 'important');
-              el.style.setProperty('opacity', '0', 'important');
-              el.style.setProperty('visibility', 'hidden', 'important');
-              el.style.setProperty('pointer-events', 'none', 'important');
-            }
+            el.style.setProperty('display', 'none', 'important');
+            el.style.setProperty('opacity', '0', 'important');
+            el.style.setProperty('visibility', 'hidden', 'important');
+            el.style.setProperty('pointer-events', 'none', 'important');
           }
         });
       });
