@@ -2031,6 +2031,26 @@ function runDebugCheck(){
   }
 })();
 
+// ═════════════════════════════════════════════════
+// DIAGNOSTIC: /?checkFab=1 opens an alert with FAB state
+// ═════════════════════════════════════════════════
+if (location.search.indexOf('checkFab=1') !== -1) {
+  setTimeout(function(){
+    var fab = document.getElementById('aiFab');
+    var msg = 
+      'aiFab exists: ' + (!!fab) + '\n' +
+      'aiFab class: ' + (fab ? '"' + fab.className + '"' : 'N/A') + '\n' +
+      'aiFab display: ' + (fab ? getComputedStyle(fab).display : 'N/A') + '\n' +
+      'aiFab opacity: ' + (fab ? getComputedStyle(fab).opacity : 'N/A') + '\n' +
+      'aiFab visibility: ' + (fab ? getComputedStyle(fab).visibility : 'N/A') + '\n' +
+      'aiFab bottom: ' + (fab ? getComputedStyle(fab).bottom : 'N/A') + '\n' +
+      'aiFab z-index: ' + (fab ? getComputedStyle(fab).zIndex : 'N/A') + '\n' +
+      'active panel: ' + (document.querySelector('.panel.active') || {}).id + '\n' +
+      'URL: ' + location.href;
+    alert(msg);
+  }, 2500);
+}
+
 </script>
 </body>
 </html>"""
