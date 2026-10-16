@@ -29,7 +29,6 @@ DOCK_HTML = r"""
     flex-direction: column;
     align-items: flex-end;
     gap: 10px;
-    transition: opacity .2s ease;
   }
 
   #rt-dock-fab {
@@ -129,11 +128,6 @@ DOCK_HTML = r"""
 
   window.rtDockRun = function(fnName){
     try { rtDockClose(); } catch(e) {}
-    try {
-      var bd = document.getElementById("rt-dock-backdrop");
-      if (bd) { bd.style.pointerEvents = "none"; bd.style.opacity = "0"; }
-    } catch(e) {}
-
     setTimeout(function(){
       try {
         if (typeof window[fnName] === "function") {
@@ -141,7 +135,7 @@ DOCK_HTML = r"""
         } else {
           console.warn("[dock] handler not found:", fnName);
         }
-      } catch(e) { console.error("[dock] error running", fnName, e); }
+      } catch(e) { console.error("[dock] error:", e); }
     }, 150);
   };
 
@@ -149,6 +143,7 @@ DOCK_HTML = r"""
     if (e.key === "Escape") rtDockClose();
   });
 
+  // Hide owner-only items for non-owner roles
   fetch("/api/whoami")
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -161,9 +156,6 @@ DOCK_HTML = r"""
       }
     })
     .catch(function(){ /* silent */ });
-
-  // NOTE: visibility (show/hide based on active tab) is handled by
-  // floating_manager.py. This file only owns click behaviour.
 })();
 </script>
 """
