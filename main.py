@@ -11,394 +11,51 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
 from pages import HTML_PAGE
 
 # ═══════════════════════════════════════════════════════════════
-# OPTIONAL MODULES — each in its own fail-safe block
+# MODULES — only the ones we actually need
 # ═══════════════════════════════════════════════════════════════
 
 AI_PANEL_HTML = ""
-ai_router = None
-job_status_router = None
-JOB_STATUS_HTML = ""
-workflow_router = None
-WORKFLOW_HTML = ""
-invoice_router = None
-tech_router = None
-TECH_HTML = ""
-pwa_router = None
-PWA_HTML = ""
-auth_router = None
-AUTH_LOCK_HTML = ""
-embed_router = None
-parts_order_router = None
-PARTS_ORDER_HTML = ""
-parts_search_router = None
-PARTS_SEARCH_HTML = ""
-scan_router = None
-SCAN_HTML = ""
-staff_admin_router = None
-STAFF_ADMIN_HTML = ""
-audit_router = None
-AUDIT_HTML = ""
-design_html = ""
-theme_html = ""
-instant_html = ""
-search_html = ""
-queue_html = ""
-photo_router = None
-PHOTO_INTAKE_HTML = ""
-voice_router = None
-VOICE_INTAKE_HTML = ""
-JOB_INTAKE_HUB_HTML = ""
-STAFF_MERGE_HTML = ""
-TAB_CONSOLIDATE_HTML = ""
-push_router = None
-PUSH_NOTIFY_HTML = ""
-REALTIME_SYNC_HTML = ""
-EVENT_BUS_HTML = ""
-EVENT_HANDLERS_HTML = ""
-guide_router = None
-workshop_router = None
-workshop_api_router = None
-aged_debtors_router = None
-AGED_DEBTORS_HTML = ""
-auto_remind_router = None
-AUTO_REMIND_HTML = ""
-auto_remind_start = None
-payments_router = None
-portal_router = None
-PORTAL_HTML = ""
-profit_router = None
-PROFIT_DASHBOARD_HTML = ""
-sales_kit_router = None
-posters_router = None
-staff_roles_router = None
-STAFF_ROLES_HTML = ""
-damage_report_router = None
-DAMAGE_REPORT_HTML = ""
-backup_router = None
-BACKUP_HTML = ""
+FLOATING_MANAGER_HTML = ""
 dock_html = ""
-
-# ── Tenancy ──────────────────────────────────────────────────
-HAS_TENANCY = False
-MULTI_TENANT = False
-tenancy_router = None
-tenancy_middleware = None
-get_current_workshop = None
-is_multi_tenant = None
-
-
-try:
-    from event_bus import EVENT_BUS_HTML
-except Exception as _e:
-    print(f"[main] event_bus unavailable: {_e}")
-
-try:
-    from event_handlers import EVENT_HANDLERS_HTML
-except Exception as _e:
-    print(f"[main] event_handlers unavailable: {_e}")
+PWA_HTML = ""
+AI_ROUTER = None
 
 try:
     from ai_panel import AI_PANEL_HTML
+    print("[main] ai_panel loaded")
 except Exception as _e:
     print(f"[main] ai_panel unavailable: {_e}")
 
 try:
-    from ai_endpoints import router as ai_router
+    from floating_manager import FLOATING_MANAGER_HTML
+    print("[main] floating_manager loaded")
 except Exception as _e:
-    print(f"[main] ai_endpoints unavailable: {_e}")
-
-try:
-    from job_status import router as job_status_router, JOB_STATUS_HTML
-except Exception as _e:
-    print(f"[main] job_status unavailable: {_e}")
-
-try:
-    from workflow import router as workflow_router
-except Exception as _e:
-    print(f"[main] workflow unavailable: {_e}")
-
-try:
-    from workflow_ui import WORKFLOW_HTML
-except Exception as _e:
-    print(f"[main] workflow_ui unavailable: {_e}")
-
-try:
-    from invoices_pdf import router as invoice_router
-except Exception as _e:
-    print(f"[main] invoices_pdf unavailable: {_e}")
-
-try:
-    from tech_view import router as tech_router, TECH_HTML
-except Exception as _e:
-    print(f"[main] tech_view unavailable: {_e}")
-
-try:
-    from pwa import router as pwa_router, PWA_HTML
-except Exception as _e:
-    print(f"[main] pwa unavailable: {_e}")
-
-try:
-    from auth_lock import router as auth_router, AUTH_LOCK_HTML
-except Exception as _e:
-    print(f"[main] auth_lock unavailable: {_e}")
-
-try:
-    from embed_helper import router as embed_router
-except Exception as _e:
-    print(f"[main] embed_helper unavailable: {_e}")
-
-try:
-    from parts_order import router as parts_order_router, PARTS_ORDER_HTML
-except Exception as _e:
-    print(f"[main] parts_order unavailable: {_e}")
-
-try:
-    from parts_search import router as parts_search_router, PARTS_SEARCH_HTML
-except Exception as _e:
-    print(f"[main] parts_search unavailable: {_e}")
-
-try:
-    from scan import router as scan_router, SCAN_HTML
-except Exception as _e:
-    print(f"[main] scan unavailable: {_e}")
-
-try:
-    from staff_admin import router as staff_admin_router, STAFF_ADMIN_HTML
-except Exception as _e:
-    print(f"[main] staff_admin unavailable: {_e}")
-
-try:
-    from job_audit import router as audit_router, AUDIT_HTML
-except Exception as _e:
-    print(f"[main] job_audit unavailable: {_e}")
-
-try:
-    from design_polish import DESIGN_HTML as design_html
-except Exception as _e:
-    print(f"[main] design_polish unavailable: {_e}")
-
-try:
-    from themes import THEMES_HTML as theme_html
-except Exception as _e:
-    print(f"[main] themes unavailable: {_e}")
-
-try:
-    from instant_mode import INSTANT_HTML as instant_html
-except Exception as _e:
-    print(f"[main] instant_mode unavailable: {_e}")
-
-try:
-    from smart_search import SMART_SEARCH_HTML as search_html
-except Exception as _e:
-    print(f"[main] smart_search unavailable: {_e}")
-
-try:
-    from offline_queue import OFFLINE_HTML as queue_html
-except Exception as _e:
-    print(f"[main] offline_queue unavailable: {_e}")
-
-try:
-    from photo_intake import router as photo_router, PHOTO_INTAKE_HTML
-except Exception as _e:
-    print(f"[main] photo_intake unavailable: {_e}")
-
-try:
-    from voice_intake import router as voice_router, VOICE_INTAKE_HTML
-except Exception as _e:
-    print(f"[main] voice_intake unavailable: {_e}")
-
-try:
-    from job_intake_hub import JOB_INTAKE_HUB_HTML
-except Exception as _e:
-    print(f"[main] job_intake_hub unavailable: {_e}")
-    JOB_INTAKE_HUB_HTML = ""
-
-try:
-    from staff_merge import STAFF_MERGE_HTML
-except Exception as _e:
-    print(f"[main] staff_merge unavailable: {_e}")
-    STAFF_MERGE_HTML = ""
-
-TAB_CONSOLIDATE_HTML = ""
-print("[main] tab_consolidate DISABLED for debugging")
-
-try:
-    from push_notify import router as push_router, PUSH_NOTIFY_HTML
-except Exception as _e:
-    print(f"[main] push_notify unavailable: {_e}")
-
-try:
-    from realtime_sync import REALTIME_SYNC_HTML
-except Exception as _e:
-    print(f"[main] realtime_sync unavailable: {_e}")
-
-try:
-    from user_guide import router as guide_router
-except Exception as _e:
-    print(f"[main] user_guide unavailable: {_e}")
-
-try:
-    from workshop_routes import router as workshop_router
-except Exception as _e:
-    print(f"[main] workshop_routes unavailable: {_e}")
-
-try:
-    from workshop_api import router as workshop_api_router
-except Exception as _e:
-    print(f"[main] workshop_api unavailable: {_e}")
-
-try:
-    from aged_debtors import router as aged_debtors_router, AGED_DEBTORS_HTML
-except Exception as _e:
-    print(f"[main] aged_debtors unavailable: {_e}")
-
-try:
-    from auto_remind import (router as auto_remind_router,
-                             AUTO_REMIND_HTML,
-                             start_scheduler as auto_remind_start)
-except Exception as _e:
-    print(f"[main] auto_remind unavailable: {_e}")
-
-try:
-    from payments import router as payments_router
-except Exception as _e:
-    print(f"[main] payments unavailable: {_e}")
-
-try:
-    from portal import router as portal_router, PORTAL_HTML
-except Exception as _e:
-    print(f"[main] portal unavailable: {_e}")
-
-try:
-    from profit_dashboard import router as profit_router, PROFIT_DASHBOARD_HTML
-except Exception as _e:
-    print(f"[main] profit_dashboard unavailable: {_e}")
-
-try:
-    from sales_kit import router as sales_kit_router
-except Exception as _e:
-    print(f"[main] sales_kit unavailable: {_e}")
-
-try:
-    from posters import router as posters_router
-except Exception as _e:
-    print(f"[main] posters unavailable: {_e}")
-
-try:
-    from staff_roles import router as staff_roles_router, STAFF_ROLES_HTML
-except Exception as _e:
-    print(f"[main] staff_roles unavailable: {_e}")
-
-try:
-    from damage_report import router as damage_report_router, DAMAGE_REPORT_HTML
-except Exception as _e:
-    print(f"[main] damage_report unavailable: {_e}")
-
-try:
-    from backup import router as backup_router, BACKUP_HTML
-except Exception as _e:
-    print(f"[main] backup unavailable: {_e}")
+    print(f"[main] floating_manager unavailable: {_e}")
 
 try:
     from dock import DOCK_HTML as dock_html
+    print("[main] dock loaded")
 except Exception as _e:
     print(f"[main] dock unavailable: {_e}")
 
 try:
-    from floating_manager import FLOATING_MANAGER_HTML
+    from pwa import router as _pwa_router, PWA_HTML
+    print("[main] pwa loaded")
 except Exception as _e:
-    print(f"[main] floating_manager unavailable: {_e}")
-    FLOATING_MANAGER_HTML = ""
+    print(f"[main] pwa unavailable: {_e}")
 
-# ── Tenancy (optional, fail-safe) ───────────────────────────
+# Optional: AI endpoints (may not exist)
 try:
-    from tenancy import (
-        router as tenancy_router,
-        tenancy_middleware,
-        get_current_workshop,
-        is_multi_tenant,
-        MULTI_TENANT as TENANCY_MT,
-    )
-    HAS_TENANCY = True
-    MULTI_TENANT = TENANCY_MT
-    print(f"[main] tenancy loaded — MULTI_TENANT={MULTI_TENANT}")
+    from ai_endpoints import router as AI_ROUTER
+    print("[main] ai_endpoints loaded")
 except Exception as _e:
-    print(f"[main] tenancy unavailable: {_e}")
-    HAS_TENANCY = False
-    MULTI_TENANT = False
-
-    def get_current_workshop():
-        return "default"
-
-    def is_multi_tenant():
-        return False
+    print(f"[main] ai_endpoints unavailable: {_e}")
 
 
 app = FastAPI(title="RamsTech")
 
-if HAS_TENANCY and tenancy_middleware:
-    app.middleware("http")(tenancy_middleware)
-
-if ai_router:
-    app.include_router(ai_router)
-if job_status_router:
-    app.include_router(job_status_router)
-if workflow_router:
-    app.include_router(workflow_router)
-if invoice_router:
-    app.include_router(invoice_router)
-if tech_router:
-    app.include_router(tech_router)
-if pwa_router:
-    app.include_router(pwa_router)
-if auth_router:
-    app.include_router(auth_router)
-if embed_router:
-    app.include_router(embed_router)
-if parts_order_router:
-    app.include_router(parts_order_router)
-if parts_search_router:
-    app.include_router(parts_search_router)
-if scan_router:
-    app.include_router(scan_router)
-if staff_admin_router:
-    app.include_router(staff_admin_router)
-if audit_router:
-    app.include_router(audit_router)
-if photo_router:
-    app.include_router(photo_router)
-if voice_router:
-    app.include_router(voice_router)
-if push_router:
-    app.include_router(push_router)
-if guide_router:
-    app.include_router(guide_router)
-if workshop_router:
-    app.include_router(workshop_router)
-if workshop_api_router:
-    app.include_router(workshop_api_router)
-if aged_debtors_router:
-    app.include_router(aged_debtors_router)
-if auto_remind_router:
-    app.include_router(auto_remind_router)
-if payments_router:
-    app.include_router(payments_router)
-if portal_router:
-    app.include_router(portal_router)
-if profit_router:
-    app.include_router(profit_router)
-if sales_kit_router:
-    app.include_router(sales_kit_router)
-if posters_router:
-    app.include_router(posters_router)
-if staff_roles_router:
-    app.include_router(staff_roles_router)
-if damage_report_router:
-    app.include_router(damage_report_router)
-if backup_router:
-    app.include_router(backup_router)
-if tenancy_router:
-    app.include_router(tenancy_router)
+if AI_ROUTER:
+    app.include_router(AI_ROUTER)
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 db.init()
@@ -419,50 +76,22 @@ def today():
 
 
 # ═══════════════════════════════════════════════════════════════
-# WORKSHOP-AWARE STORAGE LAYER
+# STORAGE LAYER
 # ═══════════════════════════════════════════════════════════════
-_UNTAGGED_TABLES = {"workshops"}
-
-
-def _current_wid():
-    try:
-        return get_current_workshop() or "default"
-    except Exception:
-        return "default"
-
-
-def _row_matches(row, wid):
-    if not MULTI_TENANT:
-        return True
-    return (row.get("workshop_id") or "default") == wid
-
 
 def store_list(t):
-    wid = _current_wid()
-    rows = db.get_all(t) if db.is_ready() else list(MEM[t].values())
-    if not MULTI_TENANT:
-        return rows
-    if t in _UNTAGGED_TABLES:
-        return rows
-    return [r for r in rows if _row_matches(r, wid)]
+    if db.is_ready():
+        return db.get_all(t)
+    return list(MEM[t].values())
 
 
 def store_get(t, i):
-    wid = _current_wid()
-    row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
-    if not row:
-        return None
-    if t in _UNTAGGED_TABLES:
-        return row
-    if MULTI_TENANT and not _row_matches(row, wid):
-        return None
-    return row
+    if db.is_ready():
+        return db.get_one(t, i)
+    return MEM[t].get(i)
 
 
 def store_save(t, i, row):
-    wid = _current_wid()
-    if MULTI_TENANT and t not in _UNTAGGED_TABLES and "workshop_id" not in row:
-        row["workshop_id"] = wid
     if db.is_ready():
         exists = db.get_one(t, i)
         return db.update(t, i, row) if exists else db.insert(t, row)
@@ -471,15 +100,6 @@ def store_save(t, i, row):
 
 
 def store_delete(t, i):
-    if t in _UNTAGGED_TABLES:
-        if db.is_ready():
-            return db.delete(t, i)
-        MEM[t].pop(i, None)
-        return True
-    if MULTI_TENANT:
-        row = db.get_one(t, i) if db.is_ready() else MEM[t].get(i)
-        if row and not _row_matches(row, _current_wid()):
-            return False
     if db.is_ready():
         return db.delete(t, i)
     MEM[t].pop(i, None)
@@ -487,20 +107,14 @@ def store_delete(t, i):
 
 
 def get_workshop_data():
-    wid = _current_wid()
     if db.is_ready():
         w = db.get_workshop()
         if w:
-            if MULTI_TENANT and (w.get("workshop_id") or "default") != wid:
-                pass
-            else:
-                return w
+            return w
     return WORKSHOP
 
 
 def save_workshop_data(d):
-    if MULTI_TENANT and "workshop_id" not in d:
-        d["workshop_id"] = _current_wid()
     if db.is_ready():
         return db.save_workshop(d)
     WORKSHOP.update(d)
@@ -508,62 +122,8 @@ def save_workshop_data(d):
 
 
 # ═══════════════════════════════════════════════════════════════
-# STARTUP — schedulers
+# SERVICE WORKER
 # ═══════════════════════════════════════════════════════════════
-@app.on_event("startup")
-async def _startup_scheduler():
-    if auto_remind_start:
-        try:
-            auto_remind_start()
-        except Exception as e:
-            print(f"[main] auto_remind scheduler failed: {e}")
-
-    # Daily backup — runs in-process every 24h
-    try:
-        import asyncio
-
-        async def _daily_backup():
-            await asyncio.sleep(120)
-            while True:
-                try:
-                    from backup import build_backup, save_backup_to_disk
-                    snap = build_backup()
-                    fname = save_backup_to_disk(snap)
-                    print(f"[backup] saved {fname.name} "
-                          f"({snap['meta']['total_rows']} rows)")
-                except Exception as e:
-                    print(f"[backup] daily backup failed: {e}")
-                await asyncio.sleep(24 * 3600)
-
-        asyncio.get_event_loop().create_task(_daily_backup())
-        print("[main] daily backup scheduler started")
-    except Exception as e:
-        print(f"[main] backup scheduler failed: {e}")
-
-
-# ═══════════════════════════════════════════════════════════════
-# REALTIME + PUSH
-# ═══════════════════════════════════════════════════════════════
-@app.get("/api/realtime/config")
-def realtime_config():
-    return {
-        "success": True,
-        "url": os.getenv("SUPABASE_URL", "").strip(),
-        "anon_key": os.getenv("SUPABASE_ANON_KEY", "").strip(),
-    }
-  
-
-@app.get("/debug/injection")
-def debug_injection():
-    return {
-        "AI_PANEL_HTML_length": len(AI_PANEL_HTML),
-        "FLOATING_MANAGER_HTML_length": len(FLOATING_MANAGER_HTML),
-        "DOCK_HTML_length": len(dock_html) if dock_html else 0,
-        "HTML_PAGE_has_body_close": "</body>" in HTML_PAGE,
-        "AI_PANEL_HTML_starts_with": AI_PANEL_HTML[:80] if AI_PANEL_HTML else "(empty)",
-    }
-
-
 @app.get("/push-sw.js")
 def push_service_worker():
     try:
@@ -572,93 +132,32 @@ def push_service_worker():
             js = f.read()
     except Exception:
         js = "// push-sw.js not found"
-    return Response(
-        content=js,
-        media_type="application/javascript",
-        headers={"Service-Worker-Allowed": "/"},
-    )
+    return Response(content=js, media_type="application/javascript",
+                    headers={"Service-Worker-Allowed": "/"})
 
 
 # ═══════════════════════════════════════════════════════════════
-# HOME
+# HOME — inject all HTML fragments before </body>
 # ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
     idx = html.rfind("</body>")
-    if idx != -1:
-        inject = ""
-        if EVENT_BUS_HTML:
-            inject += EVENT_BUS_HTML
-        if EVENT_HANDLERS_HTML:
-            inject += EVENT_HANDLERS_HTML
-        if JOB_STATUS_HTML:
-            inject += JOB_STATUS_HTML
-        if AI_PANEL_HTML:
-            inject += AI_PANEL_HTML
-        if WORKFLOW_HTML:
-            inject += WORKFLOW_HTML
-        if TECH_HTML:
-            inject += TECH_HTML
-        if AUTH_LOCK_HTML:
-            inject += AUTH_LOCK_HTML
-        if PARTS_ORDER_HTML:
-            inject += PARTS_ORDER_HTML
-        if PARTS_SEARCH_HTML:
-            inject += PARTS_SEARCH_HTML
-        if SCAN_HTML:
-            inject += SCAN_HTML
-        if STAFF_ADMIN_HTML:
-            inject += STAFF_ADMIN_HTML
-        if AUDIT_HTML:
-            inject += AUDIT_HTML
-        if design_html:
-            inject += design_html
-        if theme_html:
-            inject += theme_html
-        if instant_html:
-            inject += instant_html
-        if search_html:
-            inject += search_html
-        if queue_html:
-            inject += queue_html
-        if PHOTO_INTAKE_HTML:
-            inject += PHOTO_INTAKE_HTML
-        if VOICE_INTAKE_HTML:
-            inject += VOICE_INTAKE_HTML
-        if JOB_INTAKE_HUB_HTML:
-            inject += JOB_INTAKE_HUB_HTML
-        if STAFF_MERGE_HTML:
-            inject += STAFF_MERGE_HTML
-        if TAB_CONSOLIDATE_HTML:
-            inject += TAB_CONSOLIDATE_HTML
-        if AGED_DEBTORS_HTML:
-            inject += AGED_DEBTORS_HTML
-        if PORTAL_HTML:
-            inject += PORTAL_HTML
-        if AUTO_REMIND_HTML:
-            inject += AUTO_REMIND_HTML
-        if PROFIT_DASHBOARD_HTML:
-            inject += PROFIT_DASHBOARD_HTML
-        if DAMAGE_REPORT_HTML:
-            inject += DAMAGE_REPORT_HTML
-        if BACKUP_HTML:
-            inject += BACKUP_HTML
-        if REALTIME_SYNC_HTML:
-            inject += REALTIME_SYNC_HTML
-        if PUSH_NOTIFY_HTML:
-            inject += PUSH_NOTIFY_HTML
-        if STAFF_ROLES_HTML:
-            inject += STAFF_ROLES_HTML
-        if dock_html:
-            inject += dock_html
-        if PWA_HTML:
-            inject += PWA_HTML
-# ── Floating manager LAST — overrides all module-level visibility ──
-        if FLOATING_MANAGER_HTML:
-            inject += FLOATING_MANAGER_HTML
-        html = html[:idx] + inject + html[idx:]
-    return html
+    if idx == -1:
+        return html
+
+    inject = ""
+    if AI_PANEL_HTML:
+        inject += AI_PANEL_HTML
+    if dock_html:
+        inject += dock_html
+    if PWA_HTML:
+        inject += PWA_HTML
+    # Floating manager MUST be last
+    if FLOATING_MANAGER_HTML:
+        inject += FLOATING_MANAGER_HTML
+
+    return html[:idx] + inject + html[idx:]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -668,33 +167,18 @@ async def home():
 def health():
     return {"status": "healthy",
             "database": ("supabase" if db.is_ready() else "memory"),
-            "multi_tenant": MULTI_TENANT,
-            "current_workshop": _current_wid(),
             "time": datetime.now().isoformat()}
 
 
-@app.get("/debug/env")
-def debug_env():
+@app.get("/debug/injection")
+def debug_injection():
     return {
-        "SUPABASE_URL_set": bool(os.getenv("SUPABASE_URL", "").strip()),
-        "SUPABASE_SERVICE_KEY_set": bool(os.getenv("SUPABASE_SERVICE_KEY", "").strip()),
-        "SUPABASE_ANON_KEY_set": bool(os.getenv("SUPABASE_ANON_KEY", "").strip()),
-        "OPENAI_API_KEY_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
-        "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY", "").strip()),
-        "OLP_API_KEY_set": bool(os.getenv("OLP_API_KEY", "").strip()),
-        "OWNER_PIN_set": bool(os.getenv("OWNER_PIN", "").strip()),
-        "VAPID_PUBLIC_KEY_set": bool(os.getenv("VAPID_PUBLIC_KEY", "").strip()),
-        "VAPID_PRIVATE_KEY_set": bool(os.getenv("VAPID_PRIVATE_KEY", "").strip()),
-        "CLICKATELL_CONFIGURED": bool(os.getenv("CLICKATELL_API_KEY", "").strip()),
-        "TWILIO_CONFIGURED": bool(os.getenv("TWILIO_ACCOUNT_SID", "").strip()),
-        "META_WA_CONFIGURED": bool(os.getenv("META_WA_TOKEN", "").strip()),
-        "YOCO_CONFIGURED": bool(os.getenv("YOCO_SECRET_KEY", "").strip()),
-        "PAYFAST_CONFIGURED": bool(os.getenv("PAYFAST_MERCHANT_ID", "").strip()),
-        "STRIPE_CONFIGURED": bool(os.getenv("STRIPE_SECRET_KEY", "").strip()),
-        "PUBLIC_BASE_URL_set": bool(os.getenv("PUBLIC_BASE_URL", "").strip()),
-        "MULTI_TENANT": MULTI_TENANT,
-        "SESSION_SECRET_set": bool(os.getenv("SESSION_SECRET", "").strip()),
-        "SUPER_ADMIN_PIN_set": bool(os.getenv("SUPER_ADMIN_PIN", "").strip()),
+        "AI_PANEL_HTML_length": len(AI_PANEL_HTML),
+        "FLOATING_MANAGER_HTML_length": len(FLOATING_MANAGER_HTML),
+        "DOCK_HTML_length": len(dock_html) if dock_html else 0,
+        "PWA_HTML_length": len(PWA_HTML) if PWA_HTML else 0,
+        "HTML_PAGE_has_body_close": "</body>" in HTML_PAGE,
+        "AI_PANEL_HTML_starts_with": AI_PANEL_HTML[:80] if AI_PANEL_HTML else "(empty)",
     }
 
 
@@ -986,13 +470,6 @@ async def create_job(r: Request):
            "parts_cost": 0, "labour_cost": 0, "subtotal": 0,
            "vat": 0, "total": 0, "created": now()}
     store_save("jobs", jid, job)
-    try:
-        from push_notify import send_push_to_all
-        send_push_to_all("New Job Created",
-                         f"{job['customer']} — {job['vehicle']}",
-                         "/")
-    except Exception:
-        pass
     return {"success": True, "job": job}
 
 
@@ -1341,24 +818,6 @@ async def add_exp(r: Request):
 def del_exp(eid: str):
     store_delete("expenses", eid)
     return {"success": True}
-
-
-# ═══════════════════════════════════════════════════════════════
-# REMINDERS
-# ═══════════════════════════════════════════════════════════════
-@app.get("/api/reminders")
-def get_reminders():
-    reminders = []
-    for j in store_list("jobs"):
-        if int(j.get("km", 0)) > 0 and j.get("status") == "Completed":
-            due = int(j["km"]) + 10000
-            reminders.append({"vehicle": j["vehicle"],
-                              "customer": j["customer"],
-                              "phone": j.get("phone", ""),
-                              "last_service": (j.get("created") or "")[:10],
-                              "last_km": j["km"],
-                              "due": f"at {due} km or 6 months"})
-    return {"reminders": reminders[:20]}
 
 
 # ═══════════════════════════════════════════════════════════════
