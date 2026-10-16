@@ -5,20 +5,11 @@ AI_PANEL_HTML = r"""
   background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
   cursor:pointer;z-index:9999;box-shadow:0 6px 18px rgba(0,168,232,.45);
   align-items:center;justify-content:center;
-  transition:opacity .18s ease,transform .18s ease;
-  opacity:0;
-  visibility:hidden;
-  pointer-events:none;
-}
-#aiFab.show{
-  opacity:1;
-  visibility:visible;
-  pointer-events:auto;
-  display:flex !important;
+  display:none;
 }
 #aiFab:active{transform:scale(.92);}
 
-#aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;
+#aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;
 padding:12px;overflow:auto;}
 #aiInner{max-width:640px;margin:20px auto;background:#0f1520;color:#e6edf5;
 border-radius:14px;padding:18px;border:1px solid #1e2938;}
@@ -85,11 +76,6 @@ border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:point
 
 <script>
 var _m = 'code', _pic = null, _rec = null;
-
-// ─────────────────────────────────────────────────────────────
-// FAB visibility is handled by floating_manager.py via the
-// `.show` class. Do NOT touch #aiFab.style.display here.
-// ─────────────────────────────────────────────────────────────
 
 function aiToggle(){
   var p = document.getElementById('aiPanel');
@@ -209,7 +195,6 @@ async function aiSubmit(){
   b.textContent = 'Get Answer';
 }
 
-// Close AI panel when clicking outside the modal card
 document.getElementById('aiPanel').addEventListener('click', function(e){
   if(e.target === this) aiToggle();
 });
