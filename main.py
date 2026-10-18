@@ -144,8 +144,6 @@ async def home():
     inject = ""
     if AI_PANEL_HTML:
         inject += AI_PANEL_HTML
-    if dock_html:
-        inject += dock_html
     if PWA_HTML:
         inject += PWA_HTML
     # Floating manager MUST be last
