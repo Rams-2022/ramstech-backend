@@ -8,22 +8,23 @@ DOCK_HTML = r"""
 
   #rt-role-badge {
     top: auto !important;
-    right: auto !important;
+    right: 16px !important;
     bottom: 100px !important;
-    left: 16px !important;
+    left: auto !important;
     transform: scale(0.85) !important;
-    transform-origin: bottom left !important;
+    transform-origin: bottom right !important;
     opacity: 0.92;
   }
 
+  /* MOVED TO BOTTOM LEFT */
   #rt-dock {
     position: fixed;
     bottom: 96px;
-    right: 16px;
+    left: 16px; 
     z-index: 9998;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 10px;
   }
 
@@ -40,7 +41,7 @@ DOCK_HTML = r"""
 
   #rt-dock-menu {
     display: flex; flex-direction: column; gap: 8px;
-    align-items: flex-end; pointer-events: none;
+    align-items: flex-start; pointer-events: none;
   }
   #rt-dock.open #rt-dock-menu { pointer-events: auto; }
 
@@ -55,14 +56,7 @@ DOCK_HTML = r"""
   }
   #rt-dock.open .rt-dock-item { opacity: 1; transform: translateY(0) scale(1); }
 
-  /* FIXED: Backdrop is now truly invisible and doesn't block taps when closed */
-  #rt-dock-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.2);
-    z-index: 9997;
-    display: none; 
-  }
-  #rt-dock.open ~ #rt-dock-backdrop { display: block; }
+  /* BACKDROP IS COMPLETELY REMOVED */
 </style>
 
 <div id="rt-dock">
@@ -75,7 +69,6 @@ DOCK_HTML = r"""
   </div>
   <button id="rt-dock-fab" onclick="rtDockToggle(event)">+</button>
 </div>
-<div id="rt-dock-backdrop" onclick="rtDockClose()"></div>
 
 <script>
 (function(){
@@ -84,10 +77,12 @@ DOCK_HTML = r"""
     var dock = document.getElementById("rt-dock");
     if (dock) dock.classList.toggle("open");
   };
+  
   window.rtDockClose = function(){
     var dock = document.getElementById("rt-dock");
     if (dock) dock.classList.remove("open");
   };
+  
   window.rtDockRun = function(fnName){
     rtDockClose();
     setTimeout(function(){
