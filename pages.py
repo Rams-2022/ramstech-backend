@@ -1001,18 +1001,52 @@ document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).m
   </div>`
 ).join('');
 
+// ═══════════════════════════════════════════════════════
+// FIXED openCategory (Prevents Freeze)
+// ═══════════════════════════════════════════════════════
 function openCategory(key) {
-  const cat = CATEGORIES[key];
-  document.getElementById('categoryView').style.display = 'none';
-  document.getElementById('subView').style.display = 'block';
-  document.getElementById('subTitle').textContent = cat.icon + ' ' + cat.name;
-  document.getElementById('subGrid').innerHTML = cat.items.map(item =>
-    `<div class="tile" onclick="showTab('${item.tab}')">
-      <div class="tile-accent" style="background:${item.color}"></div>
-      <div class="tile-icon" style="color:${item.color}">${item.icon}</div>
-      <div class="tile-label">${item.label}</div>
-    </div>`
-  ).join('');
+  // Stop infinite loops from firing multiple times
+  if (window.__isOpeningCategory) return;
+  window.__isOpeningCategory = true;
+  setTimeout(function() { window.__isOpeningCategory = false; }, 500);
+
+  try {
+    const cat = CATEGORIES[key];
+    if (!cat) return;
+
+    var catV = document.getElementById('categoryView');
+    var subV = document.getElementById('subView');
+    
+    if (catV) catV.style.display = 'none';
+    if (subV) subV.style.display = 'block';
+    
+    var subTitle = document.getElementById('subTitle');
+    if (subTitle) subTitle.textContent = cat.icon + ' ' + cat.name;
+
+    var subGrid = document.getElementById('subGrid');
+    if (subGrid) {
+      subGrid.innerHTML = cat.items.map(item =>
+        `<div class="tile" onclick="showTab('${item.tab}')">
+          <div class="tile-accent" style="background:${item.color}"></div>
+          <div class="tile-icon" style="color:${item.color}">${item.icon}</div>
+          <div class="tile-label">${item.label}</div>
+        </div>`
+      ).join('');
+    }
+    window.scrollTo(0, 0);
+  } catch(e) {
+    console.error("openCategory Error:", e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FIXED backToCategories
+// ═══════════════════════════════════════════════════════
+function backToCategories() {
+  var catV = document.getElementById('categoryView');
+  var subV = document.getElementById('subView');
+  if (subV) subV.style.display = 'none';
+  if (catV) catV.style.display = 'block';
   window.scrollTo(0, 0);
 }
 
