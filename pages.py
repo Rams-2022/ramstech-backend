@@ -893,26 +893,21 @@ body{background:white;color:black}
 <!-- BOTTOM NAVIGATION -->
 <!-- ═══════════════════════════════ -->
 <div class="bottom-nav no-print">
-<div class="bnav-item active" onclick="showTab('home',document.querySelectorAll('.bnav-item')[0])">
-<div class="bnav-icon">🏠</div>
-<div class="bnav-label">Home</div>
-</div>
-<div class="bnav-item" onclick="showTab('dashboard',document.querySelectorAll('.bnav-item')[1])">
-<div class="bnav-icon">📊</div>
-<div class="bnav-label">Dash</div>
-</div>
-<div class="bnav-item" onclick="showTab('chat',document.querySelectorAll('.bnav-item')[2])">
-<div class="bnav-icon">🤖</div>
-<div class="bnav-label">AI</div>
-</div>
-<div class="bnav-item" onclick="showTab('jobs',document.querySelectorAll('.bnav-item')[3])">
-<div class="bnav-icon">📋</div>
-<div class="bnav-label">Jobs</div>
-</div>
-<div class="bnav-item" onclick="showTab('settings',document.querySelectorAll('.bnav-item')[4])">
-<div class="bnav-icon">⚙️</div>
-<div class="bnav-label">More</div>
-</div>
+  <div class="bnav-item active" onclick="setTimeout(()=>showTab('home',this), 50)">
+    <div class="bnav-icon">🏠</div><div class="bnav-label">Home</div>
+  </div>
+  <div class="bnav-item" onclick="setTimeout(()=>showTab('dashboard',this), 50)">
+    <div class="bnav-icon">📊</div><div class="bnav-label">Dash</div>
+  </div>
+  <div class="bnav-item" onclick="setTimeout(()=>showTab('chat',this), 50)">
+    <div class="bnav-icon">🤖</div><div class="bnav-label">AI</div>
+  </div>
+  <div class="bnav-item" onclick="setTimeout(()=>showTab('jobs',this), 50)">
+    <div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div>
+  </div>
+  <div class="bnav-item" onclick="setTimeout(()=>showTab('settings',this), 50)">
+    <div class="bnav-icon">⚙️</div><div class="bnav-label">More</div>
+  </div>
 </div>
 
 <script>
