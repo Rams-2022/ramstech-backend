@@ -2053,7 +2053,6 @@ if (location.search.indexOf('checkFab=1') !== -1) {
 
 // ═══════════════════════════════════════════════════════
 // AI ROBOT VISIBILITY CONTROLLER
-// Shows the robot ONLY on diagnostic tabs.
 // ═══════════════════════════════════════════════════════
 (function() {
   var DIAG_TABS = [
@@ -2069,22 +2068,16 @@ if (location.search.indexOf('checkFab=1') !== -1) {
     var active = document.querySelector('.panel.active');
     var id = active ? active.id : '';
     
+    // Toggle the class and let CSS handle the fading
     if (DIAG_TABS.indexOf(id) !== -1) {
-      // Force it to show aggressively
       fab.classList.add('show');
-      fab.style.setProperty('display', 'flex', 'important');
-      fab.style.setProperty('opacity', '1', 'important');
-      fab.style.setProperty('visibility', 'visible', 'important');
-      fab.style.setProperty('pointer-events', 'auto', 'important');
     } else {
-      // Hide it
       fab.classList.remove('show');
-      fab.style.setProperty('display', 'none', 'important');
     }
   }
 
-  // Run it every 300ms (lightweight and catches all tab changes)
-  setInterval(updateRobot, 300);
+  // Run it every 150ms to catch tab switches instantly without stuttering
+  setInterval(updateRobot, 150);
 })();
 
 </script>
