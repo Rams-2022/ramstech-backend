@@ -2056,6 +2056,46 @@ if (location.search.indexOf('checkFab=1') !== -1) {
   }, 2500);
 }
 
+// ═══════════════════════════════════════════════════════
+// AI ROBOT TOGGLE (Smart Observer - No Flashing)
+// ═══════════════════════════════════════════════════════
+(function() {
+  var DIAG_TABS = [
+    'chat', 'codes', 'problems', 'vin', 'paint', 'photo',
+    'wiring', 'obd', 'bulbs', 'batteries', 'tyres', 'fuses',
+    'service', 'inspect', 'boltcalc', 'torque'
+  ];
+
+  function updateRobot() {
+    var fab = document.getElementById('aiFab');
+    if (!fab) return;
+    
+    var active = document.querySelector('.panel.active');
+    var id = active ? active.id : '';
+    
+    if (DIAG_TABS.indexOf(id) !== -1) {
+      fab.classList.add('show');
+    } else {
+      fab.classList.remove('show');
+    }
+  }
+
+  // 1. Run once when the app loads
+  setTimeout(updateRobot, 500);
+
+  // 2. Watch the DOM. Whenever a panel opens/closes, run updateRobot ONCE.
+  var observer = new MutationObserver(function() {
+    updateRobot();
+  });
+  
+  // Start watching the body for class changes (which is how tabs open)
+  observer.observe(document.body, { 
+    attributes: true, 
+    attributeFilter: ['class'], 
+    subtree: true 
+  });
+})();
+
 </script>
 </body>
 </html>"""
