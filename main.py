@@ -32,11 +32,6 @@ try:
 except Exception as _e:
     print(f"[main] floating_manager unavailable: {_e}")
 
-try:
-    from dock import DOCK_HTML as dock_html
-    print("[main] dock loaded")
-except Exception as _e:
-    print(f"[main] dock unavailable: {_e}")
 
 try:
     from pwa import router as _pwa_router, PWA_HTML
