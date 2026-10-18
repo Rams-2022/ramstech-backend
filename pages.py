@@ -1039,31 +1039,36 @@ const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo'
  function showTab(name, el) {
   // 1. Hide all panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-
-  // 2. Reset Home's internal views
+  
+  // 2. Reset Home internal views
   var subV = document.getElementById('subView');
   var catV = document.getElementById('categoryView');
   if (subV) subV.style.display = 'none';
   if (catV) catV.style.display = 'block';
 
-  // 3. Show the target panel
+  // 3. Show target panel
   var panel = document.getElementById(name);
   if (panel) panel.classList.add('active');
-
-  // 4. Update bottom-nav highlight
+  
+  // 4. Update bottom nav
   if (el) {
     document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
   }
   window.scrollTo(0, 0);
 
-  // 5. Tell the floating manager to refresh
-  if (typeof window.refreshFloating === 'function') {
-    setTimeout(window.refreshFloating, 0);
-    setTimeout(window.refreshFloating, 100);
+  // 5. TOGGLE AI ROBOT (No intervals, no flashing)
+  var DIAG_TABS = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
+  var fab = document.getElementById('aiFab');
+  if (fab) {
+    if (DIAG_TABS.includes(name)) {
+      fab.classList.add('show');
+    } else {
+      fab.classList.remove('show');
+    }
   }
 
-  // 6. Existing loaders
+  // 6. Run the loaders for this tab
   const loaders = {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
     problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
