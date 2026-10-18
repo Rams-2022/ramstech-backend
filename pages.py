@@ -1033,75 +1033,90 @@ function backToCategories() {
 const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 
 function showTab(name, el) {
-  // 1. Hide all panels
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  
-  // 2. Reset Home internal views
-  var subV = document.getElementById('subView');
-  var catV = document.getElementById('categoryView');
-  if (subV) subV.style.display = 'none';
-  if (catV) catV.style.display = 'block';
+  // ═══════════════════════════════════════════════════════════
+  // DEBOUNCE LOCK: Prevents rapid double-taps from freezing the app
+  // ═══════════════════════════════════════════════════════════
+  if (window.__tabLock) return;
+  window.__tabLock = true;
+  setTimeout(function() { window.__tabLock = false; }, 250); 
 
-  // 3. Show target panel
-  var panel = document.getElementById(name);
-  if (panel) panel.classList.add('active');
-  
-  // 4. Update bottom nav
-  if (el) {
-    document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-  }
-  window.scrollTo(0, 0);
-
-  // 5. Toggle Robot (using a timeout to let the browser settle, preventing freezes)
-  var DIAG_TABS = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
-  var fab = document.getElementById('aiFab');
-  
-  if (fab) {
-    // We hide it immediately
-    fab.style.display = 'none';
+  try {
+    // 1. Hide all panels
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     
-    // If it's a diagnostic tab, we show it AFTER the panel loads
-    if (DIAG_TABS.includes(name)) {
-      setTimeout(function() {
-        fab.style.display = 'flex';
-      }, 50);
-    }
-  }
+    // 2. Reset Home internal views
+    var subV = document.getElementById('subView');
+    var catV = document.getElementById('categoryView');
+    if (subV) subV.style.display = 'none';
+    if (catV) catV.style.display = 'block';
 
-  // 6. Run the loaders for this tab
-  const loaders = {
-    codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
-    problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
-    jobs: () => { loadJobs(); loadStaffDropdown(); },
-    customers: loadCustomers,
-    appointments: loadAppts,
-    quotes: loadQuotes,
-    invoices: loadInvoices,
-    parts: () => !document.getElementById('partsList').dataset.loaded && loadParts(),
-    inventory: loadInventory,
-    purchase: loadPOs,
-    staff: loadStaff,
-    clockin: loadClockin,
-    expenses: loadExpenses,
-    fuel: loadFuel,
-    warranty: loadWarranty,
-    reminders: loadReminders,
-    wiring: loadWiring,
-    obd: loadOBD,
-    bulbs: loadBulbs,
-    batteries: loadBatt,
-    tyres: loadTyre,
-    fuses: loadFuses,
-    inspect: () => document.getElementById('inspectType').value === 'pre_purchase' && loadChecklist(),
-    torque: loadTorque,
-    analytics: loadAnalytics,
-    tax: loadBizCard,
-    settings: loadSettings,
-    dashboard: loadDashboard
-  };
-  if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
-} 
+    // 3. Show target panel
+    var panel = document.getElementById(name);
+    if (panel) panel.classList.add('active');
+    
+    // 4. Update bottom nav
+    if (el) {
+      document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+    }
+    window.scrollTo(0, 0);
+
+    // 5. Run the loaders for this tab
+    const loaders = {
+      codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
+      problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
+      jobs: () => { loadJobs(); loadStaffDropdown(); },
+      customers: loadCustomers,
+      appointments: loadAppts,
+      quotes: loadQuotes,
+      invoices: loadInvoices,
+      parts: () => !document.getElementById('partsList').dataset.loaded && loadParts(),
+      inventory: loadInventory,
+      purchase: loadPOs,
+      staff: loadStaff,
+      clockin: loadClockin,
+      expenses: loadExpenses,
+      fuel: loadFuel,
+      warranty: loadWarranty,
+      reminders: loadReminders,
+      wiring: loadWiring,
+      obd: loadOBD,
+      bulbs: loadBulbs,
+      batteries: loadBatt,
+      tyres: loadTyre,
+      fuses: loadFuses,
+      inspect: () => document.getElementById('inspectType').value === 'pre_purchase' && loadChecklist(),
+      torque: loadTorque,
+      analytics: loadAnalytics,
+      tax: loadBizCard,
+      settings: loadSettings,
+      dashboard: loadDashboard
+    };
+    
+    if (loaders[name]) {
+      try { loaders[name](); } catch (e) { console.error("Loader error:", e); }
+    }
+
+    // 6. SAFE AI ROBOT TOGGLE (Direct inline styles, no loops)
+    var fab = document.getElementById('aiFab');
+    var diagTabs = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
+    
+    if (fab) {
+      if (diagTabs.includes(name)) {
+        fab.style.setProperty('display', 'flex', 'important');
+        fab.style.setProperty('opacity', '1', 'important');
+        fab.style.setProperty('visibility', 'visible', 'important');
+      } else {
+        fab.style.setProperty('display', 'none', 'important');
+        fab.style.setProperty('opacity', '0', 'important');
+        fab.style.setProperty('visibility', 'hidden', 'important');
+      }
+    }
+
+  } catch (error) {
+    console.error("showTab Error:", error);
+  }
+}
   
 // THEME
 function toggleTheme() {
