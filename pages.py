@@ -2141,6 +2141,41 @@ if (location.search.indexOf('checkFab=1') !== -1) {
   });
 })();
 
+// ═══════════════════════════════════════════════════════
+// GLOBAL CLICK KILLER (Stops Freezing & Ghost Clicks)
+// ═══════════════════════════════════════════════════════
+document.addEventListener('click', function(e) {
+  // Find if the click happened inside a tile or a category card
+  var tile = e.target.closest('.tile');
+  var catCard = e.target.closest('.cat-card');
+  var bnav = e.target.closest('.bnav-item');
+
+  if (tile || catCard || bnav) {
+    // Prevent the click from firing multiple times (causing the freeze)
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // If the phone is already processing a click, ignore this one
+    if (window.__processingClick) return;
+    window.__processingClick = true;
+    
+    // Release the lock after 400ms
+    setTimeout(function() { window.__processingClick = false; }, 400);
+
+    // Manually trigger the correct function based on what was clicked
+    if (catCard) {
+      var onclickAttr = catCard.getAttribute('onclick');
+      if (onclickAttr) eval(onclickAttr);
+    } else if (tile) {
+      var onclickAttr = tile.getAttribute('onclick');
+      if (onclickAttr) eval(onclickAttr);
+    } else if (bnav) {
+      var onclickAttr = bnav.getAttribute('onclick');
+      if (onclickAttr) eval(onclickAttr);
+    }
+  }
+}, true); // Using 'true' catches the click before other scripts can mess with it
+
 </script>
 </body>
 </html>"""
