@@ -1032,7 +1032,7 @@ function backToCategories() {
 // ═══════════════════════════════════
 const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 
- function showTab(name, el) {
+function showTab(name, el) {
   // 1. Hide all panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   
@@ -1053,14 +1053,19 @@ const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo'
   }
   window.scrollTo(0, 0);
 
-  // 5. TOGGLE AI ROBOT (No intervals, no flashing)
+  // 5. Toggle Robot (using a timeout to let the browser settle, preventing freezes)
   var DIAG_TABS = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
   var fab = document.getElementById('aiFab');
+  
   if (fab) {
+    // We hide it immediately
+    fab.style.display = 'none';
+    
+    // If it's a diagnostic tab, we show it AFTER the panel loads
     if (DIAG_TABS.includes(name)) {
-      fab.classList.add('show');
-    } else {
-      fab.classList.remove('show');
+      setTimeout(function() {
+        fab.style.display = 'flex';
+      }, 50);
     }
   }
 
@@ -1096,7 +1101,7 @@ const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo'
     dashboard: loadDashboard
   };
   if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
-}
+} 
   
 // THEME
 function toggleTheme() {
