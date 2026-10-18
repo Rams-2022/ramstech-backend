@@ -2056,49 +2056,6 @@ if (location.search.indexOf('checkFab=1') !== -1) {
   }, 2500);
 }
 
-// ═══════════════════════════════════════════════════════
-// AI ROBOT VISIBILITY CONTROLLER (Bulletproof Version)
-// ═══════════════════════════════════════════════════════
-(function() {
-  var DIAG_TABS = [
-    'chat', 'codes', 'problems', 'vin', 'paint', 'photo',
-    'wiring', 'obd', 'bulbs', 'batteries', 'tyres', 'fuses',
-    'service', 'inspect', 'boltcalc', 'torque'
-  ];
-
-  function updateRobot() {
-    var fab = document.getElementById('aiFab');
-    if (!fab) return;
-    
-    var active = document.querySelector('.panel.active');
-    var id = active ? active.id : '';
-    
-    if (DIAG_TABS.indexOf(id) !== -1) {
-      // FORCE SHOW: Direct inline styles that nothing can override
-      fab.style.setProperty('display', 'flex', 'important');
-      fab.style.setProperty('visibility', 'visible', 'important');
-      fab.style.setProperty('opacity', '1', 'important');
-      fab.style.setProperty('pointer-events', 'auto', 'important');
-      fab.style.setProperty('position', 'fixed', 'important');
-      fab.style.setProperty('bottom', '100px', 'important');
-      fab.style.setProperty('right', '20px', 'important');
-      fab.style.setProperty('z-index', '99999', 'important');
-    } else {
-      // FORCE HIDE
-      fab.style.setProperty('display', 'none', 'important');
-      fab.style.setProperty('opacity', '0', 'important');
-      fab.style.setProperty('visibility', 'hidden', 'important');
-      fab.style.setProperty('pointer-events', 'none', 'important');
-    }
-  }
-
-  // Run it every 200ms to catch tab switches
-  setInterval(updateRobot, 200);
-  
-  // Also run it immediately just in case
-  updateRobot();
-})();
-
 </script>
 </body>
 </html>"""
