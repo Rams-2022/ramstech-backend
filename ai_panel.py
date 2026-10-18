@@ -1,12 +1,27 @@
 AI_PANEL_HTML = r"""
 <style>
 #aiFab{
-  position:fixed;bottom:230px;right:18px;width:60px;height:60px;border-radius:50%;
+  position:fixed;
+  bottom: 100px; /* Perfectly above the bottom nav */
+  right: 20px;   /* Perfectly off the right edge */
+  width:60px;height:60px;border-radius:50%;
   background:linear-gradient(135deg,#00a8e8,#0066a8);color:#fff;border:none;font-size:26px;
   cursor:pointer;z-index:9999;box-shadow:0 6px 18px rgba(0,168,232,.45);
-  align-items:center;justify-content:center;
-  display:none;
+  display:flex;align-items:center;justify-content:center;
+  
+  /* SMOOTH FADE - NO FLASHING */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.2s ease;
 }
+
+#aiFab.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 #aiFab:active{transform:scale(.92);}
 
 #aiPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;
