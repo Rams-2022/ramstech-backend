@@ -2052,7 +2052,7 @@ if (location.search.indexOf('checkFab=1') !== -1) {
 }
 
 // ═══════════════════════════════════════════════════════
-// AI ROBOT VISIBILITY CONTROLLER
+// AI ROBOT VISIBILITY CONTROLLER (Bulletproof Version)
 // ═══════════════════════════════════════════════════════
 (function() {
   var DIAG_TABS = [
@@ -2068,16 +2068,30 @@ if (location.search.indexOf('checkFab=1') !== -1) {
     var active = document.querySelector('.panel.active');
     var id = active ? active.id : '';
     
-    // Toggle the class and let CSS handle the fading
     if (DIAG_TABS.indexOf(id) !== -1) {
-      fab.classList.add('show');
+      // FORCE SHOW: Direct inline styles that nothing can override
+      fab.style.setProperty('display', 'flex', 'important');
+      fab.style.setProperty('visibility', 'visible', 'important');
+      fab.style.setProperty('opacity', '1', 'important');
+      fab.style.setProperty('pointer-events', 'auto', 'important');
+      fab.style.setProperty('position', 'fixed', 'important');
+      fab.style.setProperty('bottom', '100px', 'important');
+      fab.style.setProperty('right', '20px', 'important');
+      fab.style.setProperty('z-index', '99999', 'important');
     } else {
-      fab.classList.remove('show');
+      // FORCE HIDE
+      fab.style.setProperty('display', 'none', 'important');
+      fab.style.setProperty('opacity', '0', 'important');
+      fab.style.setProperty('visibility', 'hidden', 'important');
+      fab.style.setProperty('pointer-events', 'none', 'important');
     }
   }
 
-  // Run it every 150ms to catch tab switches instantly without stuttering
-  setInterval(updateRobot, 150);
+  // Run it every 200ms to catch tab switches
+  setInterval(updateRobot, 200);
+  
+  // Also run it immediately just in case
+  updateRobot();
 })();
 
 </script>
