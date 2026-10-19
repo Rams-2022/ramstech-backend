@@ -1062,6 +1062,52 @@ function backToCategories() {
 const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 
 function showTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  
+  var subV = document.getElementById('subView');
+  var catV = document.getElementById('categoryView');
+  if (subV) subV.style.display = 'none';
+  if (catV) catV.style.display = 'block';
+
+  var panel = document.getElementById(name);
+  if (panel) panel.classList.add('active');
+  
+  if (el) {
+    document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+
+  // LOADERS (Your original data loaders)
+  const loaders = {
+    codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
+    problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
+    jobs: () => { loadJobs(); loadStaffDropdown(); },
+    customers: loadCustomers, appointments: loadAppts, quotes: loadQuotes, invoices: loadInvoices,
+    inventory: loadInventory, purchase: loadPOs, staff: loadStaff, clockin: loadClockin,
+    expenses: loadExpenses, fuel: loadFuel, warranty: loadWarranty, reminders: loadReminders,
+    wiring: loadWiring, obd: loadOBD, bulbs: loadBulbs, batteries: loadBatt, tyres: loadTyre,
+    fuses: loadFuses, inspect: () => loadChecklist(), torque: loadTorque, analytics: loadAnalytics,
+    tax: loadBizCard, settings: loadSettings, dashboard: loadDashboard
+  };
+  if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
+
+  // ROBOT TOGGLE
+  var fab = document.getElementById('aiFab');
+  var diagTabs = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
+  if (fab) {
+    if (diagTabs.includes(name)) {
+      fab.style.setProperty('display', 'flex', 'important');
+      fab.style.setProperty('opacity', '1', 'important');
+      fab.style.setProperty('visibility', 'visible', 'important');
+    } else {
+      fab.style.setProperty('display', 'none', 'important');
+      fab.style.setProperty('opacity', '0', 'important');
+      fab.style.setProperty('visibility', 'hidden', 'important');
+    }
+  }
+}
+
   // ═══════════════════════════════════════════════════════════
   // DEBOUNCE LOCK: Prevents rapid double-taps from freezing the app
   // ═══════════════════════════════════════════════════════════
