@@ -1,6 +1,5 @@
 # pages.py — RamsTech v10.0 — Beautiful categorized UI
 # Includes: Category navigation, gradient colors, animations, all features
-# TEST-MARKER-XYZ-987
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -34,10 +33,6 @@ radial-gradient(circle at 80% 60%,rgba(102,126,234,.08) 0%,transparent 40%),
 radial-gradient(circle at 50% 90%,rgba(240,147,251,.06) 0%,transparent 40%);
 background-attachment:fixed;
 }
-
-/* ═══════════════════════════════ */
-/* HEADER */
-/* ═══════════════════════════════ */
 .header{
 background:var(--grad1);color:white;padding:16px 14px 18px;
 position:relative;overflow:hidden;
@@ -73,10 +68,6 @@ border-radius:10px;font-size:12px;outline:none;backdrop-filter:blur(8px);
 font-weight:600;
 }
 .lang-sel option{color:#333}
-
-/* ═══════════════════════════════ */
-/* HOME / CATEGORY VIEW */
-/* ═══════════════════════════════ */
 .home-container{padding:16px;max-width:900px;margin:0 auto}
 .hero-card{
 background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;
@@ -109,10 +100,6 @@ position:relative;z-index:1;min-width:50px;text-align:center;
 .cat-name{font-size:17px;font-weight:800;letter-spacing:.3px;margin-bottom:3px}
 .cat-count{font-size:12px;opacity:.85;font-weight:500}
 .cat-arrow{font-size:20px;opacity:.7;position:relative;z-index:1}
-
-/* ═══════════════════════════════ */
-/* TILE GRID (subview) */
-/* ═══════════════════════════════ */
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .tile{
 background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;
@@ -125,10 +112,6 @@ position:relative;overflow:hidden;
 .tile-label{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.2px}
 .tile-sub{font-size:10px;color:var(--text2);margin-top:3px}
 .tile-accent{position:absolute;top:0;left:0;right:0;height:4px}
-
-/* ═══════════════════════════════ */
-/* BOTTOM NAV */
-/* ═══════════════════════════════ */
 .bottom-nav{
 position:fixed;bottom:0;left:0;right:0;
 background:var(--card);border-top:1px solid var(--border);
@@ -144,10 +127,6 @@ transition:all .2s;
 .bnav-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .bnav-item.active .bnav-label{color:var(--primary)}
 .bnav-item.active{background:rgba(230,81,0,.08)}
-
-/* ═══════════════════════════════ */
-/* PANELS */
-/* ═══════════════════════════════ */
 .panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:100px}
 .panel.active{display:block;animation:fadeIn .3s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -155,20 +134,12 @@ transition:all .2s;
 font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px;
 display:flex;align-items:center;gap:8px;
 }
-
-/* ═══════════════════════════════ */
-/* CARDS */
-/* ═══════════════════════════════ */
 .card{
 background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;
 box-shadow:0 4px 12px rgba(0,0,0,.06);border:1px solid var(--border);
 }
 .card h3{color:var(--primary);margin-bottom:8px;font-size:15px;font-weight:700}
 .card p{margin:4px 0;font-size:13px;line-height:1.5;color:var(--text)}
-
-/* ═══════════════════════════════ */
-/* FORMS */
-/* ═══════════════════════════════ */
 .form-input{
 width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;
 font-size:15px;margin-bottom:10px;background:var(--input-bg);color:var(--text);
@@ -176,7 +147,6 @@ transition:border-color .2s;font-family:inherit;
 }
 .form-input:focus{outline:none;border-color:var(--primary)}
 textarea.form-input{resize:vertical;font-family:inherit}
-
 .btn{
 width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;
 font-weight:800;cursor:pointer;margin-bottom:10px;
@@ -188,7 +158,6 @@ transition:all .2s;
 .btn.btn-warn{background:var(--grad2);box-shadow:0 4px 12px rgba(245,87,108,.3)}
 .btn.btn-success{background:var(--grad4);box-shadow:0 4px 12px rgba(67,233,123,.3)}
 .btn.btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
-
 .btn-sm{
 padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;
 cursor:pointer;margin-right:5px;margin-bottom:4px;
@@ -201,10 +170,6 @@ background:var(--primary);color:white;transition:all .2s;
 .btn-sm.blue{background:#3b82f6}
 .btn-sm.whatsapp{background:#25D366}
 .btn-sm.purple{background:#8b5cf6}
-
-/* ═══════════════════════════════ */
-/* BADGES */
-/* ═══════════════════════════════ */
 .badge{
 display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;
 font-weight:700;color:white;margin-left:6px;letter-spacing:.3px;
@@ -216,16 +181,8 @@ font-weight:700;color:white;margin-left:6px;letter-spacing:.3px;
 .badge.inprogress{background:#f59e0b}
 .badge.unpaid,.badge.outstanding{background:#ef4444}
 .badge.partial{background:#f59e0b}
-
-/* ═══════════════════════════════ */
-/* LISTS */
-/* ═══════════════════════════════ */
 .list-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
 .list-item:last-child{border-bottom:none}
-
-/* ═══════════════════════════════ */
-/* CHAT */
-/* ═══════════════════════════════ */
 .chat-box{
 background:var(--card);border-radius:16px;padding:14px;height:calc(100vh - 280px);
 overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);
@@ -253,10 +210,6 @@ box-shadow:0 4px 12px rgba(102,126,234,.3);transition:all .2s;
 .mic-btn{background:var(--grad4)!important;box-shadow:0 4px 12px rgba(67,233,123,.3)!important}
 .mic-btn.recording{background:var(--grad2)!important;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-
-/* ═══════════════════════════════ */
-/* IMAGES */
-/* ═══════════════════════════════ */
 .img-preview{width:100%;border-radius:14px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .thumb-row{display:flex;gap:8px;overflow-x:auto;margin-top:8px;padding-bottom:4px}
 .thumb{width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid var(--border)}
@@ -267,10 +220,6 @@ border:none;border-radius:50%;width:22px;height:22px;font-size:12px;
 cursor:pointer;line-height:1;font-weight:bold;
 }
 .swatch{height:90px;border-radius:14px;border:2px solid var(--border);margin-bottom:12px}
-
-/* ═══════════════════════════════ */
-/* STATUS */
-/* ═══════════════════════════════ */
 .status-online{
 background:linear-gradient(135deg,#10b981,#34d399);color:white;
 padding:10px 14px;border-radius:12px;display:inline-block;font-size:13px;
@@ -282,10 +231,6 @@ padding:10px 14px;border-radius:12px;display:inline-block;font-size:13px;
 font-weight:700;box-shadow:0 4px 12px rgba(239,68,68,.3);
 }
 .loading{text-align:center;padding:20px;color:var(--text2);font-size:13px}
-
-/* ═══════════════════════════════ */
-/* TABLES */
-/* ═══════════════════════════════ */
 .torque-table{
 width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;
 overflow:hidden;font-size:12px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,.06);
@@ -295,10 +240,6 @@ background:var(--grad1);color:white;padding:10px 8px;text-align:left;
 font-weight:700;font-size:11px;letter-spacing:.5px;
 }
 .torque-table td{padding:10px 8px;border-bottom:1px solid var(--border);color:var(--text)}
-
-/* ═══════════════════════════════ */
-/* STATS */
-/* ═══════════════════════════════ */
 .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .stat-card{
 background:var(--card);padding:16px 12px;border-radius:16px;text-align:center;
@@ -318,32 +259,19 @@ content:'';position:absolute;top:0;left:0;right:0;height:3px;
 .stat-card.red::before{background:linear-gradient(90deg,#ef4444,#f87171)}
 .stat-card.blue::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
 .stat-card.purple::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
-
 canvas{max-height:220px}
-
-/* ═══════════════════════════════ */
-/* CHECKLIST */
-/* ═══════════════════════════════ */
 .checklist-item{
 padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;
 display:flex;align-items:center;gap:10px;
 }
 .checklist-item input{width:20px;height:20px;accent-color:var(--primary)}
 .checklist-item:last-child{border-bottom:none}
-
-/* ═══════════════════════════════ */
-/* BACK BUTTON */
-/* ═══════════════════════════════ */
 .back-btn{
 background:var(--grad6);color:white;border:none;padding:10px 16px;
 border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;
 margin-bottom:16px;box-shadow:0 4px 12px rgba(48,207,208,.3);
 display:flex;align-items:center;gap:6px;
 }
-
-/* ═══════════════════════════════ */
-/* PRINT */
-/* ═══════════════════════════════ */
 @media print{
 .header,.bottom-nav,.no-print,button,.btn,.btn-sm{display:none!important}
 .panel{display:block!important;padding:0}
@@ -366,22 +294,15 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- HOME (CATEGORY VIEW) -->
-<!-- ═══════════════════════════════ -->
 <div id="home" class="panel active">
 <div class="home-container">
 <div class="hero-card">
 <div id="status">Checking backend...</div>
 </div>
-
-<!-- Categories -->
 <div id="categoryView">
 <div class="cat-title">Choose a Category</div>
 <div class="cat-grid" id="categoryGrid"></div>
 </div>
-
-<!-- Sub-category -->
 <div id="subView" style="display:none">
 <button class="back-btn" onclick="backToCategories()">← Back to Categories</button>
 <div class="cat-title" id="subTitle"></div>
@@ -390,9 +311,6 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- DASHBOARD -->
-<!-- ═══════════════════════════════ -->
 <div id="dashboard" class="panel">
 <div class="panel-title">📊 Dashboard</div>
 <div id="dashStats"><div class="loading">Loading...</div></div>
@@ -402,9 +320,6 @@ body{background:white;color:black}
 <div class="card"><h3>🎁 Warranty Expiring</h3><div id="dashWarranty"></div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- AI CHAT -->
-<!-- ═══════════════════════════════ -->
 <div id="chat" class="panel">
 <div class="panel-title">🤖 AI Assistant</div>
 <div class="chat-box" id="chatBox"><div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div></div>
@@ -415,27 +330,18 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- FAULT CODES -->
-<!-- ═══════════════════════════════ -->
 <div id="codes" class="panel">
 <div class="panel-title">📟 Fault Codes</div>
 <input type="text" class="form-input" id="codeSearch" placeholder="🔍 Search code or description..." oninput="searchCodes()">
 <div id="codeResults"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- PROBLEMS -->
-<!-- ═══════════════════════════════ -->
 <div id="problems" class="panel">
 <div class="panel-title">📖 Common Problems</div>
 <input type="text" class="form-input" id="problemSearch" placeholder="🔍 Search problems..." oninput="filterProblems()">
 <div id="problemList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- VIN -->
-<!-- ═══════════════════════════════ -->
 <div id="vin" class="panel">
 <div class="panel-title">🔍 VIN Decoder</div>
 <input type="text" class="form-input" id="vinInput" placeholder="Enter 17-character VIN" maxlength="17" style="text-transform:uppercase">
@@ -443,9 +349,6 @@ body{background:white;color:black}
 <div id="vinResult"></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- PAINT -->
-<!-- ═══════════════════════════════ -->
 <div id="paint" class="panel">
 <div class="panel-title">🎨 Paint Match</div>
 <div class="card"><p style="font-size:13px">📸 Take a photo of a vehicle panel in good light. AI identifies colour and provides paint codes.</p></div>
@@ -456,9 +359,6 @@ body{background:white;color:black}
 <div id="paintResult"></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- PHOTO DIAG -->
-<!-- ═══════════════════════════════ -->
 <div id="photo" class="panel">
 <div class="panel-title">📸 Photo Diagnosis</div>
 <div class="card"><p style="font-size:13px">📸 Take a photo of a mechanical issue. AI diagnoses the problem.</p></div>
@@ -469,9 +369,6 @@ body{background:white;color:black}
 <div id="photoResult"></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- JOBS -->
-<!-- ═══════════════════════════════ -->
 <div id="jobs" class="panel">
 <div class="panel-title">📋 Job Cards</div>
 <button class="btn no-print" onclick="showJobForm()">+ New Job Card</button>
@@ -499,9 +396,6 @@ body{background:white;color:black}
 <div id="jobList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- CUSTOMERS -->
-<!-- ═══════════════════════════════ -->
 <div id="customers" class="panel">
 <div class="panel-title">👥 Customers</div>
 <button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
@@ -519,9 +413,6 @@ body{background:white;color:black}
 <div id="customerList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- APPOINTMENTS -->
-<!-- ═══════════════════════════════ -->
 <div id="appointments" class="panel">
 <div class="panel-title">📅 Appointments</div>
 <button class="btn no-print" onclick="showApptForm()">+ New Appointment</button>
@@ -540,9 +431,6 @@ body{background:white;color:black}
 <div id="apptList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- QUOTES -->
-<!-- ═══════════════════════════════ -->
 <div id="quotes" class="panel">
 <div class="panel-title">💬 Quotes</div>
 <button class="btn no-print" onclick="showQuoteForm()">+ New Quote</button>
@@ -560,9 +448,6 @@ body{background:white;color:black}
 <div id="quoteList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- INVOICES -->
-<!-- ═══════════════════════════════ -->
 <div id="invoices" class="panel">
 <div class="panel-title">💰 Invoices</div>
 <button class="btn no-print" onclick="showInvoiceForm()">+ New Invoice</button>
@@ -580,18 +465,12 @@ body{background:white;color:black}
 <div id="invoiceList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- PARTS -->
-<!-- ═══════════════════════════════ -->
 <div id="parts" class="panel">
 <div class="panel-title">🔩 Parts Catalog</div>
 <input type="text" class="form-input" id="partsSearch" placeholder="🔍 Search parts..." oninput="filterParts()">
 <div id="partsList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- INVENTORY -->
-<!-- ═══════════════════════════════ -->
 <div id="inventory" class="panel">
 <div class="panel-title">📦 Inventory</div>
 <button class="btn no-print" onclick="showInvForm()">+ Add Stock Item</button>
@@ -612,9 +491,6 @@ body{background:white;color:black}
 <div id="inventoryList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- PURCHASE ORDERS -->
-<!-- ═══════════════════════════════ -->
 <div id="purchase" class="panel">
 <div class="panel-title">🛒 Purchase Orders</div>
 <button class="btn no-print" onclick="showPOForm()">+ New Purchase Order</button>
@@ -630,9 +506,6 @@ body{background:white;color:black}
 <div id="poList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- STAFF -->
-<!-- ═══════════════════════════════ -->
 <div id="staff" class="panel">
 <div class="panel-title">👷 Staff</div>
 <button class="btn no-print" onclick="showStaffForm()">+ Add Staff</button>
@@ -650,17 +523,11 @@ body{background:white;color:black}
 <div id="staffList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- CLOCK IN/OUT -->
-<!-- ═══════════════════════════════ -->
 <div id="clockin" class="panel">
 <div class="panel-title">🕐 Clock In/Out</div>
 <div id="clockinList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- EXPENSES -->
-<!-- ═══════════════════════════════ -->
 <div id="expenses" class="panel">
 <div class="panel-title">💸 Expenses</div>
 <button class="btn no-print" onclick="showExpenseForm()">+ Add Expense</button>
@@ -680,9 +547,6 @@ body{background:white;color:black}
 <div id="expenseList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- FUEL LOG -->
-<!-- ═══════════════════════════════ -->
 <div id="fuel" class="panel">
 <div class="panel-title">⛽ Fuel Log</div>
 <button class="btn no-print" onclick="showFuelForm()">+ Add Fill-Up</button>
@@ -701,79 +565,52 @@ body{background:white;color:black}
 <div id="fuelList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- WARRANTY -->
-<!-- ═══════════════════════════════ -->
 <div id="warranty" class="panel">
 <div class="panel-title">🎁 Warranty Tracker</div>
 <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Active warranties on completed jobs</p>
 <div id="warrantyList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- REMINDERS -->
-<!-- ═══════════════════════════════ -->
 <div id="reminders" class="panel">
 <div class="panel-title">🗓️ Service Reminders</div>
 <div id="remindersList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- WIRING -->
-<!-- ═══════════════════════════════ -->
 <div id="wiring" class="panel">
 <div class="panel-title">🔌 Wiring Library</div>
 <input type="text" class="form-input" id="wiringSearch" placeholder="🔍 Search circuits..." oninput="filterWiring()">
 <div id="wiringList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- OBD-II -->
-<!-- ═══════════════════════════════ -->
 <div id="obd" class="panel">
 <div class="panel-title">⚡ OBD-II PID Reference</div>
 <input type="text" class="form-input" id="obdSearch" placeholder="🔍 Search PIDs..." oninput="filterOBD()">
 <div id="obdList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- BULBS -->
-<!-- ═══════════════════════════════ -->
 <div id="bulbs" class="panel">
 <div class="panel-title">💡 Bulb Chart</div>
 <input type="text" class="form-input" id="bulbSearch" placeholder="🔍 Search vehicle..." oninput="filterBulbs()">
 <div id="bulbList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- BATTERIES -->
-<!-- ═══════════════════════════════ -->
 <div id="batteries" class="panel">
 <div class="panel-title">🔋 Battery Sizes</div>
 <input type="text" class="form-input" id="battSearch" placeholder="🔍 Search vehicle..." oninput="filterBatt()">
 <div id="battList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- TYRES -->
-<!-- ═══════════════════════════════ -->
 <div id="tyres" class="panel">
 <div class="panel-title">🛞 Tyre Sizes</div>
 <input type="text" class="form-input" id="tyreSearch" placeholder="🔍 Search vehicle..." oninput="filterTyre()">
 <div id="tyreList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- FUSES -->
-<!-- ═══════════════════════════════ -->
 <div id="fuses" class="panel">
 <div class="panel-title">🔌 Fuse Box Diagrams</div>
 <div id="fuseList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- SERVICE CALC -->
-<!-- ═══════════════════════════════ -->
 <div id="service" class="panel">
 <div class="panel-title">⏰ Service Calculator</div>
 <div class="card">
@@ -789,9 +626,6 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- INSPECT -->
-<!-- ═══════════════════════════════ -->
 <div id="inspect" class="panel">
 <div class="panel-title">✅ Inspection Checklists</div>
 <select class="form-input" id="inspectType" onchange="loadChecklist()">
@@ -802,9 +636,6 @@ body{background:white;color:black}
 <button class="btn btn-dark" onclick="printChecklist()">🖨 Print Checklist</button>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- BOLT CALC -->
-<!-- ═══════════════════════════════ -->
 <div id="boltcalc" class="panel">
 <div class="panel-title">🔧 Bolt Torque Calculator</div>
 <div class="card">
@@ -819,9 +650,6 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- TORQUE -->
-<!-- ═══════════════════════════════ -->
 <div id="torque" class="panel">
 <div class="panel-title">⚙️ Torque Specs</div>
 <input type="text" class="form-input" id="torqueSearch" placeholder="🔍 Search..." oninput="filterTorque()">
@@ -831,26 +659,17 @@ body{background:white;color:black}
 <div id="torqueSeq"></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- HISTORY -->
-<!-- ═══════════════════════════════ -->
 <div id="history" class="panel">
 <div class="panel-title">🚗 Vehicle History</div>
 <input type="text" class="form-input" id="vehicleSearch" placeholder="🔍 Search reg or vehicle..." oninput="searchVehicleHistory()">
 <div id="vehicleHistory"><div class="loading">Enter search term above</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- ANALYTICS -->
-<!-- ═══════════════════════════════ -->
 <div id="analytics" class="panel">
 <div class="panel-title">📈 Analytics</div>
 <div id="analyticsContent"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- TAX -->
-<!-- ═══════════════════════════════ -->
 <div id="tax" class="panel">
 <div class="panel-title">🧾 Tax & Reports</div>
 <div class="card">
@@ -872,9 +691,6 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- SETTINGS -->
-<!-- ═══════════════════════════════ -->
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ Settings</div>
 <div class="card">
@@ -889,36 +705,28 @@ body{background:white;color:black}
 </div>
 </div>
 
-<!-- ═══════════════════════════════ -->
-<!-- BOTTOM NAVIGATION -->
-<!-- ═══════════════════════════════ -->
 <div class="bottom-nav no-print">
-  <div class="bnav-item active" onclick="setTimeout(()=>showTab('home',this), 50)">
+  <div class="bnav-item active" onclick="showTab('home',this)">
     <div class="bnav-icon">🏠</div><div class="bnav-label">Home</div>
   </div>
-  <div class="bnav-item" onclick="setTimeout(()=>showTab('dashboard',this), 50)">
+  <div class="bnav-item" onclick="showTab('dashboard',this)">
     <div class="bnav-icon">📊</div><div class="bnav-label">Dash</div>
   </div>
-  <div class="bnav-item" onclick="setTimeout(()=>showTab('chat',this), 50)">
+  <div class="bnav-item" onclick="showTab('chat',this)">
     <div class="bnav-icon">🤖</div><div class="bnav-label">AI</div>
   </div>
-  <div class="bnav-item" onclick="setTimeout(()=>showTab('jobs',this), 50)">
+  <div class="bnav-item" onclick="showTab('jobs',this)">
     <div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div>
   </div>
-  <div class="bnav-item" onclick="setTimeout(()=>showTab('settings',this), 50)">
+  <div class="bnav-item" onclick="showTab('settings',this)">
     <div class="bnav-icon">⚙️</div><div class="bnav-label">More</div>
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════
-// CATEGORY DEFINITIONS
-// ═══════════════════════════════════
 const CATEGORIES = {
   diagnostics: {
-    name: 'Diagnostics',
-    icon: '🔧',
-    gradient: 'linear-gradient(135deg,#2196F3 0%,#0d47a1 100%)',
+    name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#2196F3 0%,#0d47a1 100%)',
     items: [
       {icon:'🤖',label:'AI Chat',tab:'chat',color:'#3b82f6'},
       {icon:'📟',label:'Fault Codes',tab:'codes',color:'#ef4444'},
@@ -929,9 +737,7 @@ const CATEGORIES = {
     ]
   },
   workshop: {
-    name: 'Workshop',
-    icon: '📋',
-    gradient: 'linear-gradient(135deg,#f59e0b 0%,#dc2626 100%)',
+    name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b 0%,#dc2626 100%)',
     items: [
       {icon:'📋',label:'Jobs',tab:'jobs',color:'#f59e0b'},
       {icon:'👥',label:'Customers',tab:'customers',color:'#10b981'},
@@ -941,9 +747,7 @@ const CATEGORIES = {
     ]
   },
   operations: {
-    name: 'Operations',
-    icon: '⚙️',
-    gradient: 'linear-gradient(135deg,#10b981 0%,#047857 100%)',
+    name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981 0%,#047857 100%)',
     items: [
       {icon:'📦',label:'Inventory',tab:'inventory',color:'#f59e0b'},
       {icon:'🛒',label:'Purchase',tab:'purchase',color:'#3b82f6'},
@@ -956,9 +760,7 @@ const CATEGORIES = {
     ]
   },
   reference: {
-    name: 'Reference',
-    icon: '📚',
-    gradient: 'linear-gradient(135deg,#8b5cf6 0%,#4c1d95 100%)',
+    name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6 0%,#4c1d95 100%)',
     items: [
       {icon:'🔩',label:'Parts',tab:'parts',color:'#6b7280'},
       {icon:'🔌',label:'Wiring',tab:'wiring',color:'#f59e0b'},
@@ -974,9 +776,7 @@ const CATEGORIES = {
     ]
   },
   business: {
-    name: 'Business',
-    icon: '💼',
-    gradient: 'linear-gradient(135deg,#1f2937 0%,#4b5563 100%)',
+    name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#1f2937 0%,#4b5563 100%)',
     items: [
       {icon:'📊',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
       {icon:'🚗',label:'History',tab:'history',color:'#10b981'},
@@ -987,9 +787,6 @@ const CATEGORIES = {
   }
 };
 
-// ═══════════════════════════════════
-// RENDER CATEGORY GRID
-// ═══════════════════════════════════
 document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
   `<div class="cat-card" style="background:${cat.gradient}" onclick="openCategory('${key}')">
     <div class="cat-icon">${cat.icon}</div>
@@ -1001,28 +798,19 @@ document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).m
   </div>`
 ).join('');
 
-// ═══════════════════════════════════════════════════════
-// FIXED openCategory (Prevents Freeze)
-// ═══════════════════════════════════════════════════════
 function openCategory(key) {
-  // Stop infinite loops from firing multiple times
   if (window.__isOpeningCategory) return;
   window.__isOpeningCategory = true;
   setTimeout(function() { window.__isOpeningCategory = false; }, 500);
-
   try {
     const cat = CATEGORIES[key];
     if (!cat) return;
-
     var catV = document.getElementById('categoryView');
     var subV = document.getElementById('subView');
-    
     if (catV) catV.style.display = 'none';
     if (subV) subV.style.display = 'block';
-    
     var subTitle = document.getElementById('subTitle');
     if (subTitle) subTitle.textContent = cat.icon + ' ' + cat.name;
-
     var subGrid = document.getElementById('subGrid');
     if (subGrid) {
       subGrid.innerHTML = cat.items.map(item =>
@@ -1034,14 +822,9 @@ function openCategory(key) {
       ).join('');
     }
     window.scrollTo(0, 0);
-  } catch(e) {
-    console.error("openCategory Error:", e);
-  }
+  } catch(e) { console.error("openCategory Error:", e); }
 }
 
-// ═══════════════════════════════════════════════════════
-// FIXED backToCategories
-// ═══════════════════════════════════════════════════════
 function backToCategories() {
   var catV = document.getElementById('categoryView');
   var subV = document.getElementById('subView');
@@ -1049,36 +832,20 @@ function backToCategories() {
   if (catV) catV.style.display = 'block';
   window.scrollTo(0, 0);
 }
-
-function backToCategories() {
-  document.getElementById('subView').style.display = 'none';
-  document.getElementById('categoryView').style.display = 'block';
-  window.scrollTo(0, 0);
-}
-
-// ═══════════════════════════════════
-// TAB NAVIGATION
-// ═══════════════════════════════════
-const TABS = ['home','dashboard','chat','codes','problems','vin','paint','photo','jobs','customers','appointments','quotes','invoices','parts','inventory','purchase','staff','clockin','expenses','fuel','warranty','reminders','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque','history','analytics','tax','settings'];
 
 function showTab(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  
   var subV = document.getElementById('subView');
   var catV = document.getElementById('categoryView');
   if (subV) subV.style.display = 'none';
   if (catV) catV.style.display = 'block';
-
   var panel = document.getElementById(name);
   if (panel) panel.classList.add('active');
-  
   if (el) {
     document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
   }
   window.scrollTo(0, 0);
-
-  // LOADERS (Your original data loaders)
   const loaders = {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
     problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
@@ -1091,8 +858,6 @@ function showTab(name, el) {
     tax: loadBizCard, settings: loadSettings, dashboard: loadDashboard
   };
   if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
-
-  // ROBOT TOGGLE
   var fab = document.getElementById('aiFab');
   var diagTabs = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
   if (fab) {
@@ -1108,92 +873,6 @@ function showTab(name, el) {
   }
 }
 
-  // ═══════════════════════════════════════════════════════════
-  // DEBOUNCE LOCK: Prevents rapid double-taps from freezing the app
-  // ═══════════════════════════════════════════════════════════
-  if (window.__tabLock) return;
-  window.__tabLock = true;
-  setTimeout(function() { window.__tabLock = false; }, 250); 
-
-  try {
-    // 1. Hide all panels
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    
-    // 2. Reset Home internal views
-    var subV = document.getElementById('subView');
-    var catV = document.getElementById('categoryView');
-    if (subV) subV.style.display = 'none';
-    if (catV) catV.style.display = 'block';
-
-    // 3. Show target panel
-    var panel = document.getElementById(name);
-    if (panel) panel.classList.add('active');
-    
-    // 4. Update bottom nav
-    if (el) {
-      document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
-      el.classList.add('active');
-    }
-    window.scrollTo(0, 0);
-
-    // 5. Run the loaders for this tab
-    const loaders = {
-      codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
-      problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
-      jobs: () => { loadJobs(); loadStaffDropdown(); },
-      customers: loadCustomers,
-      appointments: loadAppts,
-      quotes: loadQuotes,
-      invoices: loadInvoices,
-      parts: () => !document.getElementById('partsList').dataset.loaded && loadParts(),
-      inventory: loadInventory,
-      purchase: loadPOs,
-      staff: loadStaff,
-      clockin: loadClockin,
-      expenses: loadExpenses,
-      fuel: loadFuel,
-      warranty: loadWarranty,
-      reminders: loadReminders,
-      wiring: loadWiring,
-      obd: loadOBD,
-      bulbs: loadBulbs,
-      batteries: loadBatt,
-      tyres: loadTyre,
-      fuses: loadFuses,
-      inspect: () => document.getElementById('inspectType').value === 'pre_purchase' && loadChecklist(),
-      torque: loadTorque,
-      analytics: loadAnalytics,
-      tax: loadBizCard,
-      settings: loadSettings,
-      dashboard: loadDashboard
-    };
-    
-    if (loaders[name]) {
-      try { loaders[name](); } catch (e) { console.error("Loader error:", e); }
-    }
-
-    // 6. SAFE AI ROBOT TOGGLE (Direct inline styles, no loops)
-    var fab = document.getElementById('aiFab');
-    var diagTabs = ['chat','codes','problems','vin','paint','photo','wiring','obd','bulbs','batteries','tyres','fuses','service','inspect','boltcalc','torque'];
-    
-    if (fab) {
-      if (diagTabs.includes(name)) {
-        fab.style.setProperty('display', 'flex', 'important');
-        fab.style.setProperty('opacity', '1', 'important');
-        fab.style.setProperty('visibility', 'visible', 'important');
-      } else {
-        fab.style.setProperty('display', 'none', 'important');
-        fab.style.setProperty('opacity', '0', 'important');
-        fab.style.setProperty('visibility', 'hidden', 'important');
-      }
-    }
-
-  } catch (error) {
-    console.error("showTab Error:", error);
-  }
-}
-  
-// THEME
 function toggleTheme() {
   document.body.classList.toggle('dark');
   const d = document.body.classList.contains('dark');
@@ -1205,7 +884,6 @@ if (localStorage.getItem('theme') === 'dark') {
   document.getElementById('themeBtn').textContent = '☀️';
 }
 
-// LANGUAGE
 let LANG = localStorage.getItem('lang') || 'en';
 let STRINGS = {};
 async function loadLang() {
@@ -1223,7 +901,6 @@ function setLang() {
 }
 loadLang();
 
-// HELPERS
 async function checkStatus() {
   try { await fetch('/health'); document.getElementById('status').innerHTML = '<span class="status-online">✓ Backend Online</span>'; }
   catch (e) { document.getElementById('status').innerHTML = '<span class="status-offline">✗ Backend Offline</span>'; }
@@ -1235,9 +912,6 @@ async function jpost(u, b) { const r = await fetch(u, {method:'POST', headers:{'
 async function jput(u, b) { const r = await fetch(u, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
 async function jdel(u) { const r = await fetch(u, {method:'DELETE'}); return r.json(); }
 
-// ═══════════════════════════════════
-// PHOTO COMPRESSION
-// ═══════════════════════════════════
 function compressImage(file, maxWidth, quality) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1257,9 +931,6 @@ function compressImage(file, maxWidth, quality) {
   });
 }
 
-// ═══════════════════════════════════
-// SIGNATURE
-// ═══════════════════════════════════
 let sigPad = null, sigCtx = null, sigDrawing = false, sigData = '';
 function openSignature() {
   const modal = document.createElement('div');
@@ -1296,7 +967,6 @@ function saveSig() {
 }
 function closeSig() { const m = document.getElementById('sigModal'); if (m) m.remove(); }
 
-// VOICE
 let rec = null, isRec = false;
 function toggleMic() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { alert('Voice not supported'); return; }
@@ -1313,7 +983,6 @@ function toggleMic() {
   else { try { rec.start(); isRec = true; document.getElementById('micBtn').classList.add('recording'); document.getElementById('micBtn').textContent = '⏹'; } catch (e) { alert(e.message); } }
 }
 
-// CHAT
 async function sendMsg() {
   const i = document.getElementById('chatInput');
   const m = i.value.trim();
@@ -1333,7 +1002,6 @@ async function sendMsg() {
   b.scrollTop = b.scrollHeight;
 }
 
-// DASHBOARD
 let rC = null, jC = null;
 async function loadDashboard() {
   try {
@@ -1353,7 +1021,6 @@ async function loadDashboard() {
   } catch (e) {}
 }
 
-// CODES
 async function searchCodes() {
   const q = document.getElementById('codeSearch').value;
   const c = document.getElementById('codeResults');
@@ -1365,7 +1032,6 @@ async function searchCodes() {
   } catch (e) { c.innerHTML = '<div class="card"><p>Error loading</p></div>'; }
 }
 
-// PROBLEMS
 let probData = [];
 async function loadProblems() {
   const d = await jget('/api/problems');
@@ -1379,7 +1045,6 @@ function filterProblems() {
   document.getElementById('problemList').innerHTML = f.length ? f.map(x => '<div class="card"><h3>' + esc(x.title) + '<span class="badge ' + x.severity.toLowerCase() + '">' + x.severity + '</span></h3><p style="color:var(--text2);font-size:12px">' + esc(x.system) + '</p><p><strong>Causes:</strong></p>' + x.causes.map(y => '<div class="list-item">• ' + esc(y) + '</div>').join('') + '<p><strong>Checks:</strong></p>' + x.checks.map(y => '<div class="list-item">• ' + esc(y) + '</div>').join('') + '</div>').join('') : '<div class="card"><p>No matches</p></div>';
 }
 
-// VIN
 async function decodeVin() {
   const vin = document.getElementById('vinInput').value.trim().toUpperCase();
   const c = document.getElementById('vinResult');
@@ -1392,7 +1057,6 @@ async function decodeVin() {
   } catch (e) { c.innerHTML = '<div class="card"><p>Error</p></div>'; }
 }
 
-// PAINT
 let paintB64 = '';
 async function previewPaint(e) {
   const f = e.target.files[0];
@@ -1420,7 +1084,6 @@ async function matchPaint() {
   btn.disabled = false; btn.textContent = '🎨 Match Paint Colour';
 }
 
-// PHOTO DIAG
 let diagB64 = '';
 async function previewDiag(e) {
   const f = e.target.files[0];
@@ -1448,7 +1111,6 @@ async function diagnosePhoto() {
   btn.disabled = false; btn.textContent = '📸 Analyze Photo';
 }
 
-// JOBS
 let jobPhotos = [];
 async function addJobPhotos(e) {
   for (const f of Array.from(e.target.files)) {
@@ -1531,7 +1193,6 @@ function printJob(id) {
   setTimeout(() => w.print(), 500);
 }
 
-// CUSTOMERS
 function showCustomerForm() { document.getElementById('customerForm').style.display = 'block'; }
 function hideCustomerForm() { document.getElementById('customerForm').style.display = 'none'; }
 async function createCustomer() {
@@ -1553,7 +1214,6 @@ async function loadCustomers() {
 }
 function waCust(p) { window.open('https://wa.me/' + p.replace(/\D/g, ''), '_blank'); }
 
-// APPOINTMENTS
 function showApptForm() { document.getElementById('apptForm').style.display = 'block'; }
 function hideApptForm() { document.getElementById('apptForm').style.display = 'none'; }
 async function createAppt() {
@@ -1577,7 +1237,6 @@ async function loadAppts() {
 }
 async function delAppt(id) { if (!confirm('Delete this appointment?')) return; await jdel('/api/appointments/' + id); loadAppts(); }
 
-// QUOTES
 function showQuoteForm() { document.getElementById('quoteForm').style.display = 'block'; }
 function hideQuoteForm() { document.getElementById('quoteForm').style.display = 'none'; }
 async function createQuote() {
@@ -1600,7 +1259,6 @@ async function loadQuotes() {
 async function acceptQuote(id) { const r = await jpost('/api/quotes/' + id + '/accept', {}); if (r.success) { alert('Converted to invoice'); loadQuotes(); } }
 async function delQuote(id) { if (!confirm('Delete?')) return; await jdel('/api/quotes/' + id); loadQuotes(); }
 
-// INVOICES
 function showInvoiceForm() { document.getElementById('invoiceForm').style.display = 'block'; }
 function hideInvoiceForm() { document.getElementById('invoiceForm').style.display = 'none'; }
 async function createInvoice() {
@@ -1641,7 +1299,6 @@ function printInv(id) {
   setTimeout(() => w.print(), 500);
 }
 
-// PARTS
 let partsData = [];
 async function loadParts() { const d = await jget('/api/parts'); partsData = d.parts; document.getElementById('partsList').dataset.loaded = '1'; filterParts(); }
 function filterParts() {
@@ -1650,7 +1307,6 @@ function filterParts() {
   document.getElementById('partsList').innerHTML = f.map(p => '<div class="card"><h3>' + esc(p.name) + '</h3><p style="font-family:monospace;font-size:12px">' + esc(p.number) + '</p><p>Brand: <strong>' + esc(p.brand) + '</strong> | ' + esc(p.category) + '</p><p style="font-size:16px;color:var(--primary);font-weight:700">R' + p.price + '</p></div>').join('') || '<div class="card"><p>No matches</p></div>';
 }
 
-// INVENTORY
 function showInvForm() { document.getElementById('invForm').style.display = 'block'; }
 function hideInvForm() { document.getElementById('invForm').style.display = 'none'; }
 async function addInventory() {
@@ -1675,7 +1331,6 @@ async function loadInventory() {
 async function adjInv(id, d) { await jpost('/api/inventory/' + id + '/adjust', {delta:d}); loadInventory(); }
 async function delInv(id) { if (!confirm('Delete?')) return; await jdel('/api/inventory/' + id); loadInventory(); }
 
-// PURCHASE ORDERS
 function showPOForm() { document.getElementById('poForm').style.display = 'block'; }
 function hidePOForm() { document.getElementById('poForm').style.display = 'none'; }
 async function createPO() {
@@ -1698,7 +1353,6 @@ async function loadPOs() {
 async function markPO(id, s) { await jput('/api/purchase-orders/' + id, {status:s}); loadPOs(); }
 async function delPO(id) { if (!confirm('Delete?')) return; await jdel('/api/purchase-orders/' + id); loadPOs(); }
 
-// STAFF
 function showStaffForm() { document.getElementById('staffForm').style.display = 'block'; }
 function hideStaffForm() { document.getElementById('staffForm').style.display = 'none'; }
 async function addStaff() {
@@ -1719,7 +1373,6 @@ async function loadStaff() {
 }
 async function delStaff(id) { if (!confirm('Delete?')) return; await jdel('/api/staff/' + id); loadStaff(); }
 
-// CLOCKIN
 async function loadClockin() {
   const c = document.getElementById('clockinList');
   c.innerHTML = '<div class="loading">Loading...</div>';
@@ -1735,7 +1388,6 @@ async function loadClockin() {
 async function clockIn(id) { await jpost('/api/clockins', {staff_id:id}); loadClockin(); }
 async function clockOut(id) { await jpost('/api/clockins/' + id + '/out', {}); loadClockin(); }
 
-// EXPENSES
 function showExpenseForm() { document.getElementById('expenseForm').style.display = 'block'; }
 function hideExpenseForm() { document.getElementById('expenseForm').style.display = 'none'; }
 async function addExpense() {
@@ -1757,7 +1409,6 @@ async function loadExpenses() {
 }
 async function delExp(id) { if (!confirm('Delete?')) return; await jdel('/api/expenses/' + id); loadExpenses(); }
 
-// FUEL
 function showFuelForm() { document.getElementById('fuelForm').style.display = 'block'; }
 function hideFuelForm() { document.getElementById('fuelForm').style.display = 'none'; }
 async function addFuel() {
@@ -1780,7 +1431,6 @@ async function loadFuel() {
 }
 async function delFuel(id) { if (!confirm('Delete?')) return; await jdel('/api/fuel/' + id); loadFuel(); }
 
-// WARRANTY
 async function loadWarranty() {
   const c = document.getElementById('warrantyList');
   c.innerHTML = '<div class="loading">Loading...</div>';
@@ -1793,7 +1443,6 @@ async function loadWarranty() {
   } catch (e) {}
 }
 
-// REMINDERS
 async function loadReminders() {
   const c = document.getElementById('remindersList');
   c.innerHTML = '<div class="loading">Loading...</div>';
@@ -1807,7 +1456,6 @@ function remindWA(phone, name, vehicle) {
   window.open(phone ? 'https://wa.me/' + phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(txt) : 'https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 }
 
-// WIRING
 let wiringData = [];
 async function loadWiring() { const d = await jget('/api/wiring'); wiringData = d.circuits; filterWiring(); }
 function filterWiring() {
@@ -1816,7 +1464,6 @@ function filterWiring() {
   document.getElementById('wiringList').innerHTML = f.map(w => '<div class="card"><h3>🔌 ' + esc(w.name) + '</h3><p style="font-size:12px;color:var(--text2)">' + esc(w.system) + ' — ' + esc(w.description) + '</p><p><strong>Components:</strong></p>' + w.components.map(c => '<div class="list-item">• ' + esc(c) + '</div>').join('') + '<p><strong>Connections:</strong></p>' + w.connections.map(c => '<div class="list-item" style="font-family:monospace;font-size:11px">' + esc(c) + '</div>').join('') + '</div>').join('') || '<div class="card"><p>None</p></div>';
 }
 
-// OBD
 let obdData = [];
 async function loadOBD() { const d = await jget('/api/obd-pids'); obdData = d.pids; filterOBD(); }
 function filterOBD() {
@@ -1825,7 +1472,6 @@ function filterOBD() {
   document.getElementById('obdList').innerHTML = '<table class="torque-table"><tr><th>PID</th><th>Name</th><th>Desc</th></tr>' + f.map(x => '<tr><td><strong>' + x.pid + '</strong></td><td>' + esc(x.name) + '</td><td style="font-size:11px">' + esc(x.desc) + '</td></tr>').join('') + '</table>';
 }
 
-// BULBS
 let bulbsData = [];
 async function loadBulbs() { const d = await jget('/api/bulbs'); bulbsData = d.bulbs; filterBulbs(); }
 function filterBulbs() {
@@ -1834,7 +1480,6 @@ function filterBulbs() {
   document.getElementById('bulbList').innerHTML = f.map(b => '<div class="card"><h3>💡 ' + esc(b.vehicle) + '</h3><div class="list-item">Low: <strong>' + esc(b.headlight_low) + '</strong></div><div class="list-item">High: <strong>' + esc(b.headlight_high) + '</strong></div><div class="list-item">Fog: <strong>' + esc(b.fog) + '</strong></div></div>').join('') || '<div class="card"><p>None</p></div>';
 }
 
-// BATTERIES
 let battData = [];
 async function loadBatt() { const d = await jget('/api/batteries'); battData = d.batteries; filterBatt(); }
 function filterBatt() {
@@ -1843,7 +1488,6 @@ function filterBatt() {
   document.getElementById('battList').innerHTML = f.map(b => '<div class="card"><h3>🔋 ' + esc(b.vehicle) + '</h3><div class="list-item">Group: <strong>' + esc(b.group) + '</strong></div><div class="list-item">CCA: <strong>' + b.cca + '</strong></div><div class="list-item">Ah: <strong>' + b.ah + '</strong></div></div>').join('') || '<div class="card"><p>None</p></div>';
 }
 
-// TYRES
 let tyreData = [];
 async function loadTyre() { const d = await jget('/api/tyres'); tyreData = d.tyres; filterTyre(); }
 function filterTyre() {
@@ -1852,7 +1496,6 @@ function filterTyre() {
   document.getElementById('tyreList').innerHTML = f.map(t => '<div class="card"><h3>🛞 ' + esc(t.vehicle) + '</h3><div class="list-item">Size: <strong>' + esc(t.size) + '</strong></div><div class="list-item">Front: <strong>' + esc(t.pressure_f) + '</strong></div><div class="list-item">Rear: <strong>' + esc(t.pressure_r) + '</strong></div></div>').join('') || '<div class="card"><p>None</p></div>';
 }
 
-// FUSES
 async function loadFuses() {
   const c = document.getElementById('fuseList');
   c.innerHTML = '<div class="loading">Loading...</div>';
@@ -1862,7 +1505,6 @@ async function loadFuses() {
   } catch (e) {}
 }
 
-// SERVICE CALC
 async function calcService() {
   const km = parseInt(document.getElementById('svcKm').value) || 0;
   const t = document.getElementById('svcType').value;
@@ -1871,7 +1513,6 @@ async function calcService() {
   document.getElementById('svcResult').innerHTML = '<div class="card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);color:white"><h3 style="color:white">Next Service Due</h3><p style="font-size:28px;font-weight:800;color:white">at ' + d.next_service_km + ' km</p><p style="color:white">or in ' + d.months_interval + ' months</p></div><div class="card"><h3>Items to check</h3>' + d.items.map(i => '<div class="list-item">• ' + esc(i) + '</div>').join('') + '</div>';
 }
 
-// INSPECT
 async function loadChecklist() {
   const t = document.getElementById('inspectType').value;
   const d = await jget('/api/checklists/' + t);
@@ -1886,13 +1527,11 @@ function printChecklist() {
   setTimeout(() => w.print(), 500);
 }
 
-// BOLT CALC
 async function calcTorque() {
   const d = await jpost('/api/bolt-calc', {size:document.getElementById('boltSize').value, grade:document.getElementById('boltGrade').value, condition:document.getElementById('boltCondition').value});
   document.getElementById('boltResult').innerHTML = '<div class="card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white"><h3 style="color:white">Recommended Torque</h3><p style="font-size:32px;font-weight:800;color:white;margin:8px 0">' + d.nm.toFixed(1) + ' Nm</p><p style="color:white">' + d.ftlb.toFixed(1) + ' ft·lb</p></div><div class="card"><p><strong>Clamp force:</strong> ' + d.clamp_kn.toFixed(1) + ' kN</p></div>';
 }
 
-// TORQUE
 let torqueData = [], seqData = [];
 async function loadTorque() {
   if (!torqueData.length) { const d = await jget('/api/torque'); torqueData = d.bolts; seqData = d.sequences; }
@@ -1905,7 +1544,6 @@ function filterTorque() {
   document.getElementById('torqueSeq').innerHTML = seqData.map(s => '<div class="card"><h3>' + esc(s.component) + '</h3><p style="font-size:11px;color:var(--text2)">' + esc(s.pattern) + '</p>' + s.steps.map(x => '<div class="list-item">• ' + esc(x) + '</div>').join('') + '<p style="font-size:12px;font-style:italic;margin-top:6px">' + esc(s.note) + '</p></div>').join('');
 }
 
-// HISTORY
 async function searchVehicleHistory() {
   const q = document.getElementById('vehicleSearch').value.trim().toLowerCase();
   const c = document.getElementById('vehicleHistory');
@@ -1915,7 +1553,6 @@ async function searchVehicleHistory() {
   c.innerHTML = m.length ? '<p style="margin-bottom:12px;color:var(--text2)">' + m.length + ' record(s) found</p>' + m.reverse().map(j => '<div class="card"><h3>Job #' + j.id + '</h3><p><strong>' + esc(j.customer) + '</strong></p><p>🚗 ' + esc(j.vehicle) + '</p><p>' + esc(j.complaint) + '</p><p><span class="badge ' + j.status.toLowerCase().replace(' ', '') + '">' + esc(j.status) + '</span></p></div>').join('') : '<div class="card"><p>No history found</p></div>';
 }
 
-// ANALYTICS
 async function loadAnalytics() {
   const d = await jget('/api/analytics');
   let h = '<div class="stats-row"><div class="stat-card blue"><div class="num">R' + d.avg_invoice.toFixed(0) + '</div><div class="lbl">Avg Invoice</div></div><div class="stat-card green"><div class="num">R' + d.total_revenue.toFixed(0) + '</div><div class="lbl">Revenue</div></div><div class="stat-card red"><div class="num">R' + d.total_expenses.toFixed(0) + '</div><div class="lbl">Expenses</div></div><div class="stat-card purple"><div class="num">R' + d.net_profit.toFixed(0) + '</div><div class="lbl">Net Profit</div></div></div>';
@@ -1924,7 +1561,6 @@ async function loadAnalytics() {
   document.getElementById('analyticsContent').innerHTML = h;
 }
 
-// TAX
 async function loadBizCard() {
   const d = await jget('/api/workshop');
   document.getElementById('bcLogo').textContent = d.logo || '🔧';
@@ -1944,7 +1580,6 @@ function printBizCard() {
   setTimeout(() => w.print(), 500);
 }
 
-// SETTINGS
 async function loadSettings() {
   const d = await jget('/api/workshop');
   document.getElementById('wsLogo').value = d.logo || '🔧';
@@ -1971,278 +1606,6 @@ loadSettings();
 
 function exportJobsCSV() { window.location.href = '/api/export/jobs'; }
 function exportCustomersCSV() { window.location.href = '/api/export/customers'; }
-
-// ═══════════════════════════════════════════════════════════════
-// GLOBAL FLOATING-ELEMENT VISIBILITY GUARD
-// Only shows floating elements when the HOME panel is active.
-// ═══════════════════════════════════════════════════════════════
-(function() {
-  var FLOATING_SELECTORS = [
-    '#rt-dock', '#rt-dock-fab', '#rt-dock-menu', '#rt-dock-backdrop',
-    '#rt-role-badge',
-    '.home-search', '.home-avatar', '.home-fab', '.home-owner',
-    '.search-icon', '.floating-search', '.search-fab',
-    '.floating-avatar', '.floating-helper', '.helper-avatar',
-    '.floating-fab', '.fab-add', '.add-fab',
-    '.owner-badge', '.floating-owner', '.owner-pill',
-    '.dock', '.floating-dock', '#dock', '#floatingDock',
-    '.rt-floating-detected',
-    '[data-dock]', '[data-floating]'
-  ];
-
-  function findFloatingElements() {
-    var found = [];
-    FLOATING_SELECTORS.forEach(function(sel) {
-      try {
-        document.querySelectorAll(sel).forEach(function(el) {
-          found.push(el);
-        });
-      } catch(e) {}
-    });
-
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var all = document.querySelectorAll('body *');
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      if (el.closest('#rt-dock-backdrop, #sigModal, [role="dialog"], .modal')) continue;
-      if (el.closest('#home')) continue;
-      var cs = window.getComputedStyle(el);
-      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-      if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
-      var z = parseInt(cs.zIndex, 10);
-      if (isNaN(z) || z < 100) continue;
-      var r = el.getBoundingClientRect();
-      if (r.width < 20 || r.width > 200) continue;
-      if (r.height < 20 || r.height > 200) continue;
-      var inCorner =
-        (r.left < 120 && r.top < 260) ||
-        (r.left < 260 && r.top > vh - 420) ||
-        (r.left > vw - 220 && r.top > vh - 420);
-      if (inCorner) found.push(el);
-    }
-    return found;
-  }
-
-  function isHomeActive() {
-    var home = document.getElementById('home');
-    if (!home) return false;
-    return home.classList.contains('active');
-  }
-
-  function enforce() {
-    var onHome = isHomeActive();
-    var elements = findFloatingElements();
-    elements.forEach(function(el) {
-      if (el.closest('#home')) {
-        el.style.display = '';
-        el.style.visibility = '';
-        el.style.opacity = '';
-        el.style.pointerEvents = '';
-        return;
-      }
-      if (onHome) {
-        el.style.display = '';
-        el.style.visibility = '';
-        el.style.opacity = '';
-        el.style.pointerEvents = '';
-      } else {
-        el.style.setProperty('display', 'none', 'important');
-        el.style.setProperty('visibility', 'hidden', 'important');
-        el.style.setProperty('opacity', '0', 'important');
-        el.style.setProperty('pointer-events', 'none', 'important');
-      }
-    });
-  }
-
-  enforce();
-  setInterval(enforce, 100);
-
-  try {
-    var _t = null;
-    new MutationObserver(function() {
-      if (_t) return;
-      _t = setTimeout(function() { _t = null; enforce(); }, 30);
-    }).observe(document.body, {
-      childList: true, subtree: true,
-      attributes: true, attributeFilter: ['class', 'style']
-    });
-  } catch(e) {}
-
-  if (typeof window.showTab === 'function') {
-    var _origShowTab = window.showTab;
-    window.showTab = function(name, el) {
-      var result = _origShowTab.apply(this, arguments);
-      setTimeout(enforce, 0);
-      setTimeout(enforce, 50);
-      setTimeout(enforce, 150);
-      return result;
-    };
-  }
-})();
-
-// TEMP DEBUG FUNCTION — remove after fix
-function runDebugCheck(){
-  var fab = document.getElementById('aiFab');
-  var active = document.querySelector('.panel.active');
-  var dock = document.getElementById('rt-dock');
-  var info = {
-    'ACTIVE PANEL': active ? active.id : 'none',
-    'FAB exists': !!fab,
-    'FAB class': fab ? fab.className : 'n/a',
-    'FAB display': fab ? getComputedStyle(fab).display : 'n/a',
-    'FAB opacity': fab ? getComputedStyle(fab).opacity : 'n/a',
-    'FAB z-index': fab ? getComputedStyle(fab).zIndex : 'n/a',
-    'FAB bottom': fab ? getComputedStyle(fab).bottom : 'n/a',
-    'FAB right': fab ? getComputedStyle(fab).right : 'n/a',
-    'DOCK exists': !!dock,
-    'DOCK display': dock ? getComputedStyle(dock).display : 'n/a',
-    'DOCK class': dock ? dock.className : 'n/a',
-  };
-  var txt = '';
-  for (var k in info) txt += k + ': ' + info[k] + '\n';
-  
-  // Show in a big readable alert
-  alert(txt);
-}
-
-// ─────────────────────────────────────────────
-// TEMP DEBUG: force-show the AI button if URL contains ?debugAI=1
-// ─────────────────────────────────────────────
-(function(){
-  if (location.search.indexOf('debugAI=1') !== -1) {
-    setTimeout(function(){
-      var fab = document.getElementById('aiFab');
-      if (fab) {
-        fab.style.cssText = 'position:fixed;bottom:230px;right:18px;width:60px;height:60px;' +
-          'border-radius:50%;background:#00a8e8;color:#fff;border:3px solid red;' +
-          'font-size:26px;z-index:999999;display:flex;align-items:center;' +
-          'justify-content:center;opacity:1;visibility:visible;pointer-events:auto;';
-        fab.textContent = '🤖';
-        console.log('DEBUG: AI button force-shown');
-      } else {
-        console.log('DEBUG: #aiFab NOT in DOM');
-        alert('#aiFab NOT in DOM. Searching everywhere...');
-      }
-    }, 2000);
-  }
-})();
-
-// ═════════════════════════════════════════════════
-// DIAGNOSTIC: /?checkFab=1 opens an alert with FAB state
-// ═════════════════════════════════════════════════
-if (location.search.indexOf('checkFab=1') !== -1) {
-  setTimeout(function(){
-    var fab = document.getElementById('aiFab');
-    var msg = 
-      'aiFab exists: ' + (!!fab) + '\n' +
-      'aiFab class: ' + (fab ? '"' + fab.className + '"' : 'N/A') + '\n' +
-      'aiFab display: ' + (fab ? getComputedStyle(fab).display : 'N/A') + '\n' +
-      'aiFab opacity: ' + (fab ? getComputedStyle(fab).opacity : 'N/A') + '\n' +
-      'aiFab visibility: ' + (fab ? getComputedStyle(fab).visibility : 'N/A') + '\n' +
-      'aiFab bottom: ' + (fab ? getComputedStyle(fab).bottom : 'N/A') + '\n' +
-      'aiFab z-index: ' + (fab ? getComputedStyle(fab).zIndex : 'N/A') + '\n' +
-      'active panel: ' + (document.querySelector('.panel.active') || {}).id + '\n' +
-      'URL: ' + location.href;
-    alert(msg);
-  }, 2500);
-}
-
-// ═══════════════════════════════════════════════════════
-// AI ROBOT TOGGLE (Smart Observer - No Flashing)
-// ═══════════════════════════════════════════════════════
-(function() {
-  var DIAG_TABS = [
-    'chat', 'codes', 'problems', 'vin', 'paint', 'photo',
-    'wiring', 'obd', 'bulbs', 'batteries', 'tyres', 'fuses',
-    'service', 'inspect', 'boltcalc', 'torque'
-  ];
-
-  function updateRobot() {
-    var fab = document.getElementById('aiFab');
-    if (!fab) return;
-    
-    var active = document.querySelector('.panel.active');
-    var id = active ? active.id : '';
-    
-    if (DIAG_TABS.indexOf(id) !== -1) {
-      fab.classList.add('show');
-    } else {
-      fab.classList.remove('show');
-    }
-  }
-
-  // 1. Run once when the app loads
-  setTimeout(updateRobot, 500);
-
-  // 2. Watch the DOM. Whenever a panel opens/closes, run updateRobot ONCE.
-  var observer = new MutationObserver(function() {
-    updateRobot();
-  });
-  
-  // Start watching the body for class changes (which is how tabs open)
-  observer.observe(document.body, { 
-    attributes: true, 
-    attributeFilter: ['class'], 
-    subtree: true 
-  });
-})();
-
-// ═══════════════════════════════════════════════════════
-// GLOBAL CLICK KILLER (Stops Freezing & Ghost Clicks)
-// ═══════════════════════════════════════════════════════
-document.addEventListener('click', function(e) {
-  // Find if the click happened inside a tile or a category card
-  var tile = e.target.closest('.tile');
-  var catCard = e.target.closest('.cat-card');
-  var bnav = e.target.closest('.bnav-item');
-
-  if (tile || catCard || bnav) {
-    // Prevent the click from firing multiple times (causing the freeze)
-    e.stopPropagation();
-    e.preventDefault();
-    
-    // If the phone is already processing a click, ignore this one
-    if (window.__processingClick) return;
-    window.__processingClick = true;
-    
-    // Release the lock after 400ms
-    setTimeout(function() { window.__processingClick = false; }, 400);
-
-    // Manually trigger the correct function based on what was clicked
-    if (catCard) {
-      var onclickAttr = catCard.getAttribute('onclick');
-      if (onclickAttr) eval(onclickAttr);
-    } else if (tile) {
-      var onclickAttr = tile.getAttribute('onclick');
-      if (onclickAttr) eval(onclickAttr);
-    } else if (bnav) {
-      var onclickAttr = bnav.getAttribute('onclick');
-      if (onclickAttr) eval(onclickAttr);
-    }
-  }
-}, true); // Using 'true' catches the click before other scripts can mess with it
-
-// ═══════════════════════════════════════════════════════
-// THE PEACEKEEPER (Stops background files from freezing the app)
-// ═══════════════════════════════════════════════════════
-document.addEventListener('click', function(e) {
-    var clickable = e.target.closest('.tile, .cat-card, .bnav-item');
-    if (clickable) {
-        // Stop the click from triggering 5 different scripts at once
-        e.stopPropagation();
-        
-        // If the app is already processing a click, ignore this one
-        if (window.__peacekeeper) return;
-        window.__peacekeeper = true;
-        setTimeout(function() { window.__peacekeeper = false; }, 350);
-
-        var onclick = clickable.getAttribute('onclick');
-        if (onclick) {
-            try { eval(onclick); } catch(err) { console.error(err); }
-        }
-    }
-}, true);
-
 </script>
 </body>
 </html>"""
