@@ -16,7 +16,6 @@ from pages import HTML_PAGE
 
 AI_PANEL_HTML = ""
 FLOATING_MANAGER_HTML = ""
-dock_html = ""
 PWA_HTML = ""
 AI_ROUTER = None
 
