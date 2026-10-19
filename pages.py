@@ -2176,6 +2176,27 @@ document.addEventListener('click', function(e) {
   }
 }, true); // Using 'true' catches the click before other scripts can mess with it
 
+// ═══════════════════════════════════════════════════════
+// THE PEACEKEEPER (Stops background files from freezing the app)
+// ═══════════════════════════════════════════════════════
+document.addEventListener('click', function(e) {
+    var clickable = e.target.closest('.tile, .cat-card, .bnav-item');
+    if (clickable) {
+        // Stop the click from triggering 5 different scripts at once
+        e.stopPropagation();
+        
+        // If the app is already processing a click, ignore this one
+        if (window.__peacekeeper) return;
+        window.__peacekeeper = true;
+        setTimeout(function() { window.__peacekeeper = false; }, 350);
+
+        var onclick = clickable.getAttribute('onclick');
+        if (onclick) {
+            try { eval(onclick); } catch(err) { console.error(err); }
+        }
+    }
+}, true);
+
 </script>
 </body>
 </html>"""
