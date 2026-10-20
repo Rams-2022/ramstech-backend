@@ -332,3 +332,75 @@ async def chat(r: Request):
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
+
+# ═══════════════════════════════════════════════════════════════
+# BATCH 3: PARTS SEARCH, ORDERS, SCAN & PHOTO INTAKE
+# ═══════════════════════════════════════════════════════════════
+
+# --- Parts Search API ---
+@app.get("/api/parts-search")
+def search_parts(q: str = None, limit: int = 50):
+    # Simplified local search using the in-memory/MEM store
+    results = []
+    inv = store_list("inventory")
+    if q:
+        q_lower = q.lower()
+        inv = [i for i in inv if q_lower in str(i.get("part_number","")).lower() or q_lower in str(i.get("name","")).lower()]
+    
+    for i in inv[:limit]:
+        results.append({"source": "inventory", "id": i.get("id"), "part_number": i.get("part_number", ""), "name": i.get("name", ""), "qty": i.get("qty", 0), "cost_price": i.get("cost_price", 0), "sell_price": i.get("sell_price", 0)})
+    
+    return {"query": q or "", "count": len(results), "results": results}
+
+# --- Parts Orders API ---
+@app.get("/api/po/list")
+def list_pos():
+    return {"purchase_orders": store_list("purchase_orders")}
+
+@app.post("/api/po/create")
+async def create_po(r: Request):
+    d = await r.json()
+    pid = str(uuid.uuid4())[:8]
+    po = {"id": pid, "po_number": "PO-" + pid.upper(), "supplier": d.get("supplier", ""), "items": d.get("items", []), "status": "draft", "created": now()}
+    store_save("purchase_orders", pid, po)
+    return {"success": True, "po_id": pid, "po_number": po["po_number"]}
+
+# --- Scan API ---
+@app.get("/api/scan/lookup-part/{code}")
+def lookup_part(code: str):
+    code = code.strip().upper()
+    inv = [i for i in store_list("inventory") if code in str(i.get("part_number","")).upper()]
+    return {"code": code, "inventory": inv, "found": len(inv) > 0}
+
+@app.get("/api/scan/lookup-vin/{vin}")
+def lookup_vin(vin: str):
+    vin = vin.strip().upper()
+    if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
+    jobs = [j for j in store_list("jobs") if vin in str(j.get("registration","")).upper()]
+    
+    m, ctry, year = "Unknown", "Unknown", "Unknown"
+    try:
+        from data import WMI_DB, YEAR_CODES
+        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown"))
+        year = YEAR_CODES.get(vin[9], "Unknown")
+    except: pass
+    return {"vin": vin, "manufacturer": m, "country": ctry, "year": year, "history": jobs}
+
+# --- Photo Intake API ---
+@app.post("/api/photo/intake")
+async def photo_intake(r: Request):
+    d = await r.json()
+    img = d.get("image_base64", "")
+    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured or no image"}
+    
+    prompt = "Extract vehicle info from this image. Return ONLY JSON: {\"vin\":\"\",\"registration\":\"\",\"make\":\"\",\"model\":\"\",\"year\":\"\",\"km\":\"\"}"
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}],
+            response_format={"type": "json_object"}
+        )
+        return {"success": True, **json.loads(resp.choices[0].message.content)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
