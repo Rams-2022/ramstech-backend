@@ -92,7 +92,7 @@ def health():
 
 
 # ═══════════════════════════════════════════════════════════════
-# INVOICES PDF GENERATOR (from invoices_pdf.py)
+# INVOICES PDF GENERATOR
 # ═══════════════════════════════════════════════════════════════
 def _meta(job):
     sig = job.get("signature") or ""
@@ -147,7 +147,7 @@ def invoice_html(jid: str):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PAYMENTS ROUTER (from payments.py)
+# PAYMENTS ROUTER
 # ═══════════════════════════════════════════════════════════════
 router_pay = APIRouter(tags=["payments"])
 
@@ -235,8 +235,54 @@ async def webhook_stripe(request: Request):
 
 app.include_router(router_pay)
 
+
 # ═══════════════════════════════════════════════════════════════
-# ALL YOUR OTHER CORE ROUTES (Stats, Jobs, etc.)
+# BATCH 2: STAFF ROLES & KANBAN
+# ═══════════════════════════════════════════════════════════════
+ROLES = {
+    "owner": {"label": "Owner", "capabilities": ["*"]},
+    "manager": {"label": "Manager", "capabilities": ["view_jobs", "edit_jobs", "view_customers", "view_invoices"]},
+    "technician": {"label": "Technician", "capabilities": ["view_own_jobs", "edit_own_jobs", "clock_in"]},
+}
+KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
+
+@app.get("/api/roles")
+def list_roles(): return {"roles": [{"id": k, "label": v["label"]} for k, v in ROLES.items()]}
+
+@app.get("/api/whoami")
+def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "capabilities": ["*"]}
+
+@app.post("/api/staff/{sid}/pin")
+async def set_staff_pin(sid: str, r: Request):
+    d = await r.json(); pin = str(d.get("pin") or "").strip()
+    if not pin or len(pin) < 4 or not pin.isdigit(): raise HTTPException(400, "PIN must be 4 digits")
+    staff = store_get("staff", sid)
+    if not staff: raise HTTPException(404, "Staff not found")
+    staff["pin"] = pin; store_save("staff", sid, staff); return {"success": True}
+
+@app.get("/api/jobs/kanban")
+def jobs_kanban():
+    jobs = store_list("jobs")
+    columns = {s: [] for s in KANBAN_STATUSES}
+    for j in jobs:
+        s = j.get("status") or "New"
+        if s not in columns: columns[s] = []
+        columns[s].append({"id": j.get("id"), "customer": j.get("customer", ""), "vehicle": j.get("vehicle", "")})
+    return {"statuses": KANBAN_STATUSES, "columns": columns}
+
+@app.post("/api/jobs/{jid}/status")
+async def set_job_status(jid: str, r: Request):
+    d = await r.json(); new_status = (d.get("status") or "").strip()
+    if new_status not in KANBAN_STATUSES: raise HTTPException(400, "Invalid status")
+    job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    job["status"] = new_status
+    store_save("jobs", jid, job)
+    return {"success": True, "job": job}
+
+
+# ═══════════════════════════════════════════════════════════════
+# ALL YOUR OTHER CORE ROUTES
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str): return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
@@ -252,11 +298,9 @@ def list_jobs(): return {"jobs": store_list("jobs")}
 
 @app.post("/api/jobs")
 async def create_job(r: Request):
-    d = await r.json()
-    jid = str(uuid.uuid4())[:8]
+    d = await r.json(); jid = str(uuid.uuid4())[:8]
     job = {"id": jid, "customer": d.get("customer", ""), "phone": d.get("phone", ""), "vehicle": d.get("vehicle", ""), "registration": d.get("registration", ""), "km": int(d.get("km", 0)), "complaint": d.get("complaint", ""), "assigned_to": d.get("assigned_to", ""), "photos": d.get("photos", [])[:5], "signature": d.get("signature", ""), "warranty_months": int(d.get("warranty_months", 6)), "status": "New", "timeline": [now() + " — Job created"], "labour_hours": 0, "labour_rate": get_workshop_data().get("labour_rate", 450), "parts_cost": 0, "labour_cost": 0, "subtotal": 0, "vat": 0, "total": 0, "created": now()}
-    store_save("jobs", jid, job)
-    return {"success": True, "job": job}
+    store_save("jobs", jid, job); return {"success": True, "job": job}
 
 @app.get("/api/customers")
 def list_customers(): return {"customers": store_list("customers")}
@@ -265,8 +309,7 @@ def list_customers(): return {"customers": store_list("customers")}
 async def create_customer(r: Request):
     d = await r.json(); cid = str(uuid.uuid4())[:8]
     c = {"id": cid, "name": d.get("name", ""), "phone": d.get("phone", ""), "email": d.get("email", ""), "address": d.get("address", ""), "created": today()}
-    store_save("customers", cid, c)
-    return {"success": True, "customer": c}
+    store_save("customers", cid, c); return {"success": True, "customer": c}
 
 @app.get("/api/invoices")
 def list_invoices(): return {"invoices": store_list("invoices")}
@@ -275,8 +318,7 @@ def list_invoices(): return {"invoices": store_list("invoices")}
 async def create_invoice(r: Request):
     d = await r.json(); iid = str(uuid.uuid4())[:8]
     i = {"id": iid, "customer": d.get("customer", ""), "vehicle": d.get("vehicle", ""), "description": d.get("description", ""), "labour": float(d.get("labour", 0)), "parts": float(d.get("parts", 0)), "subtotal": float(d.get("labour", 0)) + float(d.get("parts", 0)), "vat": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 0.15, "total": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 1.15, "amount_paid": 0, "paid": False, "created": now()}
-    store_save("invoices", iid, i)
-    return {"success": True, "invoice": i}
+    store_save("invoices", iid, i); return {"success": True, "invoice": i}
 
 @app.get("/api/workshop")
 def get_workshop(): return get_workshop_data()
@@ -290,5 +332,3 @@ async def chat(r: Request):
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
-
-# (You can paste any remaining missing endpoints for parts/inventory here if needed)
