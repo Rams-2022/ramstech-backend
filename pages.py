@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Full Feature UI)
+# pages.py — RamsTech v10.0 (Complete UI with All Features)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -93,6 +93,14 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 .badge.medium{background:#f59e0b}
 .badge.low,.badge.ok,.badge.completed{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
+
+/* KANBAN STYLES */
+.kanban-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px;}
+.kanban-col{background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);}
+.kanban-col h4{font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;}
+.kanban-card{background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);box-shadow:0 2px 4px rgba(0,0,0,.05);}
+.kanban-card h5{font-size:13px;margin-bottom:2px;}
+.kanban-card p{font-size:11px;color:var(--text2);}
 </style>
 </head>
 <body>
@@ -162,6 +170,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- VIN -->
 <div id="vin" class="panel">
 <div class="panel-title">🔍 VIN Decoder</div>
+<button class="btn" onclick="openScanner()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">📷 Scan VIN / Barcode</button>
 <input type="text" class="form-input" id="vinInput" placeholder="Enter 17-character VIN" maxlength="17" style="text-transform:uppercase">
 <button class="btn" onclick="decodeVin()">Decode VIN</button>
 <div id="vinResult"></div>
@@ -192,10 +201,11 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- JOBS -->
 <div id="jobs" class="panel">
 <div class="panel-title">📋 Job Cards</div>
-<!-- NEW KANBAN BUTTON -->
-<button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">📊 Open Kanban Board</button>
 
-<button class="btn no-print" onclick="showJobForm()">+ New Job Card</button>
+<button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">📊 Open Kanban Board</button>
+<button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">📸 New Job from Photo</button>
+
+<button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
 <button class="btn btn-dark no-print" onclick="exportJobsCSV()">📥 Export CSV</button>
 <div id="jobForm" style="display:none">
 <div class="card">
@@ -259,7 +269,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- SETTINGS -->
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ Settings</div>
-<!-- NEW STAFF MANAGER BUTTON -->
+
 <button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
 
 <div class="card">
@@ -281,6 +291,25 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
   <div class="bnav-item" onclick="showTab('chat',this)"><div class="bnav-icon">🤖</div><div class="bnav-label">AI</div></div>
   <div class="bnav-item" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
   <div class="bnav-item" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
+</div>
+
+<!-- MODALS (Hidden by default) -->
+<div id="kanbanModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;">
+  <div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2>
+      <button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;">✕</button>
+    </div>
+    <div id="kanbanContent" class="kanban-board">Loading...</div>
+  </div>
+</div>
+
+<div id="scannerModal" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;">
+  <div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;">
+    <h2>📷 Scan Barcode</h2>
+    <button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:20px;">✕</button>
+  </div>
+  <div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>
 </div>
 
 <script>
@@ -395,7 +424,7 @@ async function loadProblems() { try { const d = await jget('/api/problems'); doc
 async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
 async function matchPaint() { alert('Paint API placeholder'); }
 async function diagnosePhoto() { alert('Photo API placeholder'); }
-async function loadJobs() { try { const d = await jget('/api/jobs'); document.getElementById('jobList').innerHTML = d.jobs.map(j=>'<div class="card"><h3>'+esc(j.customer)+'</h3></div>').join(''); } catch(e){} }
+async function loadJobs() { try { const d = await jget('/api/jobs'); document.getElementById('jobList').innerHTML = d.jobs.map(j=>'<div class="card"><h3>'+esc(j.customer)+'</h3><p>'+esc(j.status)+'</p></div>').join(''); } catch(e){} }
 async function loadCustomers() { try { const d = await jget('/api/customers'); document.getElementById('customerList').innerHTML = d.customers.map(c=>'<div class="card"><h3>'+esc(c.name)+'</h3></div>').join(''); } catch(e){} }
 async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3></div>').join(''); } catch(e){} }
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
@@ -404,13 +433,52 @@ function showCustomerForm(){document.getElementById('customerForm').style.displa
 function showInvoiceForm(){document.getElementById('invoiceForm').style.display='block'} function hideInvoiceForm(){document.getElementById('invoiceForm').style.display='none'}
 function sendMsg(){}
 
-// NATIVE UI FUNCTIONS (Kanban & Staff Manager)
-function openKanban() {
-  alert('Kanban board loading... (API route is ready in main.py)');
+// MODALS & FEATURES
+async function openKanban() {
+  document.getElementById('kanbanModal').style.display = 'block';
+  const d = await jget('/api/jobs/kanban');
+  let html = '';
+  d.statuses.forEach(s => {
+    const items = d.columns[s] || [];
+    html += `<div class="kanban-col"><h4>${s} (${items.length})</h4>`;
+    items.forEach(j => {
+      html += `<div class="kanban-card"><h5>#${j.id} ${j.customer}</h5><p>${j.vehicle}</p></div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('kanbanContent').innerHTML = html;
 }
 
-function openStaffManager() {
-  alert('Staff Manager loading... (API route is ready in main.py)');
+function openStaffManager() { alert('Staff Manager UI coming next...'); }
+function openPhotoIntake() { alert('Photo Intake UI coming next...'); }
+
+// BARCODE SCANNER
+let html5QrCode = null;
+async function openScanner() {
+  document.getElementById('scannerModal').style.display = 'block';
+  if (!html5QrCode) {
+    const script = document.createElement('script');
+    script.src = "https://unpkg.com/html5-qrcode";
+    script.onload = () => {
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
+        closeScanner();
+        document.getElementById('vinInput').value = text;
+        decodeVin();
+      });
+    };
+    document.body.appendChild(script);
+  } else {
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
+      closeScanner();
+      document.getElementById('vinInput').value = text;
+      decodeVin();
+    });
+  }
+}
+function closeScanner() {
+  document.getElementById('scannerModal').style.display = 'none';
+  if (html5QrCode) html5QrCode.stop().catch(e=>{});
 }
 </script>
 </body>
