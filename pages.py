@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Complete UI with Staff Manager)
+# pages.py — RamsTech v10.0 (Complete Final UI)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -93,6 +93,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 .badge.medium{background:#f59e0b}
 .badge.low,.badge.ok,.badge.completed{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -440,7 +441,129 @@ async function openKanban() {
   document.getElementById('kanbanContent').innerHTML = html;
 }
 
-function openPhotoIntake() { alert('Photo Intake UI coming next...'); }
+// PHOTO INTAKE
+async function openPhotoIntake() {
+  let modal = document.getElementById('photoIntakeModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'photoIntakeModal';
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `
+      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);">
+        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2>
+          <button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
+        </div>
+        <div id="piStep1" class="card" style="background:var(--input-bg);">
+          <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard. The AI will read the details and pre-fill the job card.</p>
+          <input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)">
+        </div>
+        <div id="piStep2" style="display:none;">
+          <div id="piPreview" style="margin-bottom:10px;"></div>
+          <div id="piResult" class="card" style="background:var(--input-bg);">
+            <h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3>
+            <input type="text" id="piMake" class="form-input" placeholder="Make (e.g. Toyota)">
+            <input type="text" id="piModel" class="form-input" placeholder="Model (e.g. Hilux)">
+            <input type="text" id="piReg" class="form-input" placeholder="Registration">
+            <input type="text" id="piVin" class="form-input" placeholder="VIN">
+            <input type="number" id="piKm" class="form-input" placeholder="Odometer (km)">
+            <button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button>
+          </div>
+        </div>
+        <div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);">
+          <div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>
+          Analyzing photo...
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'block';
+    document.getElementById('piStep1').style.display = 'block';
+    document.getElementById('piStep2').style.display = 'none';
+    document.getElementById('piImage').value = '';
+  }
+}
+
+async function processPhotoIntake(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  document.getElementById('piStep1').style.display = 'none';
+  document.getElementById('piLoading').style.display = 'block';
+
+  const reader = new FileReader();
+  reader.onload = async function(ev) {
+    const img = new Image();
+    img.onload = async function() {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > 1200) { h = (h * 1200) / w; w = 1200; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+      document.getElementById('piPreview').innerHTML = '<img src="' + canvas.toDataURL('image/jpeg', 0.8) + '" style="width:100%;border-radius:12px;border:1px solid var(--border);">';
+
+      try {
+        const res = await jpost('/api/photo/intake', { image_base64: b64 });
+        document.getElementById('piLoading').style.display = 'none';
+        document.getElementById('piStep2').style.display = 'block';
+
+        if (res.success) {
+          document.getElementById('piMake').value = res.make || '';
+          document.getElementById('piModel').value = res.model || '';
+          document.getElementById('piReg').value = res.registration || '';
+          document.getElementById('piVin').value = res.vin || '';
+          document.getElementById('piKm').value = res.km || '';
+        } else {
+          alert('AI could not read the photo: ' + (res.error || 'Try a clearer photo'));
+        }
+      } catch (err) {
+        document.getElementById('piLoading').style.display = 'none';
+        document.getElementById('piStep2').style.display = 'block';
+        alert('Network error: ' + err.message);
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function createJobFromPhoto() {
+  const make = document.getElementById('piMake').value.trim();
+  const model = document.getElementById('piModel').value.trim();
+  const reg = document.getElementById('piReg').value.trim();
+  const vin = document.getElementById('piVin').value.trim();
+  const km = document.getElementById('piKm').value.trim();
+
+  const vehicle = (make + ' ' + model).trim();
+
+  const payload = {
+    customer: 'New Customer (Photo Intake)',
+    phone: '',
+    vehicle: vehicle || 'Unknown Vehicle',
+    registration: reg || vin,
+    km: parseInt(km) || 0,
+    complaint: 'Vehicle checked in via Photo Intake',
+    assigned_to: '',
+    photos: [],
+    signature: '',
+    warranty_months: 6
+  };
+
+  try {
+    const res = await jpost('/api/jobs', payload);
+    if (res.success) {
+      alert('✓ Job #' + res.job.id + ' created successfully!');
+      document.getElementById('photoIntakeModal').style.display = 'none';
+      showTab('jobs');
+      loadJobs();
+    }
+  } catch (e) {
+    alert('Error creating job: ' + e.message);
+  }
+}
 
 // STAFF MANAGER
 async function openStaffManager() {
