@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Complete UI with All Features)
+# pages.py — RamsTech v10.0 (Complete UI with Staff Manager)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -93,14 +93,6 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 .badge.medium{background:#f59e0b}
 .badge.low,.badge.ok,.badge.completed{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
-
-/* KANBAN STYLES */
-.kanban-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px;}
-.kanban-col{background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);}
-.kanban-col h4{font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;}
-.kanban-card{background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);box-shadow:0 2px 4px rgba(0,0,0,.05);}
-.kanban-card h5{font-size:13px;margin-bottom:2px;}
-.kanban-card p{font-size:11px;color:var(--text2);}
 </style>
 </head>
 <body>
@@ -293,25 +285,6 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
   <div class="bnav-item" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
 </div>
 
-<!-- MODALS (Hidden by default) -->
-<div id="kanbanModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;">
-  <div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-      <h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2>
-      <button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;">✕</button>
-    </div>
-    <div id="kanbanContent" class="kanban-board">Loading...</div>
-  </div>
-</div>
-
-<div id="scannerModal" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;">
-  <div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;">
-    <h2>📷 Scan Barcode</h2>
-    <button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:20px;">✕</button>
-  </div>
-  <div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>
-</div>
-
 <script>
 // CATEGORIES
 const CATEGORIES = {
@@ -435,27 +408,158 @@ function sendMsg(){}
 
 // MODALS & FEATURES
 async function openKanban() {
-  document.getElementById('kanbanModal').style.display = 'block';
+  let modal = document.getElementById('kanbanModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'kanbanModal';
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `
+      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);">
+        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2>
+          <button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
+        </div>
+        <div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'block';
+  }
+  
   const d = await jget('/api/jobs/kanban');
   let html = '';
   d.statuses.forEach(s => {
     const items = d.columns[s] || [];
-    html += `<div class="kanban-col"><h4>${s} (${items.length})</h4>`;
+    html += `<div style="background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);"><h4 style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">${s} (${items.length})</h4>`;
     items.forEach(j => {
-      html += `<div class="kanban-card"><h5>#${j.id} ${j.customer}</h5><p>${j.vehicle}</p></div>`;
+      html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`;
     });
     html += `</div>`;
   });
   document.getElementById('kanbanContent').innerHTML = html;
 }
 
-function openStaffManager() { alert('Staff Manager UI coming next...'); }
 function openPhotoIntake() { alert('Photo Intake UI coming next...'); }
+
+// STAFF MANAGER
+async function openStaffManager() {
+  let modal = document.getElementById('staffModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'staffModal';
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `
+      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);">
+        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2>
+          <button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
+        </div>
+        <div class="card" style="background:var(--input-bg);">
+          <h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3>
+          <input type="text" id="newStaffName" class="form-input" placeholder="Full Name">
+          <select id="newStaffRole" class="form-input">
+            <option value="technician">Technician</option>
+            <option value="manager">Manager</option>
+            <option value="receptionist">Receptionist</option>
+          </select>
+          <input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4">
+          <button class="btn btn-success" onclick="addNewStaff()">+ Add Staff Member</button>
+        </div>
+        <div id="staffList" style="margin-top:16px;">
+          <div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'block';
+  }
+  loadStaffList();
+}
+
+async function loadStaffList() {
+  const list = document.getElementById('staffList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div>';
+  try {
+    const d = await jget('/api/staff');
+    if (!d.staff || d.staff.length === 0) {
+      list.innerHTML = '<p style="text-align:center;color:var(--text2);font-size:13px;">No staff added yet.</p>';
+      return;
+    }
+    let html = '';
+    d.staff.forEach(s => {
+      html += `
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;">
+          <div>
+            <strong style="font-size:14px;">${esc(s.name)}</strong><br>
+            <span style="font-size:11px;color:var(--text2);">${esc(s.role || 'Staff')} • PIN: ${s.pin || 'None'}</span>
+          </div>
+          <button class="btn-sm red" onclick="deleteStaff('${s.id}')">Delete</button>
+        </div>
+      `;
+    });
+    list.innerHTML = html;
+  } catch (e) {
+    list.innerHTML = '<p style="color:red;text-align:center;">Error loading staff</p>';
+  }
+}
+
+async function addNewStaff() {
+  const name = document.getElementById('newStaffName').value.trim();
+  const role = document.getElementById('newStaffRole').value;
+  const pin = document.getElementById('newStaffPin').value.trim();
+  
+  if (!name || pin.length !== 4) {
+    alert('Please enter a name and a 4-digit PIN');
+    return;
+  }
+
+  try {
+    const res = await jpost('/api/staff', { name: name, role: role, pin: pin });
+    if (res.success) {
+      await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin });
+      document.getElementById('newStaffName').value = '';
+      document.getElementById('newStaffPin').value = '';
+      loadStaffList();
+      loadStaffDropdown();
+    }
+  } catch (e) {
+    alert('Error adding staff: ' + e.message);
+  }
+}
+
+async function deleteStaff(id) {
+  if (!confirm('Delete this staff member?')) return;
+  try {
+    await jdel('/api/staff/' + id);
+    loadStaffList();
+    loadStaffDropdown();
+  } catch (e) {
+    alert('Error deleting staff');
+  }
+}
 
 // BARCODE SCANNER
 let html5QrCode = null;
 async function openScanner() {
-  document.getElementById('scannerModal').style.display = 'block';
+  let modal = document.getElementById('scannerModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'scannerModal';
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;';
+    modal.innerHTML = `
+      <div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;">
+        <h2 style="font-size:18px;">📷 Scan Barcode</h2>
+        <button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:24px;">✕</button>
+      </div>
+      <div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'block';
+  }
+
   if (!html5QrCode) {
     const script = document.createElement('script');
     script.src = "https://unpkg.com/html5-qrcode";
@@ -476,6 +580,7 @@ async function openScanner() {
     });
   }
 }
+
 function closeScanner() {
   document.getElementById('scannerModal').style.display = 'none';
   if (html5QrCode) html5QrCode.stop().catch(e=>{});
