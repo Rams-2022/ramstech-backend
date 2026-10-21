@@ -27,7 +27,7 @@ OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 try: db.init()
 except: pass
 
-MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices", "inventory", "purchase_orders", "staff", "clockins", "expenses", "fuel_logs", "workshops", "damage_reports"]}
+MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices", "inventory", "purchase_orders", "staff", "clockins", "expenses", "fuel_logs", "workshops", "damage_reports", "inspections"]}
 WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "", "logo": "RT", "labour_rate": 450}
 
 def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -186,6 +186,28 @@ def pay_redirect(invoice_id: str):
 app.include_router(router_pay)
 
 # ═══════════════════════════════════════════════════════════════
+# INSPECTIONS (NEW)
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/inspections")
+def list_inspections(): return {"inspections": store_list("inspections")}
+
+@app.post("/api/inspections")
+async def create_inspection(r: Request):
+    d = await r.json()
+    iid = str(uuid.uuid4())[:8]
+    insp = {
+        "id": iid,
+        "customer": d.get("customer", ""),
+        "vehicle": d.get("vehicle", ""),
+        "checklist": d.get("checklist", []), # list of checked items
+        "notes": d.get("notes", ""),
+        "photos": d.get("photos", [])[:3], # max 3 photos
+        "created": now()
+    }
+    store_save("inspections", iid, insp)
+    return {"success": True, "inspection": insp}
+
+# ═══════════════════════════════════════════════════════════════
 # INVENTORY, APPOINTMENTS & CLOCK-INS
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/inventory")
@@ -226,7 +248,7 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 # ═══════════════════════════════════════════════════════════════
-# CORE ROUTES & ADVANCED ANALYTICS
+# CORE ROUTES & ANALYTICS
 # ═══════════════════════════════════════════════════════════════
 KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
 
@@ -278,27 +300,23 @@ def get_analytics():
     net = rev - exp
     avg_job = rev / len(invs) if invs else 0
     
-    # 7-day revenue trend
     labels, data = [], []
     for i in range(6, -1, -1):
         day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
         labels.append(day[5:])
         data.append(sum(float(inv.get("total", 0)) for inv in invs if (inv.get("created") or "").startswith(day)))
         
-    # Status counts
     status_counts = {s: 0 for s in KANBAN_STATUSES}
     for j in jobs:
         st = j.get("status", "New")
         if st in status_counts: status_counts[st] += 1
         
-    # Top Mechanics
     mech_stats = {}
     for j in jobs:
         m = j.get("assigned_to") or "Unassigned"
         mech_stats[m] = mech_stats.get(m, 0) + 1
     top_mechs = sorted(mech_stats.items(), key=lambda x: x[1], reverse=True)[:5]
     
-    # Top Services
     svc_stats = {}
     for j in jobs:
         s = (j.get("complaint") or "General")[:20]
