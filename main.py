@@ -506,9 +506,12 @@ async def ai_problem_procedure(r: Request):
     system_prompt = f"You are a master mechanic. You are diagnosing this specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem."
     
     prompt = f"Vehicle: {vehicle if vehicle else 'Unspecified'}. Problem: {problem}. " \
-             f"Provide a detailed, step-by-step testing procedure to identify the culprit. " \
-             f"Include: 1. Tools needed. 2. Initial visual checks. 3. Step-by-step diagnostic tests with expected results. " \
-             f"4. Common culprits based on test results. Format with clear headings and bullet points."
+             f"Provide a detailed diagnostic guide formatted strictly with these sections:\n" \
+             f"1. **Tools Needed**\n" \
+             f"2. **Diagnostic Tests**: Step-by-step tests to identify the culprit (include expected results).\n" \
+             f"3. **Identifying the Culprit**: How to confirm the exact cause based on test results.\n" \
+             f"4. **Fixes & Repairs**: What needs to be fixed or replaced.\n" \
+             f"Format with clear headings and bullet points."
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         # Use gpt-4o-mini for better instruction following and technical accuracy
