@@ -687,7 +687,11 @@ async function searchParts() {
                     <h3>${esc(p.name)}</h3>
                     <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
                     <p style="font-size:12px;color:var(--text2);">${esc(p.brand)}</p>
-                    <p style="font-size:18px;font-weight:800;color:var(--primary);margin-top:6px;">R${p.sell_price.toFixed(2)}</p>
+                    <p style="font-size:18px;font-weight:800;color:var(--primary);margin:8px 0;">R${p.sell_price.toFixed(2)}</p>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+                        <button class="btn-sm blue" onclick="searchSupplier('${esc(p.name)}', '${esc(p.part_number)}')">🌐 Find Supplier</button>
+                        <button class="btn-sm green" onclick="addToPO('${esc(p.name)}', '${esc(p.part_number)}')">🛒 Add to PO</button>
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -705,6 +709,25 @@ async function searchParts() {
     } 
 }
 
+function searchSupplier(name, number) {
+    const query = encodeURIComponent(`buy "${name}" "${number}" auto parts supplier south africa`);
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+}
+
+function addToPO(name, number) {
+    // Switch to Purchase panel
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('purchase').classList.add('active');
+    window.scrollTo(0, 0);
+
+    // Append to PO items
+    const textarea = document.getElementById('poItems');
+    const newItem = `${name} (${number}) - Qty: 1\n`;
+    textarea.value += newItem;
+    toast('Added to Purchase Order');
+    document.getElementById('poSupplier').focus();
+}
+
 async function askAIPart(query) {
     const resBox = document.getElementById('partsAIResult');
     resBox.style.display = 'block';
@@ -716,7 +739,12 @@ async function askAIPart(query) {
             let html = esc(res.reply)
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
-            resBox.innerHTML = html;
+            resBox.innerHTML = html + `
+                <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn-sm blue" onclick="searchSupplier('${esc(query)}', '')">🌐 Find Supplier Online</button>
+                    <button class="btn-sm green" onclick="addToPO('${esc(query)}', '')">🛒 Add to PO</button>
+                </div>
+            `;
         } else {
             resBox.innerHTML = `Error: ${res.error}`;
         }
@@ -745,7 +773,7 @@ async function scanPart(e) {
                     let html = esc(res.reply)
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                         .replace(/\n/g, '<br>');
-                    resBox.innerHTML = `<div class="card" style="border-left:4px solid var(--grad4);"><h3>🤖 AI Part Identification</h3><div style="font-size:14px;line-height:1.6;">${html}</div><button class="btn btn-dark" style="margin-top:12px;font-size:12px;padding:10px;" onclick="document.getElementById('partsScanResult').style.display='none'">Close</button></div>`;
+                    resBox.innerHTML = `<div class="card" style="border-left:4px solid var(--grad4);"><h3>🤖 AI Part Identification</h3><div style="font-size:14px;line-height:1.6;">${html}</div><div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;"><button class="btn-sm blue" onclick="searchSupplier('${esc(res.reply.substring(0,30))}', '')">🌐 Find Supplier</button><button class="btn-sm green" onclick="addToPO('${esc(res.reply.substring(0,30))}', '')">🛒 Add to PO</button></div><button class="btn btn-dark" style="margin-top:12px;font-size:12px;padding:10px;" onclick="document.getElementById('partsScanResult').style.display='none'">Close</button></div>`;
                 } else {
                     resBox.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${res.error}</p></div>`;
                 }
