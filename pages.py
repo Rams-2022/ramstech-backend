@@ -128,11 +128,9 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- DASHBOARD -->
 <div id="dashboard" class="panel">
 <div class="panel-title">📊 Dashboard</div>
-<div id="dashStats"><div class="loading">Loading...</div></div>
+<div id="dashStats" style="margin-bottom:16px;"><div class="loading">Loading...</div></div>
 <div class="card"><h3>💰 Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
 <div class="card"><h3>📋 Job Status</h3><canvas id="jobChart"></canvas></div>
-<div class="card"><h3>⚠️ Low Stock Alerts</h3><div id="dashLowStock"></div></div>
-<div class="card"><h3>🎁 Warranty Expiring</h3><div id="dashWarranty"></div></div>
 </div>
 
 <!-- AI CHAT -->
@@ -259,6 +257,28 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <div id="invoiceList"><div class="loading">Loading...</div></div>
 </div>
 
+<!-- PARTS SEARCH -->
+<div id="parts" class="panel">
+<div class="panel-title">🔩 Parts Search</div>
+<input type="text" class="form-input" id="partsSearch" placeholder="🔍 Search part number or name..." oninput="searchParts()">
+<div id="partsResults"><div class="loading">Type to search...</div></div>
+</div>
+
+<!-- PURCHASE ORDERS -->
+<div id="purchase" class="panel">
+<div class="panel-title">🛒 Purchase Orders</div>
+<button class="btn" onclick="showPOForm()">+ New Purchase Order</button>
+<div id="poForm" style="display:none">
+<div class="card">
+<input class="form-input" id="poSupplier" placeholder="Supplier Name">
+<textarea class="form-input" id="poItems" placeholder="Items (one per line)" rows="3"></textarea>
+<button class="btn btn-success" onclick="createPO()">Save PO</button>
+<button class="btn btn-dark" onclick="hidePOForm()">Cancel</button>
+</div>
+</div>
+<div id="poList"><div class="loading">Loading...</div></div>
+</div>
+
 <!-- SETTINGS -->
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ Settings</div>
@@ -302,8 +322,12 @@ const CATEGORIES = {
       {icon:'👥',label:'Customers',tab:'customers',color:'#10b981'},
       {icon:'💰',label:'Invoices',tab:'invoices',color:'#10b981'}
   ]},
-  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#047857)', items: []},
-  reference: { name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: []},
+  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#047857)', items: [
+      {icon:'🛒',label:'Purchase',tab:'purchase',color:'#3b82f6'}
+  ]},
+  reference: { name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: [
+      {icon:'🔩',label:'Parts Search',tab:'parts',color:'#6b7280'}
+  ]},
   business: { name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#1f2937,#4b5563)', items: [
       {icon:'📊',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
       {icon:'⚙️',label:'Settings',tab:'settings',color:'#6b7280'}
@@ -376,7 +400,8 @@ function showTab(name, el) {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
     problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
     jobs: () => { loadJobs(); loadStaffDropdown(); },
-    customers: loadCustomers, invoices: loadInvoices, settings: loadSettings, dashboard: loadDashboard
+    customers: loadCustomers, invoices: loadInvoices, settings: loadSettings, dashboard: loadDashboard,
+    parts: searchParts, purchase: loadPOs
   };
   if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
 }
@@ -391,8 +416,35 @@ async function jpost(u, b) { const r = await fetch(u, {method:'POST', headers:{'
 async function jput(u, b) { const r = await fetch(u, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
 async function jdel(u) { const r = await fetch(u, {method:'DELETE'}); return r.json(); }
 
+// DASHBOARD CHARTS
+let rC = null, jC = null;
+async function loadDashboard() { 
+  try { 
+    const d = await jget('/api/stats'); 
+    document.getElementById('dashStats').innerHTML = `
+      <div class="stats-row">
+        <div class="stat-card blue"><div class="num">${d.jobs_total}</div><div class="lbl">Jobs</div></div>
+        <div class="stat-card purple"><div class="num">${d.jobs_open}</div><div class="lbl">Open</div></div>
+        <div class="stat-card green"><div class="num">R${d.revenue}</div><div class="lbl">Revenue</div></div>
+      </div>`;
+      
+    if (rC) rC.destroy();
+    rC = new Chart(document.getElementById('revenueChart'), {
+      type: 'line', 
+      data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.15)', fill: true, tension: .4 }] },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    if (jC) jC.destroy();
+    jC = new Chart(document.getElementById('jobChart'), {
+      type: 'doughnut', 
+      data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#6b7280', '#f59e0b', '#10b981'] }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  } catch(e){ console.error(e); }
+}
+
 // API FETCHES
-async function loadDashboard() { try { const d = await jget('/api/stats'); document.getElementById('dashStats').innerHTML = '<div class="stats-row"><div class="stat-card blue"><div class="num">'+d.jobs_total+'</div><div class="lbl">Jobs</div></div><div class="stat-card purple"><div class="num">'+d.jobs_open+'</div><div class="lbl">Open</div></div></div>'; } catch(e){} }
 async function searchCodes() { try { const d = await jget('/api/fault-codes?search='+document.getElementById('codeSearch').value); document.getElementById('codeResults').dataset.loaded='1'; document.getElementById('codeResults').innerHTML = d.codes.map(x=>'<div class="card"><h3>'+x.code+'</h3><p>'+esc(x.description)+'</p></div>').join(''); } catch(e){} }
 async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3></div>').join(''); } catch(e){} }
 async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
@@ -503,6 +555,47 @@ function showJobForm(){document.getElementById('jobForm').style.display='block'}
 function showCustomerForm(){document.getElementById('customerForm').style.display='block'} function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
 function showInvoiceForm(){document.getElementById('invoiceForm').style.display='block'} function hideInvoiceForm(){document.getElementById('invoiceForm').style.display='none'}
 function sendMsg(){}
+
+// PARTS SEARCH & PURCHASE ORDERS
+async function searchParts() {
+  const q = document.getElementById('partsSearch').value;
+  if (!q) return;
+  const c = document.getElementById('partsResults');
+  c.innerHTML = '<div class="loading">Searching...</div>';
+  try {
+    const d = await jget('/api/parts-search?q=' + encodeURIComponent(q));
+    c.innerHTML = d.results.length ? d.results.map(p=>`
+      <div class="card">
+        <h3>${esc(p.name)}</h3>
+        <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
+        <p>Price: R${p.sell_price.toFixed(2)}</p>
+      </div>`).join('') : '<div class="card"><p>No parts found</p></div>';
+  } catch(e) { c.innerHTML = 'Error searching'; }
+}
+
+function showPOForm(){document.getElementById('poForm').style.display='block'} 
+function hidePOForm(){document.getElementById('poForm').style.display='none'}
+async function createPO() {
+  const sup = document.getElementById('poSupplier').value;
+  const items = document.getElementById('poItems').value;
+  if (!sup || !items) { alert('Supplier and items required'); return; }
+  try {
+    await jpost('/api/po/create', { supplier: sup, items: items });
+    hidePOForm();
+    loadPOs();
+  } catch(e) { alert('Error creating PO'); }
+}
+async function loadPOs() { 
+  try { 
+    const d = await jget('/api/po/list'); 
+    document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`
+      <div class="card">
+        <h3>PO #${p.po_number}</h3>
+        <p>${esc(p.supplier)}</p>
+        <p>Status: <b>${p.status}</b></p>
+      </div>`).join('') : '<div class="card"><p>No purchase orders</p></div>';
+  } catch(e){} 
+}
 
 // MODALS & FEATURES
 async function openKanban() {
