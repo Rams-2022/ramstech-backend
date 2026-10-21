@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Fixed Checkboxes)
+# pages.py — RamsTech v10.0 (Expanded Inspection Checklist)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -199,8 +199,8 @@ input[type="checkbox"] {
 <input type="text" class="form-input" id="inspCustomer" placeholder="Customer Name">
 <input type="text" class="form-input" id="inspVehicle" placeholder="Vehicle (e.g. 2018 Toyota Hilux)">
 <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
-<h3>Checklist</h3>
-<div id="checklistContainer"></div>
+<h3>Multi-Point Checklist</h3>
+<div id="checklistContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
 <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
 <h3>Photo & Notes</h3>
 <input type="file" id="inspPhoto" accept="image/*" capture="environment" class="form-input" onchange="previewInspectPhoto(event)">
@@ -495,15 +495,23 @@ async function loadDashboard() {
 }
 
 // INSPECTIONS
-const INSPECT_ITEMS = ["Brakes", "Tyres", "Lights", "Suspension", "Fluids (Oil/Coolant)", "Exhaust", "Steering", "Wipers", "Horn", "Seatbelts"];
+const INSPECT_ITEMS = [
+  "Body & Paint Condition", "Windscreen & Glass", "Mirrors & Wipers", "Headlights & Taillights",
+  "Indicators & Hazards", "Brake Lights", "Tyre Tread & Condition", "Tyre Pressures & Spare",
+  "Brakes (Pads/Discs)", "Suspension & Shocks", "Steering & Alignment", "Exhaust System",
+  "Engine Oil & Filter", "Coolant Level", "Brake Fluid", "Power Steering Fluid",
+  "Belts & Hoses", "Battery & Terminals", "Interior Upholstery", "Seatbelts & Buckles",
+  "Dashboard Warning Lights", "Horn & Aircon", "Infotainment System", "Leaks (Oil/Coolant/Fuel)"
+];
 let inspectB64 = "";
 
 function showInspectForm() {
   document.getElementById('inspectForm').style.display = 'block';
+  // Two columns for the checklist to save space
   document.getElementById('checklistContainer').innerHTML = INSPECT_ITEMS.map((item, i) => `
-    <label class="checklist-item">
+    <label class="checklist-item" style="padding:8px; margin-bottom:0;">
       <input type="checkbox" id="chk_insp_${i}" value="${item}">
-      <span>${item}</span>
+      <span style="font-size:12px;">${item}</span>
     </label>
   `).join('');
 }
