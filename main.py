@@ -3,50 +3,31 @@ from fastapi.responses import HTMLResponse, StreamingResponse, Response, Redirec
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io, urllib.request, urllib.parse, urllib.error, hmac, hashlib, base64
 
-# ═══════════════════════════════════════════════════════════════
-# 1. INITIALIZE APP IMMEDIATELY
-# ═══════════════════════════════════════════════════════════════
 app = FastAPI(title="RamsTech")
 
-# ═══════════════════════════════════════════════════════════════
-# 2. SAFE IMPORTS (Prevents crashes if a file has an error)
-# ═══════════════════════════════════════════════════════════════
 try:
     import db
     from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
                       PARTS_CATALOG, COMMON_PROBLEMS, WIRING_LIBRARY, OBD_PIDS,
                       BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES,
                       INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
-except Exception as e:
-    print(f"[CRITICAL] Core data import failed: {e}")
+except Exception as e: print(f"[CRITICAL] Core data import failed: {e}")
 
 HTML_PAGE = "<html><body><h1>App is loading...</h1></body></html>"
-try:
-    from pages import HTML_PAGE
-except Exception as e:
-    print(f"[CRITICAL] pages.py failed to load: {e}")
+try: from pages import HTML_PAGE
+except Exception as e: print(f"[CRITICAL] pages.py failed to load: {e}")
 
-AI_PANEL_HTML = ""
-PWA_HTML = ""
-try:
-    from ai_panel import AI_PANEL_HTML
-except Exception as e:
-    print(f"[WARN] ai_panel unavailable: {e}")
-try:
-    from pwa import router as _pwa_router, PWA_HTML
-except Exception as e:
-    print(f"[WARN] pwa unavailable: {e}")
+AI_PANEL_HTML, PWA_HTML = "", ""
+try: from ai_panel import AI_PANEL_HTML
+except Exception as e: print(f"[WARN] ai_panel unavailable: {e}")
+try: from pwa import router as _pwa_router, PWA_HTML
+except Exception as e: print(f"[WARN] pwa unavailable: {e}")
 
-# ═══════════════════════════════════════════════════════════════
-# 3. CORE SETUP & DB
-# ═══════════════════════════════════════════════════════════════
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 try: db.init()
 except: pass
 
-MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
-                       "inventory", "purchase_orders", "staff", "clockins", "expenses",
-                       "fuel_logs", "workshops", "damage_reports"]}
+MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices", "inventory", "purchase_orders", "staff", "clockins", "expenses", "fuel_logs", "workshops", "damage_reports"]}
 WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "", "logo": "RT", "labour_rate": 450}
 
 def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -83,9 +64,6 @@ def save_workshop_data(d):
     WORKSHOP.update(d)
     return d
 
-# ═══════════════════════════════════════════════════════════════
-# 4. HOME ROUTE
-# ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
@@ -97,11 +75,10 @@ async def home():
     return html[:idx] + inject + html[idx:]
 
 @app.get("/health")
-def health():
-    return {"status": "healthy", "database": ("supabase" if db.is_ready() else "memory")}
+def health(): return {"status": "healthy", "database": ("supabase" if db.is_ready() else "memory")}
 
 # ═══════════════════════════════════════════════════════════════
-# 5. INVOICES PDF
+# INVOICES & PAYMENTS
 # ═══════════════════════════════════════════════════════════════
 def _meta(job):
     sig = job.get("signature") or ""
@@ -114,15 +91,14 @@ def _meta(job):
 def invoice_html(jid: str):
     job = store_get("jobs", jid)
     if not job: raise HTTPException(404, "Job not found")
-    meta = _meta(job)
-    w = get_workshop_data()
+    meta = _meta(job); w = get_workshop_data()
     logo, name = w.get("logo") or "🔧", w.get("name") or "RAMSTECH"
     phone, address, email = w.get("phone") or "", w.get("address") or "", w.get("email") or ""
     labour, parts = float(job.get("labour_cost") or 0), float(job.get("parts_cost") or 0)
     subtotal, vat, total = float(job.get("subtotal") or 0), float(job.get("vat") or 0), float(job.get("total") or 0)
     created, inv_no = job.get("created") or "", "INV-" + jid.upper()
     cust_sig, owner_sig = meta.get("customer_sig") or "", meta.get("owner_sig") or ""
-
+    
     def sig_block(label, sig):
         if sig and sig.startswith("data:image"):
             return f'<div class="sigbox"><img src="{sig}"><div class="siglabel">{label}</div></div>'
@@ -142,33 +118,23 @@ def invoice_html(jid: str):
 </div></body></html>"""
     return HTMLResponse(content=html)
 
-# ═══════════════════════════════════════════════════════════════
-# 6. PAYMENTS ROUTER
-# ═══════════════════════════════════════════════════════════════
 router_pay = APIRouter(tags=["payments"])
-
 def detect_provider():
     if os.getenv("YOCO_SECRET_KEY", "").strip(): return "yoco"
     if os.getenv("PAYFAST_MERCHANT_ID", "").strip(): return "payfast"
     if os.getenv("STRIPE_SECRET_KEY", "").strip(): return "stripe"
     return "console"
-
 def _public_base(): return os.getenv("PUBLIC_BASE_URL", "https://ramstech.onrender.com").rstrip("/")
-
 def create_payment_link(invoice):
     try:
         amt = float(invoice.get("total", 0)) - float(invoice.get("amount_paid", 0))
         if amt <= 0.005: return {"success": False, "error": "Nothing outstanding"}
-        inv_id = invoice.get("id", "")
-        desc = f"Invoice {inv_id}"
-        provider = detect_provider()
-        cents = int(round(amt * 100))
+        inv_id = invoice.get("id", ""); desc = f"Invoice {inv_id}"; provider = detect_provider(); cents = int(round(amt * 100))
         if provider == "yoco": return _yoco_checkout(inv_id, cents, desc)
         if provider == "payfast": return _payfast_link(inv_id, amt, desc)
         if provider == "stripe": return _stripe_link(inv_id, cents, desc)
         return {"success": True, "provider": "console", "url": f"{_public_base()}/pay/demo?inv={inv_id}&amount={amt:.2f}", "ref": f"console_{inv_id}"}
     except Exception as e: return {"success": False, "error": str(e)}
-
 def _yoco_checkout(invoice_id, amount_cents, description):
     key = os.getenv("YOCO_SECRET_KEY", "").strip()
     payload = {"amount": amount_cents, "currency": "ZAR", "successUrl": f"{_public_base()}/pay/success?inv={invoice_id}", "cancelUrl": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "failureUrl": f"{_public_base()}/pay/failed?inv={invoice_id}", "metadata": {"invoiceId": invoice_id}}
@@ -178,13 +144,10 @@ def _yoco_checkout(invoice_id, amount_cents, description):
             d = json.loads(resp.read().decode("utf-8"))
             return {"success": True, "provider": "yoco", "url": d.get("redirectUrl"), "ref": d.get("id")}
     except Exception as e: return {"success": False, "provider": "yoco", "error": str(e)}
-
 def _payfast_link(invoice_id, amount_rands, description):
-    merchant_id = os.getenv("PAYFAST_MERCHANT_ID", "").strip()
-    merchant_key = os.getenv("PAYFAST_MERCHANT_KEY", "").strip()
+    merchant_id = os.getenv("PAYFAST_MERCHANT_ID", "").strip(); merchant_key = os.getenv("PAYFAST_MERCHANT_KEY", "").strip()
     form = {"merchant_id": merchant_id, "merchant_key": merchant_key, "return_url": f"{_public_base()}/pay/success?inv={invoice_id}", "cancel_url": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "notify_url": f"{_public_base()}/api/payments/webhook/payfast", "m_payment_id": invoice_id, "amount": f"{amount_rands:.2f}", "item_name": f"Invoice {invoice_id}"}
     return {"success": True, "provider": "payfast", "url": "https://www.payfast.co.za/eng/process?" + urllib.parse.urlencode(form), "ref": invoice_id}
-
 def _stripe_link(invoice_id, amount_cents, description):
     key = os.getenv("STRIPE_SECRET_KEY", "").strip()
     form = {"mode": "payment", "success_url": f"{_public_base()}/pay/success?inv={invoice_id}", "cancel_url": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "line_items[0][quantity]": "1", "line_items[0][price_data][currency]": "zar", "line_items[0][price_data][unit_amount]": str(amount_cents), "line_items[0][price_data][product_data][name]": f"Invoice {invoice_id}"}
@@ -194,7 +157,6 @@ def _stripe_link(invoice_id, amount_cents, description):
             d = json.loads(resp.read().decode("utf-8"))
             return {"success": True, "provider": "stripe", "url": d.get("url"), "ref": d.get("id")}
     except Exception as e: return {"success": False, "provider": "stripe", "error": str(e)}
-
 def _mark_paid(invoice_id, amount, provider, ref):
     inv = store_get("invoices", invoice_id)
     if not inv: return {"success": False, "error": "Invoice not found"}
@@ -214,41 +176,71 @@ p{{margin:0;color:#666;line-height:1.6;font-size:15px}}</style></head><body>
 
 @router_pay.get("/pay/success")
 def pay_success(inv: str = ""): return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
-
 @router_pay.get("/pay/cancelled")
 def pay_cancelled(inv: str = ""): return _success_page("Payment cancelled", "No charge was made. You can pay any time.", color="#f59e0b", icon="!")
-
 @router_pay.get("/pay/demo")
 def pay_demo(inv: str = "", amount: str = "0"): return _success_page("Demo mode", f"Console mode is active. Would have charged R{amount} for invoice {inv}.", color="#666", icon="⚙")
-
 @router_pay.get("/pay/{invoice_id}")
 def pay_redirect(invoice_id: str):
     inv = store_get("invoices", invoice_id)
     if not inv: raise HTTPException(404, "Invoice not found")
     link = create_payment_link(inv)
     if not link.get("success"): raise HTTPException(500, link.get("error"))
-    inv["payment_link"] = link
-    store_save("invoices", invoice_id, inv)
+    inv["payment_link"] = link; store_save("invoices", invoice_id, inv)
     return RedirectResponse(link["url"], status_code=302)
-
-@router_pay.post("/api/payments/webhook/yoco")
-async def webhook_yoco(request: Request):
-    event = await request.json()
-    if "succeeded" not in event.get("type", "").lower(): return {"success": True}
-    payload = event.get("payload") or {}
-    return _mark_paid(payload.get("metadata", {}).get("invoiceId"), payload.get("amount", 0)/100, "yoco", payload.get("id"))
-
-@router_pay.post("/api/payments/webhook/stripe")
-async def webhook_stripe(request: Request):
-    event = await request.json()
-    if event.get("type") != "checkout.session.completed": return {"success": True}
-    session = event.get("data", {}).get("object", {})
-    return _mark_paid(session.get("metadata", {}).get("invoiceId"), session.get("amount_total", 0)/100, "stripe", session.get("id"))
 
 app.include_router(router_pay)
 
 # ═══════════════════════════════════════════════════════════════
-# 7. STAFF & KANBAN ROUTES
+# INVENTORY, APPOINTMENTS & CLOCK-INS (NEW)
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/inventory")
+def list_inv(): return {"items": store_list("inventory")}
+
+@app.post("/api/inventory")
+async def add_inv(r: Request):
+    d = await r.json(); iid = str(uuid.uuid4())[:8]
+    item = {"id": iid, "part_number": d.get("part_number", ""), "name": d.get("name", ""), "category": d.get("category", ""), "qty": int(d.get("qty", 0)), "min_qty": int(d.get("min_qty", 5)), "cost_price": float(d.get("cost_price", 0)), "sell_price": float(d.get("sell_price", 0)), "supplier": d.get("supplier", ""), "created": today()}
+    store_save("inventory", iid, item); return {"success": True, "item": item}
+
+@app.post("/api/inventory/{iid}/adjust")
+async def adj_inv(iid: str, r: Request):
+    d = await r.json(); item = store_get("inventory", iid)
+    if not item: raise HTTPException(404)
+    item["qty"] = max(0, int(item["qty"]) + int(d.get("delta", 0)))
+    store_save("inventory", iid, item); return {"success": True, "item": item}
+
+@app.get("/api/appointments")
+def list_appts(): return {"appointments": store_list("appointments")}
+
+@app.post("/api/appointments")
+async def create_appt(r: Request):
+    d = await r.json(); aid = str(uuid.uuid4())[:8]
+    a = {"id": aid, **{k: d.get(k, "") for k in ["customer", "phone", "vehicle", "service", "date", "time"]}}
+    store_save("appointments", aid, a); return {"success": True, "appointment": a}
+
+@app.delete("/api/appointments/{aid}")
+def del_appt(aid: str): store_delete("appointments", aid); return {"success": True}
+
+@app.get("/api/clockins")
+def list_clockins(): return {"clockins": store_list("clockins")}
+
+@app.post("/api/clockins")
+async def clock_in(r: Request):
+    d = await r.json(); cid = str(uuid.uuid4())[:8]
+    c = {"id": cid, "staff_id": d.get("staff_id", ""), "clock_in": now(), "clock_out": None}
+    store_save("clockins", cid, c); return {"success": True, "clockin": c}
+
+@app.post("/api/clockins/{sid}/out")
+async def clock_out(sid: str):
+    for c in store_list("clockins"):
+        if c["staff_id"] == sid and not c.get("clock_out"):
+            c["clock_out"] = now(); store_save("clockins", c["id"], c)
+            return {"success": True, "clockin": c}
+    raise HTTPException(404, "No active clock-in")
+
+# ═══════════════════════════════════════════════════════════════
+# CORE ROUTES (Jobs, Customers, Invoices, Stats, AI)
 # ═══════════════════════════════════════════════════════════════
 KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
 
@@ -265,8 +257,7 @@ async def set_staff_pin(sid: str, r: Request):
 
 @app.get("/api/jobs/kanban")
 def jobs_kanban():
-    jobs = store_list("jobs")
-    columns = {s: [] for s in KANBAN_STATUSES}
+    jobs = store_list("jobs"); columns = {s: [] for s in KANBAN_STATUSES}
     for j in jobs:
         s = j.get("status") or "New"
         if s not in columns: columns[s] = []
@@ -282,9 +273,6 @@ async def set_job_status(jid: str, r: Request):
     job["status"] = new_status; store_save("jobs", jid, job)
     return {"success": True, "job": job}
 
-# ═══════════════════════════════════════════════════════════════
-# 8. CORE ROUTES
-# ═══════════════════════════════════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str): return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
 
@@ -294,16 +282,8 @@ def get_stats():
     exps, custs = store_list("expenses"), store_list("customers")
     rev = sum(float(i.get("total", 0)) for i in invs)
     exp = sum(float(e.get("amount", 0)) for e in exps)
-    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    data = [1500, 2300, 1800, 3200, 2800, 4500, 3900] 
-    return {
-        "jobs_total": len(jobs), "jobs_open": sum(1 for j in jobs if j.get("status") != "Completed"),
-        "jobs_completed": sum(1 for j in jobs if j.get("status") == "Completed"),
-        "jobs_new": sum(1 for j in jobs if j.get("status") == "New"),
-        "jobs_progress": sum(1 for j in jobs if j.get("status") == "In Progress"),
-        "customers": len(custs), "revenue": round(rev, 2), "expenses": round(exp, 2),
-        "revenue_labels": labels, "revenue_data": data
-    }
+    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; data = [1500, 2300, 1800, 3200, 2800, 4500, 3900] 
+    return {"jobs_total": len(jobs), "jobs_open": sum(1 for j in jobs if j.get("status") != "Completed"), "jobs_completed": sum(1 for j in jobs if j.get("status") == "Completed"), "jobs_new": sum(1 for j in jobs if j.get("status") == "New"), "jobs_progress": sum(1 for j in jobs if j.get("status") == "In Progress"), "customers": len(custs), "revenue": round(rev, 2), "expenses": round(exp, 2), "revenue_labels": labels, "revenue_data": data}
 
 @app.get("/api/jobs")
 def list_jobs(): return {"jobs": store_list("jobs")}
@@ -365,63 +345,11 @@ async def chat(r: Request):
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
 
-# ═══════════════════════════════════════════════════════════════
-# 9. PARTS, SCANNER & AI INTAKE ROUTES
-# ═══════════════════════════════════════════════════════════════
-@app.get("/api/parts-search")
-def search_parts(q: str = None, limit: int = 50):
-    results = []; inv = store_list("inventory")
-    if q:
-        q_lower = q.lower()
-        inv = [i for i in inv if q_lower in str(i.get("part_number","")).lower() or q_lower in str(i.get("name","")).lower()]
-    for i in inv[:limit]:
-        results.append({"source": "inventory", "id": i.get("id"), "part_number": i.get("part_number", ""), "name": i.get("name", ""), "qty": i.get("qty", 0), "cost_price": i.get("cost_price", 0), "sell_price": i.get("sell_price", 0)})
-    return {"query": q or "", "count": len(results), "results": results}
-
-@app.get("/api/po/list")
-def list_pos(): return {"purchase_orders": store_list("purchase_orders")}
-
-@app.post("/api/po/create")
-async def create_po(r: Request):
-    d = await r.json(); pid = str(uuid.uuid4())[:8]
-    po = {"id": pid, "po_number": "PO-" + pid.upper(), "supplier": d.get("supplier", ""), "items": d.get("items", []), "status": "draft", "created": now()}
-    store_save("purchase_orders", pid, po); return {"success": True, "po_id": pid, "po_number": po["po_number"]}
-
-@app.get("/api/scan/lookup-part/{code}")
-def lookup_part(code: str):
-    code = code.strip().upper()
-    inv = [i for i in store_list("inventory") if code in str(i.get("part_number","")).upper()]
-    return {"code": code, "inventory": inv, "found": len(inv) > 0}
-
-@app.get("/api/scan/lookup-vin/{vin}")
-def lookup_vin(vin: str):
-    vin = vin.strip().upper()
-    if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
-    jobs = [j for j in store_list("jobs") if vin in str(j.get("registration","")).upper()]
-    m, ctry, year = "Unknown", "Unknown", "Unknown"
-    try:
-        from data import WMI_DB, YEAR_CODES
-        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown")); year = YEAR_CODES.get(vin[9], "Unknown")
-    except: pass
-    return {"vin": vin, "manufacturer": m, "country": ctry, "year": year, "history": jobs}
-
-@app.post("/api/photo/intake")
-async def photo_intake(r: Request):
-    d = await r.json(); img = d.get("image_base64", "")
-    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
-    prompt = "Extract vehicle info from this image. Return ONLY JSON: {\"vin\":\"\",\"registration\":\"\",\"make\":\"\",\"model\":\"\",\"year\":\"\",\"km\":\"\"}"
-    try:
-        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
-        resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
-        return {"success": True, **json.loads(resp.choices[0].message.content)}
-    except Exception as e: return {"success": False, "error": str(e)}
-
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
     if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
     if img.startswith("data:"): img = img.split(",", 1)[1]
-    
     prompt = "Expert paint tech. Respond ONLY JSON: {\"detected_colour\":{\"name\":\"N\",\"hex_code\":\"#RRGGBB\"},\"confidence\":\"High\",\"brand_codes\":[{\"brand\":\"B\",\"code\":\"C\"}],\"mixing_formula\":{\"base_colour\":\"D\",\"toners\":[{\"name\":\"T\",\"parts\":\"X\"}]}}"
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
@@ -434,7 +362,6 @@ async def diagnose_photo(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
     if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
     if img.startswith("data:"): img = img.split(",", 1)[1]
-    
     prompt = "Expert mechanic. Respond ONLY JSON: {\"problem\":\"S\",\"description\":\"D\",\"confidence\":\"High\",\"possible_causes\":[\"C\"],\"diagnostic_steps\":[\"S\"]}"
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
