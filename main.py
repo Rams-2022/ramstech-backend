@@ -408,6 +408,24 @@ def search_fault_codes(search: str = ""):
 @app.get("/api/problems")
 def get_problems(): return {"problems": COMMON_PROBLEMS}
 
+@app.get("/api/parts-search")
+def search_parts(q: str = ""):
+    q = q.lower().strip()
+    if not q: return {"results": []}
+    results = []
+    for part in PARTS_CATALOG:
+        if (q in part.get("name", "").lower() or 
+            q in part.get("number", "").lower() or 
+            q in part.get("brand", "").lower() or
+            q in part.get("category", "").lower()):
+            results.append({
+                "name": part.get("name"),
+                "part_number": part.get("number"),
+                "brand": part.get("brand"),
+                "sell_price": float(part.get("price", 0))
+            })
+    return {"results": results}
+
 @app.get("/api/vin/{vin}")
 def decode_vin(vin: str):
     vin = vin.upper()
@@ -503,7 +521,7 @@ async def ai_problem_procedure(r: Request):
     if not OPENAI_KEY: return {"reply": "AI not configured"}
     
     # LOCK THE AI INTO THE SPECIFIC PROBLEM USING SYSTEM PROMPT
-    system_prompt = f"You are a master mechanic. You are diagnosing EXACTLY ONE specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem. If the problem is transmission slipping, you must talk about transmissions. Do NOT talk about misfires or engines."
+    system_prompt = f"You are a master mechanic. You are diagnosing EXACTLY ONE specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem."
     
     prompt = f"Vehicle: {vehicle if vehicle else 'Unspecified'}. Problem: {problem}. " \
              f"Provide a detailed diagnostic guide formatted strictly with these sections:\n" \
@@ -549,3 +567,50 @@ async def diagnose_photo(r: Request):
         resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
         return {"success": True, **json.loads(resp.choices[0].message.content)}
     except Exception as e: return {"success": False, "error": str(e)}
+
+@app.post("/api/parts/identify")
+async def identify_part(r: Request):
+    d = await r.json()
+    img_b64 = d.get("image_base64")
+    part_number = d.get("part_number", "")
+    
+    if not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
+    
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        
+        if img_b64:
+            if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
+            prompt = (
+                "You are an expert auto parts specialist. Analyze this image of a part or part label. "
+                "1. Extract the part number if visible.\n"
+                "2. Identify the part name.\n"
+                "3. Describe its function.\n"
+                "4. List the makes and models it fits (e.g., Toyota Hilux 2015+).\n"
+                "Format with clear headings and bullet points."
+            )
+            resp = c.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                ]}],
+                max_tokens=800
+            )
+        elif part_number:
+            prompt = (
+                f"You are an expert auto parts specialist. Based on the part number '{part_number}', "
+                "identify the part name, describe its function, and list the makes and models it fits. "
+                "Format with clear headings and bullet points."
+            )
+            resp = c.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=800
+            )
+        else:
+            return {"success": False, "error": "No image or part number provided."}
+            
+        return {"success": True, "reply": resp.choices[0].message.content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
