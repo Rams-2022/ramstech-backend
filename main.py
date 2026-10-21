@@ -572,7 +572,7 @@ async def diagnose_photo(r: Request):
 async def identify_part(r: Request):
     d = await r.json()
     img_b64 = d.get("image_base64")
-    part_number = d.get("part_number", "")
+    query = d.get("query", "")
     
     if not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
     
@@ -597,11 +597,11 @@ async def identify_part(r: Request):
                 ]}],
                 max_tokens=800
             )
-        elif part_number:
+        elif query:
             prompt = (
-                f"You are an expert auto parts specialist. Based on the part number '{part_number}', "
-                "identify the part name, describe its function, and list the makes and models it fits. "
-                "Format with clear headings and bullet points."
+                f"You are an expert auto parts specialist. Based on the part description or number '{query}', "
+                f"identify the part name, describe its function, and list the makes and models it fits. "
+                f"Format with clear headings and bullet points."
             )
             resp = c.chat.completions.create(
                 model="gpt-4o-mini",
@@ -609,7 +609,7 @@ async def identify_part(r: Request):
                 max_tokens=800
             )
         else:
-            return {"success": False, "error": "No image or part number provided."}
+            return {"success": False, "error": "No image or query provided."}
             
         return {"success": True, "reply": resp.choices[0].message.content}
     except Exception as e:
