@@ -98,12 +98,9 @@ def invoice_html(jid: str):
     subtotal, vat, total = float(job.get("subtotal") or 0), float(job.get("vat") or 0), float(job.get("total") or 0)
     created, inv_no = job.get("created") or "", "INV-" + jid.upper()
     cust_sig, owner_sig = meta.get("customer_sig") or "", meta.get("owner_sig") or ""
-    
     def sig_block(label, sig):
-        if sig and sig.startswith("data:image"):
-            return f'<div class="sigbox"><img src="{sig}"><div class="siglabel">{label}</div></div>'
+        if sig and sig.startswith("data:image"): return f'<div class="sigbox"><img src="{sig}"><div class="siglabel">{label}</div></div>'
         return f'<div class="sigbox empty"><div class="siglabel">{label} — not signed</div></div>'
-
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{inv_no}</title>
 <style>*{{box-sizing:border-box;margin:0;padding:0;}}body{{font-family:-apple-system,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:16px;}}.page{{max-width:800px;margin:0 auto;background:#fff;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:12px;}}.header{{display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #E65100;margin-bottom:24px;}}.brand{{display:flex;gap:14px;align-items:center;}}.logo{{font-size:48px;}}.brand h1{{font-size:22px;color:#E65100;font-weight:800;}}.inv-meta{{text-align:right;}}.inv-meta h2{{font-size:22px;font-weight:800;}}.section{{margin-bottom:20px;}}.section h3{{font-size:12px;color:#E65100;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #e5e7eb;}}.row{{display:flex;gap:20px;}}.col{{flex:1;}}.field{{font-size:13px;margin-bottom:6px;}}.field b{{color:#666;min-width:90px;display:inline-block;}}table.items{{width:100%;border-collapse:collapse;margin-top:8px;}}table.items th{{background:#E65100;color:#fff;padding:10px;font-size:12px;}}table.items td{{padding:10px;border-bottom:1px solid #eee;font-size:13px;}}table.items td.amt{{text-align:right;font-weight:600;}}table.totals{{width:100%;margin-top:16px;}}table.totals td{{padding:8px 10px;font-size:13px;}}table.totals td:last-child{{text-align:right;font-weight:600;}}table.totals tr.grand{{background:#fff5ec;}}table.totals tr.grand td{{font-size:16px;font-weight:800;color:#E65100;border-top:2px solid #E65100;}}.sigs{{display:flex;gap:16px;margin-top:14px;}}.sigbox{{flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end;}}.sigbox img{{max-width:100%;max-height:80px;}}.siglabel{{font-size:11px;color:#666;}}.print-bar{{position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:100;}}.print-bar button{{padding:10px 18px;background:#E65100;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;}}@media print{{body{{background:#fff;padding:0;}}.page{{box-shadow:none;padding:0;}}.print-bar{{display:none;}}}}</style></head><body>
 <div class="print-bar"><button onclick="window.print()">🖨 Print</button><button onclick="window.close()">Close</button></div>
@@ -165,7 +162,6 @@ def _mark_paid(invoice_id, amount, provider, ref):
     inv["paid"] = inv["amount_paid"] >= float(inv.get("total", 0)) - 0.005
     store_save("invoices", invoice_id, inv)
     return {"success": True, "invoice_id": invoice_id, "paid": inv["paid"]}
-
 def _success_page(title, message, color="#16a34a", icon="✓"):
     return HTMLResponse(f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
 <style>body{{font-family:-apple-system,sans-serif;margin:0;padding:40px 20px;background:#f5f5f5;text-align:center;color:#1a1a1a}}
@@ -173,7 +169,6 @@ def _success_page(title, message, color="#16a34a", icon="✓"):
 .icon{{font-size:56px;color:{color};margin-bottom:16px}} h1{{margin:0 0 8px;font-size:22px;}}
 p{{margin:0;color:#666;line-height:1.6;font-size:15px}}</style></head><body>
 <div class="card"><div class="icon">{icon}</div><h1>{title}</h1><p>{message}</p></div></body></html>""")
-
 @router_pay.get("/pay/success")
 def pay_success(inv: str = ""): return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
 @router_pay.get("/pay/cancelled")
@@ -188,49 +183,40 @@ def pay_redirect(invoice_id: str):
     if not link.get("success"): raise HTTPException(500, link.get("error"))
     inv["payment_link"] = link; store_save("invoices", invoice_id, inv)
     return RedirectResponse(link["url"], status_code=302)
-
 app.include_router(router_pay)
 
 # ═══════════════════════════════════════════════════════════════
-# INVENTORY, APPOINTMENTS & CLOCK-INS (NEW)
+# INVENTORY, APPOINTMENTS & CLOCK-INS
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/inventory")
 def list_inv(): return {"items": store_list("inventory")}
-
 @app.post("/api/inventory")
 async def add_inv(r: Request):
     d = await r.json(); iid = str(uuid.uuid4())[:8]
     item = {"id": iid, "part_number": d.get("part_number", ""), "name": d.get("name", ""), "category": d.get("category", ""), "qty": int(d.get("qty", 0)), "min_qty": int(d.get("min_qty", 5)), "cost_price": float(d.get("cost_price", 0)), "sell_price": float(d.get("sell_price", 0)), "supplier": d.get("supplier", ""), "created": today()}
     store_save("inventory", iid, item); return {"success": True, "item": item}
-
 @app.post("/api/inventory/{iid}/adjust")
 async def adj_inv(iid: str, r: Request):
     d = await r.json(); item = store_get("inventory", iid)
     if not item: raise HTTPException(404)
     item["qty"] = max(0, int(item["qty"]) + int(d.get("delta", 0)))
     store_save("inventory", iid, item); return {"success": True, "item": item}
-
 @app.get("/api/appointments")
 def list_appts(): return {"appointments": store_list("appointments")}
-
 @app.post("/api/appointments")
 async def create_appt(r: Request):
     d = await r.json(); aid = str(uuid.uuid4())[:8]
     a = {"id": aid, **{k: d.get(k, "") for k in ["customer", "phone", "vehicle", "service", "date", "time"]}}
     store_save("appointments", aid, a); return {"success": True, "appointment": a}
-
 @app.delete("/api/appointments/{aid}")
 def del_appt(aid: str): store_delete("appointments", aid); return {"success": True}
-
 @app.get("/api/clockins")
 def list_clockins(): return {"clockins": store_list("clockins")}
-
 @app.post("/api/clockins")
 async def clock_in(r: Request):
     d = await r.json(); cid = str(uuid.uuid4())[:8]
     c = {"id": cid, "staff_id": d.get("staff_id", ""), "clock_in": now(), "clock_out": None}
     store_save("clockins", cid, c); return {"success": True, "clockin": c}
-
 @app.post("/api/clockins/{sid}/out")
 async def clock_out(sid: str):
     for c in store_list("clockins"):
@@ -240,7 +226,7 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 # ═══════════════════════════════════════════════════════════════
-# CORE ROUTES (Jobs, Customers, Invoices, Stats, AI)
+# CORE ROUTES & ADVANCED ANALYTICS
 # ═══════════════════════════════════════════════════════════════
 KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
 
@@ -263,7 +249,6 @@ def jobs_kanban():
         if s not in columns: columns[s] = []
         columns[s].append({"id": j.get("id"), "customer": j.get("customer", ""), "vehicle": j.get("vehicle", "")})
     return {"statuses": KANBAN_STATUSES, "columns": columns}
-
 @app.post("/api/jobs/{jid}/status")
 async def set_job_status(jid: str, r: Request):
     d = await r.json(); new_status = (d.get("status") or "").strip()
@@ -285,22 +270,62 @@ def get_stats():
     labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; data = [1500, 2300, 1800, 3200, 2800, 4500, 3900] 
     return {"jobs_total": len(jobs), "jobs_open": sum(1 for j in jobs if j.get("status") != "Completed"), "jobs_completed": sum(1 for j in jobs if j.get("status") == "Completed"), "jobs_new": sum(1 for j in jobs if j.get("status") == "New"), "jobs_progress": sum(1 for j in jobs if j.get("status") == "In Progress"), "customers": len(custs), "revenue": round(rev, 2), "expenses": round(exp, 2), "revenue_labels": labels, "revenue_data": data}
 
+@app.get("/api/analytics")
+def get_analytics():
+    jobs = store_list("jobs"); invs = store_list("invoices"); exps = store_list("expenses")
+    rev = sum(float(i.get("total", 0)) for i in invs)
+    exp = sum(float(e.get("amount", 0)) for e in exps)
+    net = rev - exp
+    avg_job = rev / len(invs) if invs else 0
+    
+    # 7-day revenue trend
+    labels, data = [], []
+    for i in range(6, -1, -1):
+        day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        labels.append(day[5:])
+        data.append(sum(float(inv.get("total", 0)) for inv in invs if (inv.get("created") or "").startswith(day)))
+        
+    # Status counts
+    status_counts = {s: 0 for s in KANBAN_STATUSES}
+    for j in jobs:
+        st = j.get("status", "New")
+        if st in status_counts: status_counts[st] += 1
+        
+    # Top Mechanics
+    mech_stats = {}
+    for j in jobs:
+        m = j.get("assigned_to") or "Unassigned"
+        mech_stats[m] = mech_stats.get(m, 0) + 1
+    top_mechs = sorted(mech_stats.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # Top Services
+    svc_stats = {}
+    for j in jobs:
+        s = (j.get("complaint") or "General")[:20]
+        svc_stats[s] = svc_stats.get(s, 0) + 1
+    top_svcs = sorted(svc_stats.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    return {
+        "revenue": rev, "expenses": exp, "net_profit": net, "avg_job": avg_job,
+        "rev_labels": labels, "rev_data": data,
+        "status_labels": list(status_counts.keys()), "status_data": list(status_counts.values()),
+        "mech_labels": [m[0] for m in top_mechs], "mech_data": [m[1] for m in top_mechs],
+        "svc_labels": [s[0] for s in top_svcs], "svc_data": [s[1] for s in top_svcs]
+    }
+
 @app.get("/api/jobs")
 def list_jobs(): return {"jobs": store_list("jobs")}
-
 @app.post("/api/jobs")
 async def create_job(r: Request):
     d = await r.json(); jid = str(uuid.uuid4())[:8]
     job = {"id": jid, "customer": d.get("customer", ""), "phone": d.get("phone", ""), "vehicle": d.get("vehicle", ""), "registration": d.get("registration", ""), "km": int(d.get("km", 0)), "complaint": d.get("complaint", ""), "assigned_to": d.get("assigned_to", ""), "photos": d.get("photos", [])[:5], "signature": d.get("signature", ""), "warranty_months": int(d.get("warranty_months", 6)), "status": "New", "timeline": [now() + " — Job created"], "labour_hours": 0, "labour_rate": get_workshop_data().get("labour_rate", 450), "parts_cost": 0, "labour_cost": 0, "subtotal": 0, "vat": 0, "total": 0, "created": now()}
     store_save("jobs", jid, job); return {"success": True, "job": job}
-
 @app.put("/api/jobs/{jid}")
 async def update_job(jid: str, r: Request):
     d = await r.json(); job = store_get("jobs", jid)
     if not job: raise HTTPException(404)
     if "status" in d: job["status"] = d["status"]
     store_save("jobs", jid, job); return {"success": True, "job": job}
-
 @app.post("/api/jobs/{jid}/cost")
 async def set_job_cost(jid: str, r: Request):
     d = await r.json(); job = store_get("jobs", jid)
@@ -309,32 +334,25 @@ async def set_job_cost(jid: str, r: Request):
     labour = h * rate; subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
     job.update({"labour_hours": h, "labour_rate": rate, "parts_cost": parts, "labour_cost": labour, "subtotal": subtotal, "vat": vat, "total": total})
     store_save("jobs", jid, job); return {"success": True, "job": job}
-
 @app.get("/api/customers")
 def list_customers(): return {"customers": store_list("customers")}
-
 @app.post("/api/customers")
 async def create_customer(r: Request):
     d = await r.json(); cid = str(uuid.uuid4())[:8]
     c = {"id": cid, "name": d.get("name", ""), "phone": d.get("phone", ""), "email": d.get("email", ""), "address": d.get("address", ""), "created": today()}
     store_save("customers", cid, c); return {"success": True, "customer": c}
-
 @app.get("/api/invoices")
 def list_invoices(): return {"invoices": store_list("invoices")}
-
 @app.post("/api/invoices")
 async def create_invoice(r: Request):
     d = await r.json(); iid = str(uuid.uuid4())[:8]
     i = {"id": iid, "customer": d.get("customer", ""), "vehicle": d.get("vehicle", ""), "description": d.get("description", ""), "labour": float(d.get("labour", 0)), "parts": float(d.get("parts", 0)), "subtotal": float(d.get("labour", 0)) + float(d.get("parts", 0)), "vat": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 0.15, "total": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 1.15, "amount_paid": 0, "paid": False, "created": now()}
     store_save("invoices", iid, i); return {"success": True, "invoice": i}
-
 @app.get("/api/workshop")
 def get_workshop(): return get_workshop_data()
-
 @app.post("/api/workshop")
 async def save_workshop(r: Request):
     d = await r.json(); save_workshop_data(d); return {"success": True, "workshop": get_workshop_data()}
-
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message", "")
@@ -344,7 +362,6 @@ async def chat(r: Request):
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
-
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
@@ -356,7 +373,6 @@ async def match_paint(r: Request):
         resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
         return {"success": True, **json.loads(resp.choices[0].message.content)}
     except Exception as e: return {"success": False, "error": str(e)}
-
 @app.post("/api/diagnose/photo")
 async def diagnose_photo(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
