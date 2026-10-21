@@ -503,7 +503,7 @@ async def ai_problem_procedure(r: Request):
     if not OPENAI_KEY: return {"reply": "AI not configured"}
     
     # LOCK THE AI INTO THE SPECIFIC PROBLEM USING SYSTEM PROMPT
-    system_prompt = f"You are a master mechanic. You are diagnosing this specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem."
+    system_prompt = f"You are a master mechanic. You are diagnosing EXACTLY ONE specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem. If the problem is transmission slipping, you must talk about transmissions. Do NOT talk about misfires or engines."
     
     prompt = f"Vehicle: {vehicle if vehicle else 'Unspecified'}. Problem: {problem}. " \
              f"Provide a detailed diagnostic guide formatted strictly with these sections:\n" \
@@ -514,7 +514,6 @@ async def ai_problem_procedure(r: Request):
              f"Format with clear headings and bullet points."
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
-        # Use gpt-4o-mini for better instruction following and technical accuracy
         resp = c.chat.completions.create(
             model="gpt-4o-mini", 
             messages=[
