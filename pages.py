@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Phase A - Modern UI)
+# pages.py — RamsTech v10.0 (Sci-Fi Mecha Edition)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -8,189 +8,236 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
---bg:#f0f2f5;--card:#ffffff;--text:#1a1a2e;--text2:#6b7280;--border:#e5e7eb;
---primary:#E65100;--input-bg:#f8fafc;
---grad1:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
---grad2:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
---grad3:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
---grad4:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);
---grad5:linear-gradient(135deg,#fa709a 0%,#fee140 100%);
---grad6:linear-gradient(135deg,#30cfd0 0%,#330867 100%);
+--bg:#eef2f6;
+--card:rgba(255, 255, 255, 0.85);
+--text:#0f172a;
+--text2:#475569;
+--border:rgba(203, 213, 225, 0.8);
+--primary:#0ea5e9; /* Tech Blue */
+--primary-glow:rgba(14, 165, 233, 0.4);
+--input-bg:rgba(248, 250, 252, 0.9);
+--grad1:linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%);
+--grad2:linear-gradient(135deg,#f43f5e 0%,#be123c 100%);
+--grad4:linear-gradient(135deg,#10b981 0%,#059669 100%);
+--grad6:linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%);
 }
+
 body.dark{
---bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--border:#334155;
---input-bg:#0f172a;
+--bg:#050a14;
+--card:rgba(15, 23, 42, 0.85);
+--text:#f8fafc;
+--text2:#94a3b8;
+--border:rgba(51, 65, 85, 0.8);
+--primary:#00f2fe; /* Neon Cyan */
+--primary-glow:rgba(0, 242, 254, 0.4);
+--input-bg:rgba(2, 6, 23, 0.8);
+--grad1:linear-gradient(135deg,#00f2fe 0%,#4facfe 100%);
+--grad2:linear-gradient(135deg,#ff0844 0%,#ffb199 100%);
+--grad4:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);
+--grad6:linear-gradient(135deg,#b224ef 0%,#7579ff 100%);
 }
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{
 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-background:var(--bg);color:var(--text);padding-bottom:20px;
+background-color:var(--bg);color:var(--text);padding-bottom:20px;
 transition:background .3s,color .3s;
-background-image:
-radial-gradient(circle at 20% 20%,rgba(230,81,0,.08) 0%,transparent 40%),
-radial-gradient(circle at 80% 60%,rgba(102,126,234,.08) 0%,transparent 40%),
-radial-gradient(circle at 50% 90%,rgba(240,147,251,.06) 0%,transparent 40%);
+/* Sci-Fi Circuit Board Pattern */
+background-image: 
+  linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
+background-size: 30px 30px;
 background-attachment:fixed;
+position: relative;
+}
+body.dark::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.1) 0%, transparent 60%);
+  z-index: -1;
 }
 
-/* HEADER & NAV */
+/* HEADER */
 .header{
-background:var(--grad1);color:white;padding:16px 14px 18px;
+background:var(--grad1);color:#fff;padding:20px 16px;
 position:relative;overflow:hidden;
-border-bottom-left-radius:24px;border-bottom-right-radius:24px;
-box-shadow:0 6px 24px rgba(102,126,234,.35);
+border-bottom:2px solid var(--primary);
+box-shadow:0 8px 32px var(--primary-glow);
+clip-path: polygon(0 0, 100% 0, 100% 90%, 95% 100%, 5% 100%, 0 90%); /* Sci-fi cut corners */
 }
-.header h1{font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;z-index:1;font-weight:800;letter-spacing:.5px;}
-.header p{font-size:11px;opacity:.9;margin-top:3px;text-align:center;position:relative;z-index:1}
-.top-btns{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
-.top-btns button, .lang-sel{background:rgba(255,255,255,.25);border:none;color:white;padding:8px;border-radius:10px;font-size:13px;cursor:pointer;backdrop-filter:blur(8px);}
+.header h1{font-size:22px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+.header p{font-size:11px;opacity:.9;margin-top:4px;text-align:center;position:relative;z-index:1;letter-spacing:2px;}
+.top-btns{position:absolute;right:14px;top:14px;display:flex;gap:8px;z-index:2}
+.top-btns button, .lang-sel{
+background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;
+padding:8px;border-radius:8px;font-size:14px;cursor:pointer;backdrop-filter:blur(4px);
+transition:all .2s;
+}
+.top-btns button:active{transform:scale(0.9); background:rgba(0,0,0,0.4);}
 .lang-sel option{color:#333}
 
-/* HOME */
+/* HOME CARDS */
 .home-container{padding:16px;max-width:900px;margin:0 auto}
-.hero-card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,0.02);}
-.cat-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;margin:20px 4px 12px;}
-.cat-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.hero-card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);backdrop-filter:blur(10px);box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+.cat-title{font-size:12px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:2px;margin:24px 4px 12px;display:flex;align-items:center;gap:8px;}
+.cat-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg, var(--border), transparent);}
+
+.cat-grid{display:grid;grid-template-columns:1fr;gap:14px}
 .cat-card{
-border-radius:20px;padding:20px 18px;color:white;cursor:pointer;
+border-radius:16px;padding:20px 18px;color:white;cursor:pointer;
 position:relative;overflow:hidden;
-box-shadow:0 8px 24px rgba(0,0,0,.15);transition:all .25s ease;
+box-shadow:0 8px 24px rgba(0,0,0,.2);transition:all .2s ease;
 display:flex;align-items:center;gap:16px;
+border:1px solid rgba(255,255,255,0.2);
 }
-.cat-card:active{transform:scale(.97);box-shadow:0 4px 12px rgba(0,0,0,.2)}
-.cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2));min-width:50px;text-align:center;}
+.cat-card:active{transform:scale(.97);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3));min-width:50px;text-align:center;}
 .cat-info{flex:1;}
-.cat-name{font-size:17px;font-weight:800;margin-bottom:3px}
-.cat-count{font-size:12px;opacity:.85;}
-.cat-arrow{font-size:20px;opacity:.7;}
+.cat-name{font-size:18px;font-weight:900;margin-bottom:4px;letter-spacing:0.5px;}
+.cat-count{font-size:12px;opacity:.9;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.cat-arrow{font-size:24px;opacity:.8;}
 
 /* TILES */
-.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:transform .1s;box-shadow:0 2px 8px rgba(0,0,0,0.02);}
-.tile:active{transform:scale(.95);}
-.tile-icon{font-size:32px;margin-bottom:8px;display:block}
-.tile-label{font-size:12px;font-weight:700;}
-.tile-accent{position:absolute;top:0;left:0;right:0;height:4px}
+.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tile{background:var(--card);border-radius:12px;padding:20px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:all .15s;box-shadow:0 2px 10px rgba(0,0,0,0.05);backdrop-filter:blur(10px);}
+.tile:active{transform:scale(.95);border-color:var(--primary);}
+.tile-icon{font-size:32px;margin-bottom:10px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));}
+.tile-label{font-size:12px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;}
+.tile-accent{position:absolute;top:0;left:0;right:0;height:4px;border-radius:12px 12px 0 0;}
 
-/* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.04);}
-.bnav-item{flex:1;text-align:center;padding:6px 4px;cursor:pointer;border-radius:12px;transition:all .2s;}
-.bnav-icon{font-size:20px;display:block;margin-bottom:2px}
-.bnav-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;}
+/* BOTTOM NAV - MECHA DOCK */
+.bottom-nav{
+position:fixed;bottom:0;left:0;right:0;
+background:rgba(15, 23, 42, 0.95);
+backdrop-filter:blur(20px);
+border-top:2px solid rgba(255,255,255,0.1);
+display:flex;justify-content:space-around;padding:10px 8px;z-index:100;
+box-shadow:0 -10px 40px rgba(0,0,0,0.5);
+padding-bottom:env(safe-area-inset-bottom, 10px);
+}
+body:not(.dark) .bottom-nav { background:rgba(255, 255, 255, 0.95); border-top:1px solid var(--border); box-shadow:0 -4px 20px rgba(0,0,0,0.05); }
+.bnav-item{
+flex:1;text-align:center;padding:10px 4px;cursor:pointer;border-radius:12px;
+transition:all .25s cubic-bezier(0.4, 0, 0.2, 1);display:flex;flex-direction:column;align-items:center;
+color:var(--text2);
+}
+.bnav-icon{font-size:22px;display:block;margin-bottom:4px;transition:transform .3s cubic-bezier(0.34, 1.56, 0.64, 1);}
+.bnav-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+body:not(.dark) .bnav-item.active .bnav-label{color:var(--primary)}
 .bnav-item.active .bnav-label{color:var(--primary)}
-.bnav-item.active{background:rgba(230,81,0,.08)}
+
+body.dark .bnav-item.active { background:rgba(0, 242, 254, 0.1); box-shadow: inset 0 0 15px rgba(0, 242, 254, 0.2); color:var(--primary); }
+body:not(.dark) .bnav-item.active { background:rgba(14, 165, 233, 0.1); box-shadow: inset 0 0 15px rgba(14, 165, 233, 0.1); color:var(--primary); }
+.bnav-item.active .bnav-icon{transform:translateY(-3px) scale(1.15);filter:drop-shadow(0 0 8px var(--primary-glow));}
 
 /* PANELS & ANIMATIONS */
-.panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:100px}
-.panel.active{display:block;animation:slideUp .3s cubic-bezier(.16,1,.3,1)}
-@keyframes slideUp {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:110px}
+.panel.active{display:block;animation:techSlide .35s cubic-bezier(.16,1,.3,1)}
+@keyframes techSlide {from{opacity:0;transform:translateY(15px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.panel-title{font-size:20px;font-weight:900;color:var(--primary);margin-bottom:20px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:1px;}
 
 /* CARDS */
-.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);transition:box-shadow .2s;box-shadow:0 2px 10px rgba(0,0,0,0.03);}
-.card h3{color:var(--primary);margin-bottom:8px;font-size:15px;}
+.card{background:var(--card);padding:18px;border-radius:14px;margin-bottom:14px;border:1px solid var(--border);transition:all .2s;backdrop-filter:blur(10px);box-shadow:0 4px 15px rgba(0,0,0,0.03);}
+body.dark .card{border-left:3px solid var(--primary);box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+.card h3{color:var(--primary);margin-bottom:10px;font-size:16px;font-weight:800;letter-spacing:0.5px;}
 
 /* ═══════════════════════════════════════════════════════ */
-/* MODERN INPUTS & FORMS                                  */
+/* MECHA INPUTS                                           */
 /* ═══════════════════════════════════════════════════════ */
 input, textarea, select {
   width: 100%;
   padding: 16px;
   border: 1.5px solid var(--border);
-  border-radius: 14px; /* Smoother radius */
-  font-size: 16px; /* Prevents iOS auto-zoom */
+  border-radius: 10px;
+  font-size: 16px;
   background: var(--input-bg);
   color: var(--text);
   font-family: inherit;
   transition: all 0.2s ease;
-  -webkit-appearance: none; /* Removes default iOS styling */
+  -webkit-appearance: none;
   appearance: none;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.05);
 }
 
-/* The Focus Ring (Glows when tapped) */
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(230, 81, 0, 0.15), inset 0 2px 4px rgba(0,0,0,0.02);
-  background: var(--card);
+  box-shadow: 0 0 0 3px var(--primary-glow), inset 0 3px 6px rgba(0,0,0,0.05);
+  background: var(--bg);
 }
 
-/* Custom Arrow for Select Dropdowns */
 select {
   background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px top 50%;
-  background-size: 12px auto;
-  padding-right: 40px; /* Make room for arrow */
+  background-repeat: no-repeat; background-position: right 16px top 50%; background-size: 12px auto; padding-right: 40px;
 }
 body.dark select {
-  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300f2fe%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
 }
 
 /* ═══════════════════════════════════════════════════════ */
-/* MODERN BUTTONS                                         */
+/* MECHA BUTTONS                                          */
 /* ═══════════════════════════════════════════════════════ */
 .btn{
   width: 100%;
   padding: 16px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   margin-bottom: 12px;
   background: var(--grad1);
-  color: white;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  letter-spacing: 0.3px;
+  box-shadow: 0 4px 15px var(--primary-glow);
+  border-bottom: 3px solid rgba(0,0,0,0.3);
 }
 .btn:active{
-  transform: scale(0.96); /* Presses in */
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+  transform: translateY(2px); 
+  box-shadow: 0 2px 5px var(--primary-glow);
+  border-bottom: 1px solid rgba(0,0,0,0.3);
 }
-.btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937);box-shadow: 0 4px 12px rgba(75,85,99,0.3);}
-.btn-dark:active{box-shadow: 0 2px 6px rgba(75,85,99,0.2);}
-.btn-success{background:var(--grad4);box-shadow: 0 4px 12px rgba(67,233,123,0.3);}
-.btn-success:active{box-shadow: 0 2px 6px rgba(67,233,123,0.2);}
+.btn-dark{background:linear-gradient(135deg,#334155,#1e293b);box-shadow: 0 4px 15px rgba(51,65,85,0.4);border-bottom-color:rgba(0,0,0,0.5);}
+.btn-success{background:var(--grad4);box-shadow: 0 4px 15px rgba(67,233,123,0.3);border-bottom-color:rgba(0,0,0,0.2);}
 
 .btn-sm{
   padding: 10px 16px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 700;
-  margin-right: 6px;
-  margin-bottom: 6px;
+  font-weight: 800;
+  margin-right: 6px; margin-bottom: 6px;
   background: var(--primary);
-  color: white;
+  color: #fff;
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.25);
+  box-shadow: 0 2px 8px var(--primary-glow);
+  border-bottom: 2px solid rgba(0,0,0,0.2);
+  text-transform: uppercase; letter-spacing: 0.5px;
 }
-.btn-sm:active{transform: scale(0.92); box-shadow: 0 1px 4px rgba(230, 81, 0, 0.2);}
-.btn-sm.whatsapp{background:#25D366;box-shadow: 0 2px 8px rgba(37,211,102,0.3);}
+.btn-sm:active{transform: translateY(1px); border-bottom: 1px solid rgba(0,0,0,0.2); box-shadow: 0 1px 3px var(--primary-glow);}
+.btn-sm.whatsapp{background:#25D366;box-shadow: 0 2px 8px rgba(37,211,102,0.3);border-bottom-color:rgba(0,0,0,0.2);}
 
-.badge{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;color:white;letter-spacing:.5px;}
-.badge.high,.badge.critical,.badge.outstanding{background:#ef4444}
-.badge.medium{background:#f59e0b}
-.badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
+.badge{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;border-bottom:2px solid rgba(0,0,0,0.2);}
+.badge.high,.badge.critical,.badge.outstanding{background:#ef4444;box-shadow:0 2px 8px rgba(239,68,68,0.3);}
+.badge.medium{background:#f59e0b;box-shadow:0 2px 8px rgba(245,158,11,0.3);}
+.badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981;box-shadow:0 2px 8px rgba(16,185,129,0.3);}
 
-.back-btn{background:var(--grad6);color:white;border:none;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;box-shadow:0 4px 12px rgba(48,207,208,.3);}
+.back-btn{background:var(--grad6);color:white;border:none;padding:12px 18px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:16px;box-shadow:0 4px 15px rgba(139,92,246,.4);border-bottom:2px solid rgba(0,0,0,0.3);text-transform:uppercase;letter-spacing:1px;}
 
 /* CHAT BUBBLES */
-.chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);}
-.msg{padding:12px 16px;border-radius:18px;margin-bottom:10px;max-width:85%;line-height:1.45;font-size:14px;animation:msgIn .2s ease;}
+.chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);box-shadow:inset 0 4px 10px rgba(0,0,0,0.05);}
+.msg{padding:12px 16px;border-radius:16px;margin-bottom:10px;max-width:85%;line-height:1.45;font-size:14px;animation:msgIn .2s ease;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
 @keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-.msg.user{background:var(--grad1);color:white;margin-left:auto;border-bottom-right-radius:4px;box-shadow:0 4px 12px rgba(102,126,234,.2);}
-.msg.ai{background:var(--card);border:1px solid var(--border);margin-right:auto;border-bottom-left-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.05);}
+.msg.user{background:var(--grad1);color:#fff;margin-left:auto;border-bottom-right-radius:4px;}
+.msg.ai{background:var(--card);border:1px solid var(--border);margin-right:auto;border-bottom-left-radius:4px;}
 
 /* TOAST NOTIFICATIONS */
 #toastWrap{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-.toast{background:#111;color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toastIn .3s cubic-bezier(.16,1,.3,1);display:flex;align-items:center;gap:8px;}
-.toast.success{background:#10b981;}
-.toast.error{background:#ef4444;}
+.toast{background:#0f172a;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:toastIn .3s cubic-bezier(.16,1,.3,1);display:flex;align-items:center;gap:10px;border-left:4px solid var(--primary);}
+.toast.success{border-left-color:#10b981;}
+.toast.error{border-left-color:#ef4444;}
 @keyframes toastIn{from{opacity:0;transform:translateY(-20px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
 .toast.out{animation:toastOut .2s ease forwards;}
 @keyframes toastOut{to{opacity:0;transform:translateY(-20px) scale(.9)}}
@@ -204,8 +251,8 @@ body.dark select {
 <div id="toastWrap"></div>
 
 <div class="header">
-<h1><span class="logo" id="logoDisplay">🔧</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
-<p id="wsSubtitle">AI Workshop Assistant v10.0</p>
+<h1><span class="logo" id="logoDisplay">⚙️</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
+<p id="wsSubtitle">AI WORKSHOP ASSISTANT v10.0</p>
 <div class="top-btns">
 <select class="lang-sel" id="langSel" onchange="setLang()">
 <option value="en">EN</option><option value="af">AF</option><option value="zu">ZU</option>
@@ -217,13 +264,13 @@ body.dark select {
 <!-- HOME -->
 <div id="home" class="panel active">
 <div class="home-container">
-<div class="hero-card"><div id="status">Checking backend...</div></div>
+<div class="hero-card"><div id="status">SYSTEM CHECK...</div></div>
 <div id="categoryView">
-<div class="cat-title">Choose a Category</div>
+<div class="cat-title">Select Protocol</div>
 <div class="cat-grid" id="categoryGrid"></div>
 </div>
 <div id="subView" style="display:none">
-<button class="back-btn" onclick="backToCategories()">← Back to Categories</button>
+<button class="back-btn" onclick="backToCategories()">← RETURN TO MAIN</button>
 <div class="cat-title" id="subTitle"></div>
 <div class="tile-grid" id="subGrid"></div>
 </div>
@@ -232,22 +279,22 @@ body.dark select {
 
 <!-- DASHBOARD -->
 <div id="dashboard" class="panel">
-<div class="panel-title">📊 Dashboard</div>
+<div class="panel-title">📊 System Dashboard</div>
 <div id="dashStats" style="margin-bottom:16px;"><div class="loading">Loading...</div></div>
-<div class="card"><h3>💰 Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
-<div class="card"><h3>📋 Job Status</h3><canvas id="jobChart"></canvas></div>
+<div class="card"><h3>💰 Revenue Stream</h3><canvas id="revenueChart"></canvas></div>
+<div class="card"><h3>📋 Job Diagnostics</h3><canvas id="jobChart"></canvas></div>
 </div>
 
 <!-- AI CHAT -->
 <div id="chat" class="panel">
 <div class="panel-title">🤖 AI Assistant</div>
 <div class="chat-box" id="chatBox">
-  <div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div>
+  <div class="msg ai">SYSTEM ONLINE. Awaiting diagnostic queries.</div>
 </div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
 <input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;border-radius:25px;">
 <button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);">🎤</button>
-<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px rgba(102,126,234,.3);">➤</button>
+<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px var(--primary-glow);">➤</button>
 </div>
 </div>
 
@@ -343,7 +390,7 @@ body.dark select {
 
 <!-- SETTINGS -->
 <div id="settings" class="panel">
-<div class="panel-title">⚙️ Settings</div>
+<div class="panel-title">⚙️ System Settings</div>
 <button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
 <div class="card">
 <h3>🏢 Workshop Branding</h3>
@@ -379,24 +426,24 @@ function toast(msg, type='success') {
 
 // CATEGORIES
 const CATEGORIES = {
-  diagnostics: { name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#2196F3,#0d47a1)', items: [
-      {icon:'🤖',label:'AI Chat',tab:'chat',color:'#3b82f6'},
+  diagnostics: { name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#0ea5e9,#1e3a8a)', items: [
+      {icon:'🤖',label:'AI Chat',tab:'chat',color:'#0ea5e9'},
       {icon:'📟',label:'Fault Codes',tab:'codes',color:'#ef4444'},
       {icon:'📖',label:'Problems',tab:'problems',color:'#f59e0b'},
       {icon:'🔍',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
   ]},
-  workshop: { name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b,#dc2626)', items: [
+  workshop: { name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b,#b91c1c)', items: [
       {icon:'📋',label:'Jobs',tab:'jobs',color:'#f59e0b'},
       {icon:'👥',label:'Customers',tab:'customers',color:'#10b981'},
       {icon:'💰',label:'Invoices',tab:'invoices',color:'#10b981'}
   ]},
-  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#047857)', items: [
+  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#065f46)', items: [
       {icon:'🛒',label:'Purchase',tab:'purchase',color:'#3b82f6'}
   ]},
   reference: { name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: [
       {icon:'🔩',label:'Parts Search',tab:'parts',color:'#6b7280'}
   ]},
-  business: { name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#1f2937,#4b5563)', items: [
+  business: { name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#334155,#0f172a)', items: [
       {icon:'📊',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
       {icon:'⚙️',label:'Settings',tab:'settings',color:'#6b7280'}
   ]}
@@ -405,7 +452,7 @@ const CATEGORIES = {
 document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
   `<div class="cat-card" style="background:${cat.gradient}" onclick="openCategory('${key}')">
     <div class="cat-icon">${cat.icon}</div>
-    <div class="cat-info"><div class="cat-name">${cat.name}</div><div class="cat-count">${cat.items.length} features</div></div>
+    <div class="cat-info"><div class="cat-name">${cat.name}</div><div class="cat-count">${cat.items.length} modules</div></div>
     <div class="cat-arrow">›</div>
   </div>`
 ).join('');
@@ -476,7 +523,7 @@ function showTab(name, el) {
 
 // HELPERS
 function toggleTheme() { document.body.classList.toggle('dark'); document.getElementById('themeBtn').textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; }
-async function checkStatus() { try { await fetch('/health'); document.getElementById('status').innerHTML = '<span style="color:green;font-weight:bold;">✓ Backend Online</span>'; } catch (e) { document.getElementById('status').innerHTML = '<span style="color:red;font-weight:bold;">✗ Backend Offline</span>'; } }
+async function checkStatus() { try { await fetch('/health'); document.getElementById('status').innerHTML = '<span style="color:var(--primary);font-weight:800;letter-spacing:1px;">● SYSTEM ONLINE</span>'; } catch (e) { document.getElementById('status').innerHTML = '<span style="color:#ef4444;font-weight:800;letter-spacing:1px;">● SYSTEM OFFLINE</span>'; } }
 checkStatus();
 function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 async function jget(u) { const r = await fetch(u); return r.json(); }
@@ -490,18 +537,18 @@ async function loadDashboard() {
   try { 
     const d = await jget('/api/stats'); 
     document.getElementById('dashStats').innerHTML = `
-      <div class="stats-row">
-        <div class="stat-card blue"><div class="num">${d.jobs_total}</div><div class="lbl">Jobs</div></div>
-        <div class="stat-card purple"><div class="num">${d.jobs_open}</div><div class="lbl">Open</div></div>
-        <div class="stat-card green"><div class="num">R${d.revenue}</div><div class="lbl">Revenue</div></div>
+      <div class="stats-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="stat-card" style="background:var(--card);padding:12px;border-radius:10px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:var(--primary);">${d.jobs_total}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Jobs</div></div>
+        <div class="stat-card" style="background:var(--card);padding:12px;border-radius:10px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:#8b5cf6;">${d.jobs_open}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Open</div></div>
+        <div class="stat-card" style="background:var(--card);padding:12px;border-radius:10px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:#10b981;">R${d.revenue}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Revenue</div></div>
       </div>`;
     if (rC) rC.destroy();
     rC = new Chart(document.getElementById('revenueChart'), {
-      type: 'line', data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.15)', fill: true, tension: .4 }] }, options: { responsive: true, plugins: { legend: { display: false } } }
+      type: 'line', data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.15)', fill: true, tension: .4, pointBackgroundColor: '#0ea5e9' }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }, x: { grid: { display: false }, ticks: { color: '#64748b' } } } }
     });
     if (jC) jC.destroy();
     jC = new Chart(document.getElementById('jobChart'), {
-      type: 'doughnut', data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#6b7280', '#f59e0b', '#10b981'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      type: 'doughnut', data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#64748b', '#f59e0b', '#10b981'], borderWidth: 0 }] }, options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#64748b' } } }, cutout: '75%' }
     });
   } catch(e){ console.error(e); }
 }
@@ -532,7 +579,7 @@ async function sendMsg() {
   b.scrollTop = b.scrollHeight;
   
   const typId = 'typ_' + Date.now();
-  b.innerHTML += `<div class="msg ai" id="${typId}">Thinking...</div>`;
+  b.innerHTML += `<div class="msg ai" id="${typId}">Processing...</div>`;
   b.scrollTop = b.scrollHeight;
   
   try {
@@ -559,7 +606,7 @@ async function loadJobs() {
       if (j.status === 'In Progress' || j.status === 'Diagnosing') badgeClass = 'medium';
       if (j.status === 'Awaiting Parts' || j.status === 'Awaiting Approval') badgeClass = 'high';
       
-      let cost = j.total ? `<div style="margin-top:10px;padding:10px;background:var(--input-bg);border-radius:10px;font-size:13px;"><strong>💰 Total: R${j.total.toFixed(2)}</strong></div>` : '';
+      let cost = j.total ? `<div style="margin-top:10px;padding:10px;background:var(--input-bg);border-radius:8px;font-size:13px;border:1px solid var(--border);"><strong>💰 Total: R${j.total.toFixed(2)}</strong></div>` : '';
       let as = j.assigned_to ? `<p style="color:var(--text2);font-size:12px;">👷 ${esc(j.assigned_to)}</p>` : '';
       
       const statuses = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"];
@@ -735,15 +782,15 @@ async function openKanban() {
   let modal = document.getElementById('kanbanModal');
   if (!modal) {
     modal = document.createElement('div'); modal.id = 'kanbanModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2><button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div></div>`;
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);border:1px solid var(--primary);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2><button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div></div>`;
     document.body.appendChild(modal);
   } else { modal.style.display = 'block'; }
   const d = await jget('/api/jobs/kanban'); let html = '';
   d.statuses.forEach(s => {
     const items = d.columns[s] || [];
-    html += `<div style="background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);"><h4 style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">${s} (${items.length})</h4>`;
-    items.forEach(j => { html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`; });
+    html += `<div style="background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);"><h4 style="font-size:12px;color:var(--primary);text-transform:uppercase;margin-bottom:8px;letter-spacing:1px;">${s} (${items.length})</h4>`;
+    items.forEach(j => { html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);box-shadow:0 2px 8px rgba(0,0,0,0.1);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`; });
     html += `</div>`;
   });
   document.getElementById('kanbanContent').innerHTML = html;
@@ -753,8 +800,8 @@ async function openPhotoIntake() {
   let modal = document.getElementById('photoIntakeModal');
   if (!modal) {
     modal = document.createElement('div'); modal.id = 'photoIntakeModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2><button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="piStep1" class="card" style="background:var(--input-bg);"><p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard.</p><input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)"></div><div id="piStep2" style="display:none;"><div id="piPreview" style="margin-bottom:10px;"></div><div id="piResult" class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3><input type="text" id="piMake" class="form-input" placeholder="Make"><input type="text" id="piModel" class="form-input" placeholder="Model"><input type="text" id="piReg" class="form-input" placeholder="Registration"><input type="text" id="piVin" class="form-input" placeholder="VIN"><input type="number" id="piKm" class="form-input" placeholder="Odometer"><button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button></div></div><div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);"><div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>Analyzing photo...</div></div>`;
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);border:1px solid var(--primary);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2><button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="piStep1" class="card" style="background:var(--input-bg);"><p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard.</p><input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)"></div><div id="piStep2" style="display:none;"><div id="piPreview" style="margin-bottom:10px;"></div><div id="piResult" class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3><input type="text" id="piMake" class="form-input" placeholder="Make"><input type="text" id="piModel" class="form-input" placeholder="Model"><input type="text" id="piReg" class="form-input" placeholder="Registration"><input type="text" id="piVin" class="form-input" placeholder="VIN"><input type="number" id="piKm" class="form-input" placeholder="Odometer"><button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button></div></div><div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);"><div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>Analyzing photo...</div></div>`;
     document.body.appendChild(modal);
   } else { modal.style.display = 'block'; document.getElementById('piStep1').style.display = 'block'; document.getElementById('piStep2').style.display = 'none'; document.getElementById('piImage').value = ''; }
 }
@@ -793,8 +840,8 @@ async function openStaffManager() {
   let modal = document.getElementById('staffModal');
   if (!modal) {
     modal = document.createElement('div'); modal.id = 'staffModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2><button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3><input type="text" id="newStaffName" class="form-input" placeholder="Full Name"><select id="newStaffRole" class="form-input"><option value="technician">Technician</option><option value="manager">Manager</option></select><input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4"><button class="btn btn-success" onclick="addNewStaff()">+ Add Staff</button></div><div id="staffList" style="margin-top:16px;"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div></div></div>`;
+    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;padding:16px;overflow:auto;';
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);border:1px solid var(--primary);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2><button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3><input type="text" id="newStaffName" class="form-input" placeholder="Full Name"><select id="newStaffRole" class="form-input"><option value="technician">Technician</option><option value="manager">Manager</option></select><input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4"><button class="btn btn-success" onclick="addNewStaff()">+ Add Staff</button></div><div id="staffList" style="margin-top:16px;"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div></div></div>`;
     document.body.appendChild(modal);
   } else { modal.style.display = 'block'; }
   loadStaffList();
