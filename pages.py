@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Complete Final UI)
+# pages.py — RamsTech v10.0 (Phase B - Core Panels Complete)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -87,11 +87,12 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 .btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:var(--grad1);color:white;}
 .btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
 .btn-success{background:var(--grad4)}
-.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;}
+.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;cursor:pointer;}
+.btn-sm.whatsapp{background:#25D366;}
 .badge{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;color:white;}
-.badge.high,.badge.critical{background:#ef4444}
+.badge.high,.badge.critical,.badge.outstanding{background:#ef4444}
 .badge.medium{background:#f59e0b}
-.badge.low,.badge.ok,.badge.completed{background:#10b981}
+.badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
@@ -197,7 +198,6 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">📸 New Job from Photo</button>
 
 <button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
-<button class="btn btn-dark no-print" onclick="exportJobsCSV()">📥 Export CSV</button>
 <div id="jobForm" style="display:none">
 <div class="card">
 <input class="form-input" id="jobCustomer" placeholder="Customer name">
@@ -207,25 +207,17 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <input class="form-input" id="jobKm" type="number" placeholder="Odometer (km)">
 <textarea class="form-input" id="jobComplaint" placeholder="Complaint / issue" rows="2"></textarea>
 <select class="form-input" id="jobAssigned"><option value="">— Assign to staff —</option></select>
-<input class="form-input" id="jobWarranty" type="number" placeholder="Warranty (months)" value="6">
-<label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px">📸 Photos</label>
-<input type="file" id="jobPhotos" accept="image/*" multiple capture="environment" class="form-input" onchange="addJobPhotos(event)">
-<div class="thumb-row" id="jobPhotoThumbs"></div>
-<label style="font-size:13px;font-weight:700;margin-top:10px;display:block;margin-bottom:6px">✍️ Customer Signature</label>
-<button class="btn btn-success" onclick="openSignature()">✍️ Capture Signature</button>
-<div id="sigPreview" style="margin-bottom:10px"></div>
-<button class="btn btn-success" onclick="createJob()" style="margin-top:10px">✓ Create Job</button>
+<button class="btn btn-success" onclick="createJob()">✓ Create Job</button>
 <button class="btn btn-dark" onclick="hideJobForm()">Cancel</button>
 </div>
 </div>
 <div id="jobList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- CUSTOMERS -->
+<!-- CUSTOMERS (UPGRADED) -->
 <div id="customers" class="panel">
 <div class="panel-title">👥 Customers</div>
 <button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
-<button class="btn btn-dark no-print" onclick="exportCustomersCSV()">📥 Export CSV</button>
 <div id="customerForm" style="display:none">
 <div class="card">
 <input class="form-input" id="custName" placeholder="Full name">
@@ -239,21 +231,9 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <div id="customerList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- INVOICES -->
+<!-- INVOICES (UPGRADED) -->
 <div id="invoices" class="panel">
 <div class="panel-title">💰 Invoices</div>
-<button class="btn no-print" onclick="showInvoiceForm()">+ New Invoice</button>
-<div id="invoiceForm" style="display:none">
-<div class="card">
-<input class="form-input" id="invCustomer" placeholder="Customer">
-<input class="form-input" id="invVehicle" placeholder="Vehicle">
-<input class="form-input" id="invDesc" placeholder="Description">
-<input class="form-input" id="invLabour" type="number" placeholder="Labour (R)">
-<input class="form-input" id="invParts" type="number" placeholder="Parts (R)">
-<button class="btn btn-success" onclick="createInvoice()">Generate Invoice</button>
-<button class="btn btn-dark" onclick="hideInvoiceForm()">Cancel</button>
-</div>
-</div>
 <div id="invoiceList"><div class="loading">Loading...</div></div>
 </div>
 
@@ -451,6 +431,7 @@ async function decodeVin() { try { const d = await jget('/api/vin/'+document.get
 async function matchPaint() { alert('Paint API placeholder'); }
 async function diagnosePhoto() { alert('Photo API placeholder'); }
 
+// JOBS
 async function loadJobs() {
   const c = document.getElementById('jobList');
   c.innerHTML = '<div class="loading">Loading...</div>';
@@ -509,7 +490,7 @@ async function updateJobStatus(jid, newStatus) {
   try {
     await jput('/api/jobs/' + jid, { status: newStatus });
     loadJobs(); 
-    if (document.getElementById('kanbanModal').style.display === 'block') openKanban();
+    if (document.getElementById('kanbanModal') && document.getElementById('kanbanModal').style.display === 'block') openKanban();
   } catch (e) { alert('Failed to update status'); }
 }
 
@@ -548,12 +529,89 @@ async function generateInvoice(jid) {
   } catch(e) { alert('Error generating invoice'); }
 }
 
-async function loadCustomers() { try { const d = await jget('/api/customers'); document.getElementById('customerList').innerHTML = d.customers.map(c=>'<div class="card"><h3>'+esc(c.name)+'</h3></div>').join(''); } catch(e){} }
-async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p>Total: R'+i.total.toFixed(2)+'</p></div>').join(''); } catch(e){} }
+// CUSTOMERS (UPGRADED)
+function showCustomerForm(){document.getElementById('customerForm').style.display='block'} 
+function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
+
+async function createCustomer() {
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  if (!name || !phone) { alert('Name and phone required'); return; }
+  
+  await jpost('/api/customers', {
+    name: name, phone: phone, 
+    email: document.getElementById('custEmail').value,
+    address: document.getElementById('custAddress').value
+  });
+  
+  document.getElementById('custName').value = '';
+  document.getElementById('custPhone').value = '';
+  document.getElementById('custEmail').value = '';
+  document.getElementById('custAddress').value = '';
+  hideCustomerForm();
+  loadCustomers();
+}
+
+async function loadCustomers() { 
+  try { 
+    const d = await jget('/api/customers'); 
+    document.getElementById('customerList').innerHTML = d.customers.map(c=>`
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <h3>👤 ${esc(c.name)}</h3>
+            <p>📞 ${esc(c.phone)}</p>
+            ${c.email ? `<p>📧 ${esc(c.email)}</p>` : ''}
+          </div>
+          <button class="btn-sm whatsapp" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}', '_blank')">📱 Chat</button>
+        </div>
+      </div>`).join('') || '<div class="card"><p>No customers yet</p></div>'; 
+  } catch(e){} 
+}
+
+// INVOICES (UPGRADED)
+async function loadInvoices() { 
+  try { 
+    const d = await jget('/api/invoices'); 
+    document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>{
+      const isPaid = i.paid;
+      const badge = isPaid ? 'paid' : 'outstanding';
+      const payBtn = !isPaid ? `<button class="btn-sm blue" onclick="window.location.href='/pay/${i.id}'">💳 Pay Now</button>` : '';
+      
+      return `
+        <div class="card">
+          <h3>Invoice #${i.id} <span class="badge ${badge}">${badge.toUpperCase()}</span></h3>
+          <p><strong>${esc(i.customer)}</strong></p>
+          <p style="font-size:20px; font-weight:800; color:var(--primary); margin: 8px 0;">R ${i.total.toFixed(2)}</p>
+          <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 View PDF</button>
+            <button class="btn-sm whatsapp" onclick="shareInvoiceWhatsApp('${i.id}', '${esc(i.customer)}', '${i.total}')">📱 Share</button>
+            ${payBtn}
+          </div>
+        </div>`;
+    }).join('') || '<div class="card"><p>No invoices yet</p></div>'; 
+  } catch(e){} 
+}
+
+function shareInvoiceWhatsApp(id, customer, total) {
+  const txt = `Hi ${customer}, your invoice #${id} is ready. Total due: R${total}. You can view and pay it here: https://ramstech.onrender.com/pay/${id}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+}
+
+// SETTINGS
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
-function showJobForm(){document.getElementById('jobForm').style.display='block'} function hideJobForm(){document.getElementById('jobForm').style.display='none'}
-function showCustomerForm(){document.getElementById('customerForm').style.display='block'} function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
-function showInvoiceForm(){document.getElementById('invoiceForm').style.display='block'} function hideInvoiceForm(){document.getElementById('invoiceForm').style.display='none'}
+async function saveSettings() {
+  const p = {
+    name: document.getElementById('wsName').value,
+    logo: document.getElementById('wsLogo').value,
+    phone: document.getElementById('wsPhone').value,
+    address: document.getElementById('wsAddress').value,
+    email: document.getElementById('wsEmail').value,
+    labour_rate: parseFloat(document.getElementById('wsRate').value) || 450
+  };
+  await jpost('/api/workshop', p);
+  alert('Settings saved!');
+}
 function sendMsg(){}
 
 // PARTS SEARCH & PURCHASE ORDERS
@@ -894,7 +952,7 @@ async function openScanner() {
     };
     document.body.appendChild(script);
   } else {
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
+    html5Qrcode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
       closeScanner();
       document.getElementById('vinInput').value = text;
       decodeVin();
