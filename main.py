@@ -371,6 +371,91 @@ def get_workshop(): return get_workshop_data()
 @app.post("/api/workshop")
 async def save_workshop(r: Request):
     d = await r.json(); save_workshop_data(d); return {"success": True, "workshop": get_workshop_data()}
+
+# ═══════════════════════════════════════════════════════════════
+# AI PANEL ENDPOINTS (NEWLY ADDED)
+# ═══════════════════════════════════════════════════════════════
+@app.post("/api/fault-codes/ai")
+async def ai_explain_code(r: Request):
+    d = await r.json()
+    code = d.get("code", "")
+    vehicle = d.get("vehicle", "")
+    
+    if not OPENAI_KEY: return {"reply": "AI not configured on server (missing API key)."}
+    
+    prompt = f"You are an expert mechanic. Explain the OBD fault code {code}. " \
+             f"{'Vehicle: ' + vehicle if vehicle else ''}. " \
+             f"Provide: 1. What it means. 2. Common causes. 3. Diagnostic steps to fix it. Keep it brief and easy to read."
+    
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=500)
+        return {"reply": resp.choices[0].message.content}
+    except Exception as e:
+        return {"reply": f"Error communicating with AI: {str(e)}"}
+
+@app.post("/api/fault-codes/ai-search")
+async def ai_search_symptom(r: Request):
+    d = await r.json()
+    query = d.get("query", "").lower()
+    vehicle = d.get("vehicle", "")
+    
+    # 1. Search your local data.py first for quick matches
+    local_matches = []
+    for code, data in FAULT_CODES.items():
+        if query in data.get("description", "").lower() or any(query in sym.lower() for sym in data.get("symptoms", [])):
+            local_matches.append({"code": code, "description": data["description"]})
+            
+    if not OPENAI_KEY: return {"reply": "AI not configured.", "local_matches": local_matches[:5]}
+    
+    # 2. Ask AI for a deeper answer
+    prompt = f"You are an expert mechanic. A customer describes this symptom: '{query}'. " \
+             f"{'Vehicle: ' + vehicle if vehicle else ''}. " \
+             f"List the most likely OBD fault codes and what the technician should check. Be concise."
+    
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=500)
+        return {"reply": resp.choices[0].message.content, "local_matches": local_matches[:5]}
+    except Exception as e:
+        return {"reply": f"Error: {str(e)}", "local_matches": local_matches[:5]}
+
+@app.post("/api/ai-context")
+async def ai_context(r: Request):
+    d = await r.json()
+    message = d.get("message", "")
+    vehicle = d.get("vehicle", "")
+    img_b64 = d.get("image_base64")
+    
+    if not OPENAI_KEY: return {"reply": "AI not configured."}
+    
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        
+        # If they uploaded a photo in the "Ask" tab
+        if img_b64:
+            if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
+            prompt = f"Expert mechanic. {('Vehicle: ' + vehicle) if vehicle else ''}. The user says: '{message}'. Diagnose the issue in this photo."
+            resp = c.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                ]}],
+                max_tokens=800
+            )
+        else:
+            # Normal text chat
+            prompt = f"Expert mechanic. {('Vehicle: ' + vehicle) if vehicle else ''}. Answer this: {message}"
+            resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=800)
+            
+        return {"reply": resp.choices[0].message.content}
+    except Exception as e:
+        return {"reply": f"Error: {str(e)}"}
+
+# ═══════════════════════════════════════════════════════════════
+# OTHER AI ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message", "")
