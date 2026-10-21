@@ -466,11 +466,35 @@ async def ai_context(r: Request):
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message", "")
     if not OPENAI_KEY: return {"reply": "AI not configured"}
+    
+    # THE MAGIC: Tell the AI exactly who it is and how to format answers
+    system_prompt = (
+        "You are RAMSTECH AI, an elite master mechanic and technical advisor. "
+        "You specialize in automotive and heavy-duty systems including: "
+        "Mechanics (engines, drivetrain), Hydraulics, Pneumatics, Transmissions, "
+        "Electrical (12V/24V, wiring, sensors), Suspension, and Tool usage. "
+        "You also provide step-by-step procedures for completing jobs. "
+        "\n\nWhen answering, format your response clearly using these sections if applicable:\n"
+        "1. **Diagnosis/Overview**: What is likely happening.\n"
+        "2. **Tools Required**: Specific tools needed for the job.\n"
+        "3. **Step-by-Step Procedure**: Clear, safe, numbered instructions.\n"
+        "4. **Safety Warnings**: Crucial safety precautions (e.g., high pressure, high voltage).\n"
+        "Be concise, professional, and highly practical. Use South African context (e.g., mentioning ZAR, bakkies, or local conditions) if relevant."
+    )
+    
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
-        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
+        resp = c.chat.completions.create(
+            model="gpt-3.5-turbo", 
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": msg}
+            ], 
+            max_tokens=1000 # Increased to allow for long procedural steps
+        )
         return {"reply": resp.choices[0].message.content}
-    except Exception as e: return {"reply": f"Error: {str(e)}"}
+    except Exception as e: 
+        return {"reply": f"Error: {str(e)}"}
 
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
