@@ -223,7 +223,10 @@ input[type="checkbox"] {
 <!-- PROBLEMS -->
 <div id="problems" class="panel">
 <div class="panel-title">📖 Common Problems</div>
-<input type="text" class="form-input" id="problemSearch" placeholder="🔍 Search problems..." oninput="filterProblems()">
+<div style="display:flex; gap:8px; margin-bottom:14px;">
+    <input type="text" class="form-input" style="margin-bottom:0;" id="problemSearch" placeholder="🔍 Search problems..." oninput="filterProblems()">
+    <button class="btn" style="margin-bottom:0; width:auto; padding:0 20px;" onclick="filterProblems()"><i data-lucide="search"></i></button>
+</div>
 <div id="problemList"><div class="loading">Loading...</div></div>
 </div>
 
@@ -719,7 +722,6 @@ async function searchCodes() {
         document.getElementById('codeResults').dataset.loaded = '1'; 
         
         if (!d.codes || d.codes.length === 0) {
-            // If the code is not in data.py, offer to ask the AI
             c.innerHTML = `<div class="card">
                 <h3>Code not found</h3>
                 <p style="color:var(--text2);font-size:13px;">Code <b>${esc(q)}</b> is not in the local database.</p>
@@ -728,7 +730,6 @@ async function searchCodes() {
             return;
         }
         
-        // Render the results nicely using the data from data.py
         c.innerHTML = d.codes.map(x => `
             <div class="card">
                 <h3>${x.code} <span class="badge ${x.severity === 'High' ? 'high' : (x.severity === 'Medium' ? 'medium' : 'low')}">${x.severity}</span></h3>
@@ -743,21 +744,39 @@ async function searchCodes() {
     } 
 }
 
+// PROBLEMS SEARCH & MODAL
+window.ALL_PROBLEMS = [];
+
 async function loadProblems() { 
     try { 
         const d = await jget('/api/problems'); 
-        document.getElementById('problemList').innerHTML = d.problems.map((x, i) => `
-            <div class="card" style="cursor:pointer;" onclick="showProblemDetails(${i})">
-                <h3>${esc(x.title)}</h3>
-                <p style="font-size:13px;color:var(--text2);">${esc(x.system)} - ${esc(x.severity)}</p>
-            </div>
-        `).join(''); 
-        window._problems = d.problems; // Store for the modal
+        window.ALL_PROBLEMS = d.problems;
+        renderProblems(window.ALL_PROBLEMS);
     } catch(e){} 
 }
 
-async function showProblemDetails(index) {
-    const p = window._problems[index];
+function renderProblems(problems) {
+    document.getElementById('problemList').innerHTML = problems.map((x, i) => `
+        <div class="card" style="cursor:pointer;" onclick="showProblemDetails('${esc(x.title)}')">
+            <h3>${esc(x.title)}</h3>
+            <p style="font-size:13px;color:var(--text2);">${esc(x.system)} - ${esc(x.severity)}</p>
+        </div>
+    `).join('') || '<div class="card"><p>No problems found.</p></div>';
+}
+
+function filterProblems() {
+    const q = document.getElementById('problemSearch').value.toLowerCase();
+    const filtered = window.ALL_PROBLEMS.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.system.toLowerCase().includes(q)
+    );
+    renderProblems(filtered);
+}
+
+async function showProblemDetails(title) {
+    const p = window.ALL_PROBLEMS.find(x => x.title === title);
+    if (!p) return;
+    
     let modal = document.getElementById('probModal');
     if (!modal) { 
         modal = document.createElement('div'); 
@@ -780,14 +799,12 @@ async function showProblemDetails(index) {
         document.body.appendChild(modal); 
     }
     
-    // Populate modal
     document.getElementById('pmTitle').textContent = p.title;
     document.getElementById('pmSub').textContent = `${p.system} • ${p.severity} Severity`;
     
     document.getElementById('pmCauses').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Possible Causes:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.causes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     document.getElementById('pmChecks').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Basic Checks:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     
-    // Reset AI section
     document.getElementById('pmAIResult').style.display = 'none';
     document.getElementById('pmAIResult').innerHTML = '';
     
@@ -802,7 +819,6 @@ async function getAIProcedure(problemTitle) {
     try {
         const res = await jpost('/api/problems/ai-procedure', { problem: problemTitle });
         if (res.reply) {
-            // Convert markdown-ish text to basic HTML for readability
             let html = esc(res.reply)
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
@@ -814,8 +830,6 @@ async function getAIProcedure(problemTitle) {
         resBox.innerHTML = 'Network error.';
     }
 }
-
-async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><p style="font-size:13px;color:var(--text2);">'+esc(x.system)+' - '+esc(x.severity)+'</p></div>').join(''); } catch(e){} }
 
 let paintB64 = '';
 async function previewPaint(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(ev) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); paintB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; document.getElementById('paintPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`; }; img.src = ev.target.result; }; reader.readAsDataURL(file); }
