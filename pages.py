@@ -787,19 +787,24 @@ function filterProblems() {
         });
     }
 
-    if (filtered.length > 0) {
-        renderProblems(filtered);
-    } else {
-        // 3. AI Fallback if nothing local is found
-        document.getElementById('problemList').innerHTML = `
-            <div class="card">
-                <h3>No local match found</h3>
-                <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">We couldn't find a local match for "<b>${esc(q)}</b>".</p>
-                <button class="btn" onclick="getAIProcedureForSearch('${esc(q)}')" style="background:var(--grad6);font-size:14px;">🤖 Ask AI for Diagnosis & Procedure</button>
-            </div>
-            <div id="aiSearchResult" style="display:none; background:var(--input-bg); padding:14px; border-radius:8px; border:1px solid var(--border); margin-top:14px; font-size:14px; line-height:1.6;"></div>
-        `;
-    }
+    let html = filtered.map((x, i) => `
+        <div class="card" style="cursor:pointer;" onclick="showProblemDetails('${esc(x.title)}')">
+            <h3>${esc(x.title)}</h3>
+            <p style="font-size:13px;color:var(--text2);">${esc(x.system)} - ${esc(x.severity)}</p>
+        </div>
+    `).join('');
+
+    // Always add the AI fallback at the bottom, regardless of local matches
+    html += `
+        <div class="card" style="border: 1px dashed var(--primary); background: rgba(14, 165, 233, 0.05); margin-top: 24px;">
+            <h3 style="color: var(--primary);">Not finding it?</h3>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Let the AI diagnose "<b>${esc(q)}</b>" and generate a custom testing procedure.</p>
+            <button class="btn" onclick="getAIProcedureForSearch('${esc(q)}')" style="background:var(--grad6);font-size:14px;">🤖 Ask AI for Diagnosis</button>
+        </div>
+        <div id="aiSearchResult" style="display:none; background:var(--input-bg); padding:14px; border-radius:8px; border:1px solid var(--border); margin-top:14px; font-size:14px; line-height:1.6;"></div>
+    `;
+
+    document.getElementById('problemList').innerHTML = html;
 }
 
 async function getAIProcedureForSearch(query) {
