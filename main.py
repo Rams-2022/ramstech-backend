@@ -3,34 +3,46 @@ from fastapi.responses import HTMLResponse, StreamingResponse, Response, Redirec
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io, urllib.request, urllib.parse, urllib.error, hmac, hashlib, base64
 
-import db
-from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
-                  PARTS_CATALOG, COMMON_PROBLEMS, WIRING_LIBRARY, OBD_PIDS,
-                  BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES,
-                  INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
-from pages import HTML_PAGE
-
 # ═══════════════════════════════════════════════════════════════
-# UI MODULES
+# 1. INITIALIZE APP IMMEDIATELY
 # ═══════════════════════════════════════════════════════════════
-AI_PANEL_HTML = ""
-PWA_HTML = ""
-
-try:
-    from ai_panel import AI_PANEL_HTML
-except Exception as _e: print(f"[main] ai_panel unavailable: {_e}")
-
-try:
-    from pwa import router as _pwa_router, PWA_HTML
-except Exception as _e: print(f"[main] pwa unavailable: {_e}")
-
 app = FastAPI(title="RamsTech")
 
 # ═══════════════════════════════════════════════════════════════
-# CORE SETUP & DB
+# 2. SAFE IMPORTS (Prevents crashes if a file has an error)
+# ═══════════════════════════════════════════════════════════════
+try:
+    import db
+    from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
+                      PARTS_CATALOG, COMMON_PROBLEMS, WIRING_LIBRARY, OBD_PIDS,
+                      BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES,
+                      INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
+except Exception as e:
+    print(f"[CRITICAL] Core data import failed: {e}")
+
+HTML_PAGE = "<html><body><h1>App is loading...</h1></body></html>"
+try:
+    from pages import HTML_PAGE
+except Exception as e:
+    print(f"[CRITICAL] pages.py failed to load: {e}")
+
+AI_PANEL_HTML = ""
+PWA_HTML = ""
+try:
+    from ai_panel import AI_PANEL_HTML
+except Exception as e:
+    print(f"[WARN] ai_panel unavailable: {e}")
+try:
+    from pwa import router as _pwa_router, PWA_HTML
+except Exception as e:
+    print(f"[WARN] pwa unavailable: {e}")
+
+# ═══════════════════════════════════════════════════════════════
+# 3. CORE SETUP & DB
 # ═══════════════════════════════════════════════════════════════
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
-db.init()
+try: db.init()
+except: pass
 
 MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
                        "inventory", "purchase_orders", "staff", "clockins", "expenses",
@@ -72,27 +84,24 @@ def save_workshop_data(d):
     return d
 
 # ═══════════════════════════════════════════════════════════════
-# HOME ROUTE
+# 4. HOME ROUTE
 # ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
     html = HTML_PAGE
     idx = html.rfind("</body>")
     if idx == -1: return html
-
     inject = ""
     if AI_PANEL_HTML: inject += AI_PANEL_HTML
     if PWA_HTML: inject += PWA_HTML
-
     return html[:idx] + inject + html[idx:]
 
 @app.get("/health")
 def health():
     return {"status": "healthy", "database": ("supabase" if db.is_ready() else "memory")}
 
-
 # ═══════════════════════════════════════════════════════════════
-# INVOICES PDF GENERATOR
+# 5. INVOICES PDF
 # ═══════════════════════════════════════════════════════════════
 def _meta(job):
     sig = job.get("signature") or ""
@@ -107,29 +116,17 @@ def invoice_html(jid: str):
     if not job: raise HTTPException(404, "Job not found")
     meta = _meta(job)
     w = get_workshop_data()
-
-    logo = w.get("logo") or "🔧"
-    name = w.get("name") or "RAMSTECH"
-    phone = w.get("phone") or ""
-    address = w.get("address") or ""
-    email = w.get("email") or ""
-
-    labour = float(job.get("labour_cost") or 0)
-    parts = float(job.get("parts_cost") or 0)
-    subtotal = float(job.get("subtotal") or 0)
-    vat = float(job.get("vat") or 0)
-    total = float(job.get("total") or 0)
-    created = job.get("created") or ""
-    inv_no = "INV-" + jid.upper()
-    cust_sig = meta.get("customer_sig") or ""
-    owner_sig = meta.get("owner_sig") or ""
+    logo, name = w.get("logo") or "🔧", w.get("name") or "RAMSTECH"
+    phone, address, email = w.get("phone") or "", w.get("address") or "", w.get("email") or ""
+    labour, parts = float(job.get("labour_cost") or 0), float(job.get("parts_cost") or 0)
+    subtotal, vat, total = float(job.get("subtotal") or 0), float(job.get("vat") or 0), float(job.get("total") or 0)
+    created, inv_no = job.get("created") or "", "INV-" + jid.upper()
+    cust_sig, owner_sig = meta.get("customer_sig") or "", meta.get("owner_sig") or ""
 
     def sig_block(label, sig):
         if sig and sig.startswith("data:image"):
             return f'<div class="sigbox"><img src="{sig}"><div class="siglabel">{label}</div></div>'
         return f'<div class="sigbox empty"><div class="siglabel">{label} — not signed</div></div>'
-
-    timeline_rows = "".join([f"<tr><td>{entry}</td></tr>" for entry in (job.get("timeline") or [])])
 
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{inv_no}</title>
 <style>*{{box-sizing:border-box;margin:0;padding:0;}}body{{font-family:-apple-system,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:16px;}}.page{{max-width:800px;margin:0 auto;background:#fff;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:12px;}}.header{{display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #E65100;margin-bottom:24px;}}.brand{{display:flex;gap:14px;align-items:center;}}.logo{{font-size:48px;}}.brand h1{{font-size:22px;color:#E65100;font-weight:800;}}.inv-meta{{text-align:right;}}.inv-meta h2{{font-size:22px;font-weight:800;}}.section{{margin-bottom:20px;}}.section h3{{font-size:12px;color:#E65100;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #e5e7eb;}}.row{{display:flex;gap:20px;}}.col{{flex:1;}}.field{{font-size:13px;margin-bottom:6px;}}.field b{{color:#666;min-width:90px;display:inline-block;}}table.items{{width:100%;border-collapse:collapse;margin-top:8px;}}table.items th{{background:#E65100;color:#fff;padding:10px;font-size:12px;}}table.items td{{padding:10px;border-bottom:1px solid #eee;font-size:13px;}}table.items td.amt{{text-align:right;font-weight:600;}}table.totals{{width:100%;margin-top:16px;}}table.totals td{{padding:8px 10px;font-size:13px;}}table.totals td:last-child{{text-align:right;font-weight:600;}}table.totals tr.grand{{background:#fff5ec;}}table.totals tr.grand td{{font-size:16px;font-weight:800;color:#E65100;border-top:2px solid #E65100;}}.sigs{{display:flex;gap:16px;margin-top:14px;}}.sigbox{{flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end;}}.sigbox img{{max-width:100%;max-height:80px;}}.siglabel{{font-size:11px;color:#666;}}.print-bar{{position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:100;}}.print-bar button{{padding:10px 18px;background:#E65100;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;}}@media print{{body{{background:#fff;padding:0;}}.page{{box-shadow:none;padding:0;}}.print-bar{{display:none;}}}}</style></head><body>
@@ -145,9 +142,8 @@ def invoice_html(jid: str):
 </div></body></html>"""
     return HTMLResponse(content=html)
 
-
 # ═══════════════════════════════════════════════════════════════
-# PAYMENTS ROUTER
+# 6. PAYMENTS ROUTER
 # ═══════════════════════════════════════════════════════════════
 router_pay = APIRouter(tags=["payments"])
 
@@ -163,11 +159,10 @@ def create_payment_link(invoice):
     try:
         amt = float(invoice.get("total", 0)) - float(invoice.get("amount_paid", 0))
         if amt <= 0.005: return {"success": False, "error": "Nothing outstanding"}
+        inv_id = invoice.get("id", "")
+        desc = f"Invoice {inv_id}"
         provider = detect_provider()
         cents = int(round(amt * 100))
-        inv_id = invoice.get("id", "")
-        desc = f"Invoice {inv_id} — {invoice.get('description', '')[:40]}"
-
         if provider == "yoco": return _yoco_checkout(inv_id, cents, desc)
         if provider == "payfast": return _payfast_link(inv_id, amt, desc)
         if provider == "stripe": return _stripe_link(inv_id, cents, desc)
@@ -218,16 +213,13 @@ p{{margin:0;color:#666;line-height:1.6;font-size:15px}}</style></head><body>
 <div class="card"><div class="icon">{icon}</div><h1>{title}</h1><p>{message}</p></div></body></html>""")
 
 @router_pay.get("/pay/success")
-def pay_success(inv: str = ""):
-    return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
+def pay_success(inv: str = ""): return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
 
 @router_pay.get("/pay/cancelled")
-def pay_cancelled(inv: str = ""):
-    return _success_page("Payment cancelled", "No charge was made. You can pay any time.", color="#f59e0b", icon="!")
+def pay_cancelled(inv: str = ""): return _success_page("Payment cancelled", "No charge was made. You can pay any time.", color="#f59e0b", icon="!")
 
 @router_pay.get("/pay/demo")
-def pay_demo(inv: str = "", amount: str = "0"):
-    return _success_page("Demo mode", f"Console mode is active (no real gateway configured). Would have charged R{amount} for invoice {inv}.", color="#666", icon="⚙")
+def pay_demo(inv: str = "", amount: str = "0"): return _success_page("Demo mode", f"Console mode is active. Would have charged R{amount} for invoice {inv}.", color="#666", icon="⚙")
 
 @router_pay.get("/pay/{invoice_id}")
 def pay_redirect(invoice_id: str):
@@ -255,19 +247,10 @@ async def webhook_stripe(request: Request):
 
 app.include_router(router_pay)
 
-
 # ═══════════════════════════════════════════════════════════════
-# STAFF & KANBAN ROUTES
+# 7. STAFF & KANBAN ROUTES
 # ═══════════════════════════════════════════════════════════════
-ROLES = {
-    "owner": {"label": "Owner", "capabilities": ["*"]},
-    "manager": {"label": "Manager", "capabilities": ["view_jobs", "edit_jobs", "view_customers", "view_invoices"]},
-    "technician": {"label": "Technician", "capabilities": ["view_own_jobs", "edit_own_jobs", "clock_in"]},
-}
 KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
-
-@app.get("/api/roles")
-def list_roles(): return {"roles": [{"id": k, "label": v["label"]} for k, v in ROLES.items()]}
 
 @app.get("/api/whoami")
 def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "capabilities": ["*"]}
@@ -275,7 +258,7 @@ def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "
 @app.post("/api/staff/{sid}/pin")
 async def set_staff_pin(sid: str, r: Request):
     d = await r.json(); pin = str(d.get("pin") or "").strip()
-    if not pin or len(pin) < 4 or not pin.isdigit(): raise HTTPException(400, "PIN must be 4 digits")
+    if not pin or len(pin) < 4: raise HTTPException(400, "PIN must be 4 digits")
     staff = store_get("staff", sid)
     if not staff: raise HTTPException(404, "Staff not found")
     staff["pin"] = pin; store_save("staff", sid, staff); return {"success": True}
@@ -296,25 +279,23 @@ async def set_job_status(jid: str, r: Request):
     if new_status not in KANBAN_STATUSES: raise HTTPException(400, "Invalid status")
     job = store_get("jobs", jid)
     if not job: raise HTTPException(404, "Job not found")
-    job["status"] = new_status
-    store_save("jobs", jid, job)
+    job["status"] = new_status; store_save("jobs", jid, job)
     return {"success": True, "job": job}
 
-
 # ═══════════════════════════════════════════════════════════════
-# CORE ROUTES (Jobs, Customers, Invoices, Stats)
+# 8. CORE ROUTES
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/translations/{lang}")
 def get_translations(lang: str): return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
 
 @app.get("/api/stats")
 def get_stats():
-    jobs = store_list("jobs"); invs = store_list("invoices"); exps = store_list("expenses"); custs = store_list("customers")
-    rev = sum(float(i.get("total", 0)) for i in invs); exp = sum(float(e.get("amount", 0)) for e in exps)
-    
+    jobs, invs = store_list("jobs"), store_list("invoices")
+    exps, custs = store_list("expenses"), store_list("customers")
+    rev = sum(float(i.get("total", 0)) for i in invs)
+    exp = sum(float(e.get("amount", 0)) for e in exps)
     labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     data = [1500, 2300, 1800, 3200, 2800, 4500, 3900] 
-    
     return {
         "jobs_total": len(jobs), "jobs_open": sum(1 for j in jobs if j.get("status") != "Completed"),
         "jobs_completed": sum(1 for j in jobs if j.get("status") == "Completed"),
@@ -336,15 +317,14 @@ async def create_job(r: Request):
 @app.put("/api/jobs/{jid}")
 async def update_job(jid: str, r: Request):
     d = await r.json(); job = store_get("jobs", jid)
-    if not job: raise HTTPException(404, "Job not found")
+    if not job: raise HTTPException(404)
     if "status" in d: job["status"] = d["status"]
     store_save("jobs", jid, job); return {"success": True, "job": job}
 
 @app.post("/api/jobs/{jid}/cost")
 async def set_job_cost(jid: str, r: Request):
-    d = await r.json()
-    job = store_get("jobs", jid)
-    if not job: raise HTTPException(404, "Job not found")
+    d = await r.json(); job = store_get("jobs", jid)
+    if not job: raise HTTPException(404)
     h = float(d.get("labour_hours", 0)); rate = float(d.get("labour_rate", 450)); parts = float(d.get("parts_cost", 0))
     labour = h * rate; subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
     job.update({"labour_hours": h, "labour_rate": rate, "parts_cost": parts, "labour_cost": labour, "subtotal": subtotal, "vat": vat, "total": total})
@@ -385,34 +365,27 @@ async def chat(r: Request):
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
 
-
 # ═══════════════════════════════════════════════════════════════
-# PARTS, ORDERS, SCANNER & AI INTAKE ROUTES
+# 9. PARTS, SCANNER & AI INTAKE ROUTES
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/parts-search")
 def search_parts(q: str = None, limit: int = 50):
-    results = []
-    inv = store_list("inventory")
+    results = []; inv = store_list("inventory")
     if q:
         q_lower = q.lower()
         inv = [i for i in inv if q_lower in str(i.get("part_number","")).lower() or q_lower in str(i.get("name","")).lower()]
-    
     for i in inv[:limit]:
         results.append({"source": "inventory", "id": i.get("id"), "part_number": i.get("part_number", ""), "name": i.get("name", ""), "qty": i.get("qty", 0), "cost_price": i.get("cost_price", 0), "sell_price": i.get("sell_price", 0)})
-    
     return {"query": q or "", "count": len(results), "results": results}
 
 @app.get("/api/po/list")
-def list_pos():
-    return {"purchase_orders": store_list("purchase_orders")}
+def list_pos(): return {"purchase_orders": store_list("purchase_orders")}
 
 @app.post("/api/po/create")
 async def create_po(r: Request):
-    d = await r.json()
-    pid = str(uuid.uuid4())[:8]
+    d = await r.json(); pid = str(uuid.uuid4())[:8]
     po = {"id": pid, "po_number": "PO-" + pid.upper(), "supplier": d.get("supplier", ""), "items": d.get("items", []), "status": "draft", "created": now()}
-    store_save("purchase_orders", pid, po)
-    return {"success": True, "po_id": pid, "po_number": po["po_number"]}
+    store_save("purchase_orders", pid, po); return {"success": True, "po_id": pid, "po_number": po["po_number"]}
 
 @app.get("/api/scan/lookup-part/{code}")
 def lookup_part(code: str):
@@ -425,29 +398,46 @@ def lookup_vin(vin: str):
     vin = vin.strip().upper()
     if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
     jobs = [j for j in store_list("jobs") if vin in str(j.get("registration","")).upper()]
-    
     m, ctry, year = "Unknown", "Unknown", "Unknown"
     try:
         from data import WMI_DB, YEAR_CODES
-        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown"))
-        year = YEAR_CODES.get(vin[9], "Unknown")
+        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown")); year = YEAR_CODES.get(vin[9], "Unknown")
     except: pass
     return {"vin": vin, "manufacturer": m, "country": ctry, "year": year, "history": jobs}
 
 @app.post("/api/photo/intake")
 async def photo_intake(r: Request):
-    d = await r.json()
-    img = d.get("image_base64", "")
-    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured or no image"}
-    
+    d = await r.json(); img = d.get("image_base64", "")
+    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
     prompt = "Extract vehicle info from this image. Return ONLY JSON: {\"vin\":\"\",\"registration\":\"\",\"make\":\"\",\"model\":\"\",\"year\":\"\",\"km\":\"\"}"
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
-        resp = c.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}],
-            response_format={"type": "json_object"}
-        )
+        resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
         return {"success": True, **json.loads(resp.choices[0].message.content)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except Exception as e: return {"success": False, "error": str(e)}
+
+@app.post("/api/paint/match")
+async def match_paint(r: Request):
+    d = await r.json(); img = d.get("image_base64", "")
+    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
+    if img.startswith("data:"): img = img.split(",", 1)[1]
+    
+    prompt = "Expert paint tech. Respond ONLY JSON: {\"detected_colour\":{\"name\":\"N\",\"hex_code\":\"#RRGGBB\"},\"confidence\":\"High\",\"brand_codes\":[{\"brand\":\"B\",\"code\":\"C\"}],\"mixing_formula\":{\"base_colour\":\"D\",\"toners\":[{\"name\":\"T\",\"parts\":\"X\"}]}}"
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
+        return {"success": True, **json.loads(resp.choices[0].message.content)}
+    except Exception as e: return {"success": False, "error": str(e)}
+
+@app.post("/api/diagnose/photo")
+async def diagnose_photo(r: Request):
+    d = await r.json(); img = d.get("image_base64", "")
+    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured"}
+    if img.startswith("data:"): img = img.split(",", 1)[1]
+    
+    prompt = "Expert mechanic. Respond ONLY JSON: {\"problem\":\"S\",\"description\":\"D\",\"confidence\":\"High\",\"possible_causes\":[\"C\"],\"diagnostic_steps\":[\"S\"]}"
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
+        return {"success": True, **json.loads(resp.choices[0].message.content)}
+    except Exception as e: return {"success": False, "error": str(e)}
