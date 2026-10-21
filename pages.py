@@ -841,7 +841,7 @@ async function showProblemDetails(title) {
             <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
             <h3 style="font-size:14px;margin-bottom:10px;">🤖 AI Deep Dive</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Need exact testing procedures? Let the AI generate a step-by-step diagnostic guide.</p>
-            <button class="btn" onclick="getAIProcedure('${esc(p.title)}')" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
+            <button class="btn" onclick="getAIProcedure(${JSON.stringify(p.title)})" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
             <div id="pmAIResult" style="margin-top:15px;font-size:14px;line-height:1.6;display:none;background:var(--input-bg);padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
         </div>`;
         document.body.appendChild(modal); 
