@@ -180,10 +180,10 @@ input[type="checkbox"] {
 <div id="chat" class="panel">
 <div class="panel-title">🤖 AI Assistant</div>
 <div class="chat-box" id="chatBox">
-  <div class="msg ai">SYSTEM ONLINE. Awaiting diagnostic queries.</div>
+  <div class="msg ai">RAMSTECH AI ONLINE. I specialize in mechanics, hydraulics, pneumatics, transmission, electrical, suspension, and tool procedures. How can I help you today?</div>
 </div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
-<input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;border-radius:25px;">
+<input type="text" id="chatInput" placeholder="Ask about hydraulics, wiring, or procedures..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;border-radius:25px;">
 <button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);display:flex;align-items:center;justify-content:center;"><i data-lucide="mic"></i></button>
 <button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;justify-content:center;"><i data-lucide="send"></i></button>
 </div>
