@@ -502,13 +502,24 @@ async def ai_problem_procedure(r: Request):
     vehicle = d.get("vehicle", "")
     if not OPENAI_KEY: return {"reply": "AI not configured"}
     
-    prompt = f"You are an expert mechanic. A vehicle {'(' + vehicle + ')' if vehicle else ''} has the problem: '{problem}'. " \
+    # LOCK THE AI INTO THE SPECIFIC PROBLEM USING SYSTEM PROMPT
+    system_prompt = f"You are a master mechanic. You are diagnosing this specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem."
+    
+    prompt = f"Vehicle: {vehicle if vehicle else 'Unspecified'}. Problem: {problem}. " \
              f"Provide a detailed, step-by-step testing procedure to identify the culprit. " \
              f"Include: 1. Tools needed. 2. Initial visual checks. 3. Step-by-step diagnostic tests with expected results. " \
              f"4. Common culprits based on test results. Format with clear headings and bullet points."
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
-        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=1000)
+        # Use gpt-4o-mini for better instruction following and technical accuracy
+        resp = c.chat.completions.create(
+            model="gpt-4o-mini", 
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ], 
+            max_tokens=1000
+        )
         return {"reply": resp.choices[0].message.content}
     except Exception as e:
         return {"reply": f"Error: {str(e)}"}
