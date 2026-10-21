@@ -398,9 +398,106 @@ async function loadProblems() { try { const d = await jget('/api/problems'); doc
 async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
 async function matchPaint() { alert('Paint API placeholder'); }
 async function diagnosePhoto() { alert('Photo API placeholder'); }
-async function loadJobs() { try { const d = await jget('/api/jobs'); document.getElementById('jobList').innerHTML = d.jobs.map(j=>'<div class="card"><h3>'+esc(j.customer)+'</h3><p>'+esc(j.status)+'</p></div>').join(''); } catch(e){} }
+
+async function loadJobs() {
+  const c = document.getElementById('jobList');
+  c.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const d = await jget('/api/jobs');
+    if (!d.jobs.length) { c.innerHTML = '<div class="card"><p>No jobs yet. Tap + New Job Card to create one.</p></div>'; return; }
+    
+    const jobs = d.jobs.reverse();
+    c.innerHTML = jobs.map(j => {
+      let badgeClass = 'new';
+      if (j.status === 'Completed' || j.status === 'Invoiced') badgeClass = 'completed';
+      if (j.status === 'In Progress' || j.status === 'Diagnosing') badgeClass = 'medium';
+      if (j.status === 'Awaiting Parts' || j.status === 'Awaiting Approval') badgeClass = 'high';
+      
+      let cost = j.total ? `<div style="margin-top:10px;padding:10px;background:var(--input-bg);border-radius:10px;font-size:13px;"><strong>💰 Total: R${j.total.toFixed(2)}</strong></div>` : '';
+      let as = j.assigned_to ? `<p style="color:var(--text2);font-size:12px;">👷 ${esc(j.assigned_to)}</p>` : '';
+      
+      const statuses = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"];
+      let statusOpts = statuses.map(s => `<option value="${s}" ${j.status === s ? 'selected' : ''}>${s}</option>`).join('');
+      
+      let invBtn = j.total ? `<button class="btn-sm green" onclick="generateInvoice('${j.id}')">Generate Invoice</button>` : '';
+      
+      return `
+        <div class="card" id="job-${j.id}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <h3>Job #${j.id} <span class="badge ${badgeClass}">${esc(j.status)}</span></h3>
+              <p><strong>${esc(j.customer)}</strong></p>
+              <p>🚗 ${esc(j.vehicle)} ${j.registration ? '(' + esc(j.registration) + ')' : ''}</p>
+              ${as}
+            </div>
+            <div style="text-align:right;">
+              <p style="font-size:11px;color:var(--text2);">${esc(j.created)}</p>
+            </div>
+          </div>
+          
+          <p style="color:var(--text2);font-size:13px;margin-top:8px;">${esc(j.complaint)}</p>
+          ${cost}
+          
+          <div class="no-print" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select class="form-input" style="margin:0;flex:1;padding:8px;font-size:12px;width:auto;" onchange="updateJobStatus('${j.id}', this.value)">
+              ${statusOpts}
+            </select>
+            <button class="btn-sm purple" onclick="setCost('${j.id}')">💰 Set Cost</button>
+            ${invBtn}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) { 
+    c.innerHTML = '<div class="card"><p>Error loading jobs</p></div>'; 
+  }
+}
+
+async function updateJobStatus(jid, newStatus) {
+  try {
+    await jput('/api/jobs/' + jid, { status: newStatus });
+    loadJobs(); 
+    if (document.getElementById('kanbanModal').style.display === 'block') openKanban();
+  } catch (e) { alert('Failed to update status'); }
+}
+
+async function setCost(id) {
+  const h = prompt('Labour hours:', '1');
+  if (h === null) return;
+  const p = prompt('Parts cost (R):', '0');
+  if (p === null) return;
+  const rate = 450; 
+  try {
+    await jpost('/api/jobs/' + id + '/cost', { labour_hours: parseFloat(h), labour_rate: rate, parts_cost: parseFloat(p) });
+    loadJobs();
+  } catch(e) { alert('Error setting cost'); }
+}
+
+async function generateInvoice(jid) {
+  try {
+    const d = await jget('/api/jobs');
+    const job = d.jobs.find(x => x.id == jid);
+    if (!job) return;
+
+    const payload = {
+      customer: job.customer,
+      vehicle: job.vehicle,
+      description: job.complaint,
+      labour: job.labour_cost || 0,
+      parts: job.parts_cost || 0
+    };
+
+    const res = await jpost('/api/invoices', payload);
+    if (res.success) {
+      alert('✓ Invoice #' + res.invoice.id + ' generated!');
+      showTab('invoices');
+      loadInvoices();
+    }
+  } catch(e) { alert('Error generating invoice'); }
+}
+
 async function loadCustomers() { try { const d = await jget('/api/customers'); document.getElementById('customerList').innerHTML = d.customers.map(c=>'<div class="card"><h3>'+esc(c.name)+'</h3></div>').join(''); } catch(e){} }
-async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3></div>').join(''); } catch(e){} }
+async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>'<div class="card"><h3>Invoice #'+i.id+'</h3><p>Total: R'+i.total.toFixed(2)+'</p></div>').join(''); } catch(e){} }
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
 function showJobForm(){document.getElementById('jobForm').style.display='block'} function hideJobForm(){document.getElementById('jobForm').style.display='none'}
 function showCustomerForm(){document.getElementById('customerForm').style.display='block'} function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
@@ -661,6 +758,14 @@ async function deleteStaff(id) {
   } catch (e) {
     alert('Error deleting staff');
   }
+}
+
+async function loadStaffDropdown() {
+  try {
+    const d = await jget('/api/staff');
+    const sel = document.getElementById('jobAssigned');
+    sel.innerHTML = '<option value="">— Assign to staff —</option>' + (d.staff||[]).map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join('');
+  } catch (e) {}
 }
 
 // BARCODE SCANNER
