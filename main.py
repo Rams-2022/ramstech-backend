@@ -496,6 +496,24 @@ async def chat(r: Request):
     except Exception as e: 
         return {"reply": f"Error: {str(e)}"}
 
+@app.post("/api/problems/ai-procedure")
+async def ai_problem_procedure(r: Request):
+    d = await r.json()
+    problem = d.get("problem", "")
+    vehicle = d.get("vehicle", "")
+    if not OPENAI_KEY: return {"reply": "AI not configured"}
+    
+    prompt = f"You are an expert mechanic. A vehicle {'(' + vehicle + ')' if vehicle else ''} has the problem: '{problem}'. " \
+             f"Provide a detailed, step-by-step testing procedure to identify the culprit. " \
+             f"Include: 1. Tools needed. 2. Initial visual checks. 3. Step-by-step diagnostic tests with expected results. " \
+             f"4. Common culprits based on test results. Format with clear headings and bullet points."
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=1000)
+        return {"reply": resp.choices[0].message.content}
+    except Exception as e:
+        return {"reply": f"Error: {str(e)}"}
+
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
