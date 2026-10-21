@@ -765,12 +765,60 @@ function renderProblems(problems) {
 }
 
 function filterProblems() {
-    const q = document.getElementById('problemSearch').value.toLowerCase();
-    const filtered = window.ALL_PROBLEMS.filter(p =>
+    const q = document.getElementById('problemSearch').value.toLowerCase().trim();
+    if (!q) {
+        renderProblems(window.ALL_PROBLEMS);
+        return;
+    }
+    
+    // 1. Try exact substring match
+    let filtered = window.ALL_PROBLEMS.filter(p =>
         p.title.toLowerCase().includes(q) ||
         p.system.toLowerCase().includes(q)
     );
-    renderProblems(filtered);
+    
+    // 2. If nothing found, try keyword match (any word in title/system/causes)
+    if (filtered.length === 0) {
+        const words = q.split(/\s+/);
+        filtered = window.ALL_PROBLEMS.filter(p => {
+            const text = (p.title + " " + p.system + " " + (p.causes||[]).join(" ")).toLowerCase();
+            return words.some(w => w.length > 2 && text.includes(w));
+        });
+    }
+
+    if (filtered.length > 0) {
+        renderProblems(filtered);
+    } else {
+        // 3. AI Fallback if nothing local is found
+        document.getElementById('problemList').innerHTML = `
+            <div class="card">
+                <h3>No local match found</h3>
+                <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">We couldn't find a local match for "<b>${esc(q)}</b>".</p>
+                <button class="btn" onclick="getAIProcedureForSearch('${esc(q)}')" style="background:var(--grad6);font-size:14px;">🤖 Ask AI for Diagnosis & Procedure</button>
+            </div>
+            <div id="aiSearchResult" style="display:none; background:var(--input-bg); padding:14px; border-radius:8px; border:1px solid var(--border); margin-top:14px; font-size:14px; line-height:1.6;"></div>
+        `;
+    }
+}
+
+async function getAIProcedureForSearch(query) {
+    const resBox = document.getElementById('aiSearchResult');
+    resBox.style.display = 'block';
+    resBox.innerHTML = '<span style="color:var(--primary);">Analyzing your query and generating procedures... please wait.</span>';
+    
+    try {
+        const res = await jpost('/api/problems/ai-procedure', { problem: query });
+        if (res.reply) {
+            let html = esc(res.reply)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            resBox.innerHTML = html;
+        } else {
+            resBox.innerHTML = 'Error getting response.';
+        }
+    } catch(e) {
+        resBox.innerHTML = 'Network error.';
+    }
 }
 
 async function showProblemDetails(title) {
