@@ -1,18 +1,12 @@
-"""PWA — manifest, service worker, icons, install support.
-
-Cache strategy:
-  • HTML documents (navigate requests, /) → ALWAYS network, never cache
-  • API calls (/api/*)                    → ALWAYS network, never cache
-  • Static assets (icons, manifest)       → cache-first, fast offline
-  • Anything else                         → network-first, cache as fallback
-
-Cache version is bumped so old caches are evicted on activate.
-"""
+"""PWA — manifest, service worker, icons, install support."""
 from fastapi import APIRouter
 from fastapi.responses import Response
 
 router = APIRouter()
 
+# ═══════════════════════════════════════════════════════════════
+# MANIFEST (Sci-Fi Theme Colors)
+# ═══════════════════════════════════════════════════════════════
 MANIFEST_JSON = """{
   "name": "RamsTech Workshop",
   "short_name": "RamsTech",
@@ -21,15 +15,15 @@ MANIFEST_JSON = """{
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#E65100",
+  "background_color": "#050a14",
+  "theme_color": "#00f2fe",
   "categories": ["productivity", "business"],
   "icons": [
     {
       "src": "/icon-192.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.svg",
@@ -40,17 +34,17 @@ MANIFEST_JSON = """{
   ]
 }"""
 
+# ═══════════════════════════════════════════════════════════════
+# SERVICE WORKER (Smart Caching)
+# ═══════════════════════════════════════════════════════════════
 SW_JS = r"""
-// Bump this string whenever you want to force all clients to update.
-// Old caches with different names get deleted on activate.
-const CACHE = 'ramstech-v4';
+// Bump this version string to force the browser to drop old caches
+const CACHE = 'ramstech-sci-fi-v1';
 
 const STATIC = ['/manifest.json', '/icon-192.svg', '/icon-512.svg'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(STATIC)).catch(()=>{})
-  );
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)).catch(()=>{}));
   self.skipWaiting();
 });
 
@@ -67,48 +61,17 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
 
-  // ── NEVER CACHE these — always straight to the network ──
-  //   /api/*                     → live data
-  //   /login, /logout            → auth pages
-  //   /pay/*, /portal/*          → customer-facing
-  //   /admin, /kit/*, /posters/* → admin
-  //   /damage/report/*           → printable evidence
+  // ── NEVER CACHE API CALLS OR HTML ──
+  // This ensures you always get fresh data and the latest UI.
   if (
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/login') ||
-    url.pathname.startsWith('/logout') ||
-    url.pathname.startsWith('/pay/') ||
-    url.pathname.startsWith('/portal/') ||
-    url.pathname.startsWith('/admin') ||
-    url.pathname.startsWith('/kit') ||
-    url.pathname.startsWith('/posters') ||
-    url.pathname.startsWith('/damage/')
+    url.pathname === '/' ||
+    e.request.mode === 'navigate'
   ) {
-    return; // fall through to the browser's default network fetch
+    return; // Go straight to the network
   }
 
-  // ── HTML NAVIGATION — always network, never cache ──
-  // Prevents the app from serving stale HTML after a deploy.
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request).catch(() => {
-        // Offline fallback: serve a minimal page that says "offline"
-        return new Response(
-          '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">' +
-          '<style>body{font-family:-apple-system,sans-serif;background:#111;color:#fff;' +
-          'display:flex;align-items:center;justify-content:center;height:100vh;margin:0;' +
-          'text-align:center;padding:20px}h1{font-size:20px;margin-bottom:8px}' +
-          'p{color:#888;font-size:14px}</style>' +
-          '<div><h1>You are offline</h1>' +
-          '<p>Reconnect to use RamsTech.</p></div>',
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-      })
-    );
-    return;
-  }
-
-  // ── STATIC ASSETS (icons, manifest) — cache first ──
+  // ── CACHE STATIC ASSETS (Icons, manifest) ──
   if (STATIC.some(p => url.pathname === p)) {
     e.respondWith(
       caches.match(e.request).then(r => r || fetch(e.request).then(resp => {
@@ -121,50 +84,40 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-
-  // ── EVERYTHING ELSE — network first, cache as fallback ──
-  e.respondWith(
-    fetch(e.request).then(resp => {
-      if (resp && resp.ok) {
-        const copy = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
-      }
-      return resp;
-    }).catch(() => caches.match(e.request))
-  );
-});
-
-// ── Handle SW updates gracefully ──
-self.addEventListener('message', e => {
-  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 """
 
+# ═══════════════════════════════════════════════════════════════
+# ICONS
+# ═══════════════════════════════════════════════════════════════
 ICON_192 = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
 <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-<stop offset="0%" stop-color="#E65100"/>
-<stop offset="100%" stop-color="#FF9800"/>
+<stop offset="0%" stop-color="#00f2fe"/>
+<stop offset="100%" stop-color="#4facfe"/>
 </linearGradient></defs>
-<rect width="192" height="192" rx="40" fill="url(#g)"/>
-<text x="96" y="128" font-size="88" font-weight="900" text-anchor="middle"
-fill="#fff" font-family="-apple-system,BlinkMacSystemFont,sans-serif">RT</text>
+<rect width="192" height="192" rx="40" fill="#050a14"/>
+<circle cx="96" cy="96" r="70" fill="none" stroke="url(#g)" stroke-width="4"/>
+<text x="96" y="126" font-size="80" font-weight="900" text-anchor="middle"
+fill="url(#g)" font-family="-apple-system,sans-serif">RT</text>
 </svg>"""
 
 ICON_512 = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-<stop offset="0%" stop-color="#E65100"/>
-<stop offset="100%" stop-color="#FF9800"/>
+<stop offset="0%" stop-color="#00f2fe"/>
+<stop offset="100%" stop-color="#4facfe"/>
 </linearGradient></defs>
-<rect width="512" height="512" rx="110" fill="url(#g)"/>
-<text x="256" y="340" font-size="240" font-weight="900" text-anchor="middle"
-fill="#fff" font-family="-apple-system,BlinkMacSystemFont,sans-serif">RT</text>
+<rect width="512" height="512" rx="110" fill="#050a14"/>
+<circle cx="256" cy="256" r="200" fill="none" stroke="url(#g)" stroke-width="10"/>
+<text x="256" y="340" font-size="220" font-weight="900" text-anchor="middle"
+fill="url(#g)" font-family="-apple-system,sans-serif">RT</text>
 </svg>"""
 
-
+# ═══════════════════════════════════════════════════════════════
+# ROUTES
+# ═══════════════════════════════════════════════════════════════
 @router.get("/manifest.json")
 def manifest():
     return Response(content=MANIFEST_JSON, media_type="application/manifest+json")
-
 
 @router.get("/sw.js")
 def service_worker():
@@ -177,34 +130,41 @@ def service_worker():
         },
     )
 
-
 @router.get("/icon-192.svg")
 def icon192():
     return Response(content=ICON_192, media_type="image/svg+xml")
-
 
 @router.get("/icon-512.svg")
 def icon512():
     return Response(content=ICON_512, media_type="image/svg+xml")
 
 
+# ═══════════════════════════════════════════════════════════════
+# INJECTION (Head tags & SW Registration)
+# ═══════════════════════════════════════════════════════════════
 PWA_HTML = r"""
 <script>
 (function(){
   try {
     var head = document.head || document.getElementsByTagName('head')[0];
+    
+    // Add Manifest
     if(!document.querySelector('link[rel="manifest"]')){
       var m = document.createElement('link');
       m.rel = 'manifest';
       m.href = '/manifest.json';
       head.appendChild(m);
     }
+    
+    // Add Theme Color (Sci-Fi Cyan)
     if(!document.querySelector('meta[name="theme-color"]')){
       var t = document.createElement('meta');
       t.name = 'theme-color';
-      t.content = '#E65100';
+      t.content = '#00f2fe';
       head.appendChild(t);
     }
+    
+    // Add Apple Mobile Web App Tags
     if(!document.querySelector('meta[name="apple-mobile-web-app-capable"]')){
       var a = document.createElement('meta');
       a.name = 'apple-mobile-web-app-capable';
@@ -227,13 +187,12 @@ PWA_HTML = r"""
       head.appendChild(ai);
     }
 
+    // Register Service Worker
     if('serviceWorker' in navigator){
       window.addEventListener('load', function(){
         navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
           .then(function(reg){
-            // Check for updates on every load
             reg.update().catch(function(){});
-            // When a new SW is found, tell it to activate immediately
             reg.addEventListener('updatefound', function(){
               var newSW = reg.installing;
               if (!newSW) return;
@@ -244,11 +203,9 @@ PWA_HTML = r"""
               });
             });
           })
-          .catch(function(e){
-            console.log('SW registration failed:', e);
-          });
+          .catch(function(e){ console.log('SW registration failed:', e); });
 
-        // If the controller changes, reload so the user sees the new version
+        // Reload if controller changes (ensures latest code is used)
         var refreshed = false;
         navigator.serviceWorker.addEventListener('controllerchange', function(){
           if (refreshed) return;
