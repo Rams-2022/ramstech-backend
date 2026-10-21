@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Advanced Analytics UI)
+# pages.py — RamsTech v10.0 (Complete with Inspections)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -118,6 +118,10 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 .toast.out{animation:toastOut .2s ease forwards;}
 @keyframes toastOut{to{opacity:0;transform:translateY(-20px) scale(.9)}}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+
+/* Checklist Styles */
+.checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--input-bg); border-radius: 6px; border: 1px solid var(--border); margin-bottom: 8px; }
+.checklist-item input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -151,7 +155,7 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 </div>
 </div>
 
-<!-- DASHBOARD (ADVANCED ANALYTICS) -->
+<!-- DASHBOARD -->
 <div id="dashboard" class="panel">
 <div class="panel-title">📊 Advanced Analytics</div>
 <div id="kpiCards" style="margin-bottom:16px;"></div>
@@ -172,6 +176,30 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 <button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);display:flex;align-items:center;justify-content:center;"><i data-lucide="mic"></i></button>
 <button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;justify-content:center;"><i data-lucide="send"></i></button>
 </div>
+</div>
+
+<!-- INSPECTIONS (NEW) -->
+<div id="inspections" class="panel">
+<div class="panel-title">📋 Vehicle Inspections</div>
+<button class="btn" onclick="showInspectForm()">+ New Inspection</button>
+<div id="inspectForm" style="display:none">
+<div class="card">
+<h3>Vehicle Details</h3>
+<input type="text" class="form-input" id="inspCustomer" placeholder="Customer Name">
+<input type="text" class="form-input" id="inspVehicle" placeholder="Vehicle (e.g. 2018 Toyota Hilux)">
+<hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
+<h3>Checklist</h3>
+<div id="checklistContainer"></div>
+<hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
+<h3>Photo & Notes</h3>
+<input type="file" id="inspPhoto" accept="image/*" capture="environment" class="form-input" onchange="previewInspectPhoto(event)">
+<div id="inspPhotoPreview"></div>
+<textarea class="form-input" id="inspNotes" placeholder="Additional notes..." rows="2"></textarea>
+<button class="btn btn-success" onclick="createInspection()">Save Inspection Report</button>
+<button class="btn btn-dark" onclick="hideInspectForm()">Cancel</button>
+</div>
+</div>
+<div id="inspectList"><div class="loading">Loading...</div></div>
 </div>
 
 <!-- FAULT CODES -->
@@ -377,7 +405,7 @@ const CATEGORIES = {
   ]},
   workshop: { name: 'Workshop', icon: 'clipboard-list', gradient: 'linear-gradient(135deg,#f59e0b,#b91c1c)', items: [
       {icon:'clipboard-list',label:'Jobs',tab:'jobs',color:'#f59e0b'},{icon:'users',label:'Customers',tab:'customers',color:'#10b981'},
-      {icon:'dollar-sign',label:'Invoices',tab:'invoices',color:'#10b981'}
+      {icon:'dollar-sign',label:'Invoices',tab:'invoices',color:'#10b981'},{icon:'clipboard-check',label:'Inspections',tab:'inspections',color:'#ec4899'}
   ]},
   operations: { name: 'Operations', icon: 'settings', gradient: 'linear-gradient(135deg,#10b981,#065f46)', items: [
       {icon:'package',label:'Inventory',tab:'inventory',color:'#f59e0b'},{icon:'calendar',label:'Appointments',tab:'appointments',color:'#3b82f6'},
@@ -421,7 +449,7 @@ function showTab(name, el) {
   const loaders = {
     codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(), problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
     jobs: () => { loadJobs(); loadStaffDropdown(); }, customers: loadCustomers, invoices: loadInvoices, settings: loadSettings, dashboard: loadDashboard,
-    parts: searchParts, purchase: loadPOs, inventory: loadInventory, appointments: loadAppts, clockin: loadClockin
+    parts: searchParts, purchase: loadPOs, inventory: loadInventory, appointments: loadAppts, clockin: loadClockin, inspections: loadInspections
   };
   if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
 }
@@ -488,6 +516,82 @@ async function loadDashboard() {
       : '<p style="color:var(--text2);font-size:13px;">No service data yet.</p>';
 
   } catch(e){ console.error(e); }
+}
+
+// INSPECTIONS (NEW)
+const INSPECT_ITEMS = ["Brakes", "Tyres", "Lights", "Suspension", "Fluids (Oil/Coolant)", "Exhaust", "Steering", "Wipers", "Horn", "Seatbelts"];
+let inspectB64 = "";
+
+function showInspectForm() {
+  document.getElementById('inspectForm').style.display = 'block';
+  document.getElementById('checklistContainer').innerHTML = INSPECT_ITEMS.map((item, i) => `
+    <label class="checklist-item">
+      <input type="checkbox" id="chk_insp_${i}" value="${item}">
+      <span>${item}</span>
+    </label>
+  `).join('');
+}
+function hideInspectForm() { 
+  document.getElementById('inspectForm').style.display = 'none'; 
+  inspectB64 = ""; document.getElementById('inspPhotoPreview').innerHTML = "";
+}
+
+async function previewInspectPhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas'); let w = img.width, h = img.height;
+      if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      inspectB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      document.getElementById('inspPhotoPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-top:10px;border:1px solid var(--border);">`;
+    }; img.src = ev.target.result;
+  }; reader.readAsDataURL(file);
+}
+
+async function createInspection() {
+  const customer = document.getElementById('inspCustomer').value.trim();
+  const vehicle = document.getElementById('inspVehicle').value.trim();
+  if (!customer || !vehicle) { toast('Customer and vehicle required', 'error'); return; }
+  
+  const checkedItems = [];
+  INSPECT_ITEMS.forEach((item, i) => {
+    if (document.getElementById(`chk_insp_${i}`).checked) checkedItems.push(item);
+  });
+
+  const payload = {
+    customer: customer, vehicle: vehicle, checklist: checkedItems,
+    notes: document.getElementById('inspNotes').value, photos: inspectB64 ? [inspectB64] : []
+  };
+
+  try {
+    const res = await jpost('/api/inspections', payload);
+    if (res.success) {
+      toast('Inspection saved!');
+      hideInspectForm();
+      loadInspections();
+    }
+  } catch(e) { toast('Error saving', 'error'); }
+}
+
+async function loadInspections() {
+  try {
+    const d = await jget('/api/inspections');
+    document.getElementById('inspectList').innerHTML = d.inspections.length ? d.inspections.reverse().map(i => `
+      <div class="card">
+        <h3>Inspection #${i.id}</h3>
+        <p><strong>${esc(i.customer)}</strong></p>
+        <p>🚗 ${esc(i.vehicle)}</p>
+        <div style="margin:10px 0;">
+          ${i.checklist.map(x => `<span class="badge ok" style="margin-bottom:4px;display:inline-block;">${esc(x)} ✓</span>`).join('')}
+        </div>
+        ${i.notes ? `<p style="color:var(--text2);font-size:13px;">${esc(i.notes)}</p>` : ''}
+        ${i.photos.length ? `<img src="data:image/jpeg;base64,${i.photos[0]}" style="width:100%;border-radius:8px;margin-top:10px;border:1px solid var(--border);">` : ''}
+        <p style="font-size:11px;color:var(--text2);margin-top:10px;">${esc(i.created)}</p>
+      </div>
+    `).join('') : '<div class="card"><p>No inspections yet</p></div>';
+  } catch(e) {}
 }
 
 // CHAT & VOICE
