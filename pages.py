@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Phase C - Integrations)
+# pages.py — RamsTech v10.0 (Phase A - Final Polish)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -32,23 +32,21 @@ radial-gradient(circle at 80% 60%,rgba(102,126,234,.08) 0%,transparent 40%),
 radial-gradient(circle at 50% 90%,rgba(240,147,251,.06) 0%,transparent 40%);
 background-attachment:fixed;
 }
+
+/* HEADER & NAV */
 .header{
 background:var(--grad1);color:white;padding:16px 14px 18px;
 position:relative;overflow:hidden;
 border-bottom-left-radius:24px;border-bottom-right-radius:24px;
 box-shadow:0 6px 24px rgba(102,126,234,.35);
 }
-.header h1{
-font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px;
-position:relative;z-index:1;font-weight:800;letter-spacing:.5px;
-}
+.header h1{font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;z-index:1;font-weight:800;letter-spacing:.5px;}
 .header p{font-size:11px;opacity:.9;margin-top:3px;text-align:center;position:relative;z-index:1}
 .top-btns{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
-.top-btns button, .lang-sel{
-background:rgba(255,255,255,.25);border:none;color:white;padding:8px;
-border-radius:10px;font-size:13px;cursor:pointer;backdrop-filter:blur(8px);
-}
+.top-btns button, .lang-sel{background:rgba(255,255,255,.25);border:none;color:white;padding:8px;border-radius:10px;font-size:13px;cursor:pointer;backdrop-filter:blur(8px);}
 .lang-sel option{color:#333}
+
+/* HOME */
 .home-container{padding:16px;max-width:900px;margin:0 auto}
 .hero-card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;border:1px solid var(--border);}
 .cat-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;margin:20px 4px 12px;}
@@ -59,48 +57,77 @@ position:relative;overflow:hidden;
 box-shadow:0 8px 24px rgba(0,0,0,.15);transition:all .25s ease;
 display:flex;align-items:center;gap:16px;
 }
+.cat-card:active{transform:scale(.97);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 .cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2));min-width:50px;text-align:center;}
 .cat-info{flex:1;}
 .cat-name{font-size:17px;font-weight:800;margin-bottom:3px}
 .cat-count{font-size:12px;opacity:.85;}
 .cat-arrow{font-size:20px;opacity:.7;}
+
+/* TILES */
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;}
+.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:transform .1s;}
+.tile:active{transform:scale(.95);}
 .tile-icon{font-size:32px;margin-bottom:8px;display:block}
 .tile-label{font-size:12px;font-weight:700;}
 .tile-accent{position:absolute;top:0;left:0;right:0;height:4px}
-.bottom-nav{
-position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);
-display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
-}
-.bnav-item{flex:1;text-align:center;padding:6px 4px;cursor:pointer;border-radius:12px;}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px;z-index:100;}
+.bnav-item{flex:1;text-align:center;padding:6px 4px;cursor:pointer;border-radius:12px;transition:all .2s;}
 .bnav-icon{font-size:20px;display:block;margin-bottom:2px}
 .bnav-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;}
 .bnav-item.active .bnav-label{color:var(--primary)}
 .bnav-item.active{background:rgba(230,81,0,.08)}
+
+/* PANELS & ANIMATIONS */
 .panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:100px}
-.panel.active{display:block;}
+.panel.active{display:block;animation:slideUp .3s cubic-bezier(.16,1,.3,1)}
+@keyframes slideUp {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);}
+
+/* CARDS & FORMS */
+.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);transition:box-shadow .2s;}
+.card:active{box-shadow:0 4px 12px rgba(0,0,0,0.05);}
 .card h3{color:var(--primary);margin-bottom:8px;font-size:15px;}
-.form-input{width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:10px;background:var(--input-bg);color:var(--text);}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:var(--grad1);color:white;}
+.form-input{width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:10px;background:var(--input-bg);color:var(--text);transition:border-color .2s;}
+.form-input:focus{outline:none;border-color:var(--primary);}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:var(--grad1);color:white;transition:transform .1s,opacity .2s;}
+.btn:active{transform:scale(.97);opacity:.9;}
 .btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
 .btn-success{background:var(--grad4)}
-.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;cursor:pointer;}
+.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;cursor:pointer;transition:transform .1s;}
+.btn-sm:active{transform:scale(.95);}
 .btn-sm.whatsapp{background:#25D366;}
 .badge{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;color:white;}
 .badge.high,.badge.critical,.badge.outstanding{background:#ef4444}
 .badge.medium{background:#f59e0b}
 .badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.msg { padding: 10px 14px; border-radius: 12px; margin-bottom: 8px; max-width: 85%; line-height: 1.4; font-size: 14px; }
-.msg.user { background: var(--grad1); color: white; margin-left: auto; border-bottom-right-radius: 2px; }
-.msg.ai { background: var(--input-bg); border: 1px solid var(--border); margin-right: auto; border-bottom-left-radius: 2px; }
+
+/* CHAT BUBBLES */
+.chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);}
+.msg{padding:12px 16px;border-radius:18px;margin-bottom:10px;max-width:85%;line-height:1.45;font-size:14px;animation:msgIn .2s ease;}
+@keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{background:var(--grad1);color:white;margin-left:auto;border-bottom-right-radius:4px;box-shadow:0 4px 12px rgba(102,126,234,.2);}
+.msg.ai{background:var(--card);border:1px solid var(--border);margin-right:auto;border-bottom-left-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.05);}
+
+/* TOAST NOTIFICATIONS */
+#toastWrap{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:#111;color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toastIn .3s cubic-bezier(.16,1,.3,1);display:flex;align-items:center;gap:8px;}
+.toast.success{background:#10b981;}
+.toast.error{background:#ef4444;}
+@keyframes toastIn{from{opacity:0;transform:translateY(-20px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+.toast.out{animation:toastOut .2s ease forwards;}
+@keyframes toastOut{to{opacity:0;transform:translateY(-20px) scale(.9)}}
+
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+
+<!-- TOAST CONTAINER -->
+<div id="toastWrap"></div>
 
 <div class="header">
 <h1><span class="logo" id="logoDisplay">🔧</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
@@ -140,7 +167,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- AI CHAT -->
 <div id="chat" class="panel">
 <div class="panel-title">🤖 AI Assistant</div>
-<div class="chat-box" id="chatBox" style="height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;">
+<div class="chat-box" id="chatBox">
   <div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div>
 </div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
@@ -266,6 +293,18 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS (Replaces alert)
+// ═══════════════════════════════════════════════════════
+function toast(msg, type='success') {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type === 'success' ? '✓' : '⚠'}</span> ${msg}`;
+  wrap.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
+}
+
 // CATEGORIES
 const CATEGORIES = {
   diagnostics: { name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#2196F3,#0d47a1)', items: [
@@ -398,7 +437,7 @@ async function loadDashboard() {
 // AI CHAT & VOICE
 let rec = null, isRec = false;
 function toggleMic() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { alert('Voice not supported on this browser'); return; }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { toast('Voice not supported', 'error'); return; }
   if (!rec) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     rec = new SR(); rec.lang = 'en-ZA';
@@ -407,7 +446,7 @@ function toggleMic() {
   }
   function resetMic() { isRec = false; document.getElementById('micBtn').style.background = 'var(--grad4)'; document.getElementById('micBtn').textContent = '🎤'; }
   if (isRec) { rec.stop(); resetMic(); }
-  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').textContent = '⏹'; } catch (e) { alert(e.message); } }
+  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').textContent = '⏹'; } catch (e) { toast(e.message, 'error'); } }
 }
 
 async function sendMsg() {
@@ -454,7 +493,7 @@ async function loadJobs() {
       const statuses = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"];
       let statusOpts = statuses.map(s => `<option value="${s}" ${j.status === s ? 'selected' : ''}>${s}</option>`).join('');
       
-      let invBtn = j.total ? `<button class="btn-sm green" onclick="generateInvoice('${j.id}')">Generate Invoice</button>` : '';
+      let invBtn = j.total ? `<button class="btn-sm green" onclick="generateInvoice('${j.id}')">Invoice</button>` : '';
       let waBtn = `<button class="btn-sm whatsapp" onclick="shareJobWhatsApp('${j.id}')">📱</button>`;
       
       return `
@@ -499,9 +538,10 @@ async function shareJobWhatsApp(id) {
 async function updateJobStatus(jid, newStatus) {
   try {
     await jput('/api/jobs/' + jid, { status: newStatus });
+    toast('Status updated to ' + newStatus);
     loadJobs(); 
     if (document.getElementById('kanbanModal') && document.getElementById('kanbanModal').style.display === 'block') openKanban();
-  } catch (e) { alert('Failed to update status'); }
+  } catch (e) { toast('Failed to update status', 'error'); }
 }
 
 async function setCost(id) {
@@ -512,8 +552,9 @@ async function setCost(id) {
   const rate = 450; 
   try {
     await jpost('/api/jobs/' + id + '/cost', { labour_hours: parseFloat(h), labour_rate: rate, parts_cost: parseFloat(p) });
+    toast('Cost updated successfully');
     loadJobs();
-  } catch(e) { alert('Error setting cost'); }
+  } catch(e) { toast('Error setting cost', 'error'); }
 }
 
 async function generateInvoice(jid) {
@@ -524,10 +565,10 @@ async function generateInvoice(jid) {
     const payload = { customer: job.customer, vehicle: job.vehicle, description: job.complaint, labour: job.labour_cost || 0, parts: job.parts_cost || 0 };
     const res = await jpost('/api/invoices', payload);
     if (res.success) {
-      alert('✓ Invoice #' + res.invoice.id + ' generated!');
+      toast('Invoice #' + res.invoice.id + ' generated!');
       showTab('invoices'); loadInvoices();
     }
-  } catch(e) { alert('Error generating invoice'); }
+  } catch(e) { toast('Error generating invoice', 'error'); }
 }
 
 // CUSTOMERS
@@ -536,10 +577,11 @@ function hideCustomerForm(){document.getElementById('customerForm').style.displa
 async function createCustomer() {
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
-  if (!name || !phone) { alert('Name and phone required'); return; }
+  if (!name || !phone) { toast('Name and phone required', 'error'); return; }
   await jpost('/api/customers', { name: name, phone: phone, email: document.getElementById('custEmail').value, address: document.getElementById('custAddress').value });
   document.getElementById('custName').value = ''; document.getElementById('custPhone').value = '';
   hideCustomerForm(); loadCustomers();
+  toast('Customer added');
 }
 async function loadCustomers() { 
   try { 
@@ -568,7 +610,7 @@ async function loadInvoices() {
           <p><strong>${esc(i.customer)}</strong></p>
           <p style="font-size:20px; font-weight:800; color:var(--primary); margin: 8px 0;">R ${i.total.toFixed(2)}</p>
           <div style="display:flex; gap:5px; flex-wrap:wrap;">
-            <button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 View PDF</button>
+            <button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 PDF</button>
             <button class="btn-sm whatsapp" onclick="shareInvoiceWhatsApp('${i.id}', '${esc(i.customer)}', '${i.total}')">📱 Share</button>
             ${payBtn}
           </div>
@@ -586,7 +628,7 @@ function shareInvoiceWhatsApp(id, customer, total) {
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
 async function saveSettings() {
   const p = { name: document.getElementById('wsName').value, logo: document.getElementById('wsLogo').value, phone: document.getElementById('wsPhone').value, address: document.getElementById('wsAddress').value, email: document.getElementById('wsEmail').value, labour_rate: parseFloat(document.getElementById('wsRate').value) || 450 };
-  await jpost('/api/workshop', p); alert('Settings saved!');
+  await jpost('/api/workshop', p); toast('Settings saved!');
 }
 
 // FAULT CODES & PROBLEMS
@@ -611,8 +653,8 @@ function showPOForm(){document.getElementById('poForm').style.display='block'}
 function hidePOForm(){document.getElementById('poForm').style.display='none'}
 async function createPO() {
   const sup = document.getElementById('poSupplier').value; const items = document.getElementById('poItems').value;
-  if (!sup || !items) { alert('Supplier and items required'); return; }
-  try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); } catch(e) { alert('Error creating PO'); }
+  if (!sup || !items) { toast('Supplier and items required', 'error'); return; }
+  try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); toast('PO Created'); } catch(e) { toast('Error creating PO', 'error'); }
 }
 async function loadPOs() { try { const d = await jget('/api/po/list'); document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`<div class="card"><h3>PO #${p.po_number}</h3><p>${esc(p.supplier)}</p><p>Status: <b>${p.status}</b></p></div>`).join('') : '<div class="card"><p>No purchase orders</p></div>'; } catch(e){} }
 
@@ -662,8 +704,8 @@ async function processPhotoIntake(e) {
         if (res.success) {
           document.getElementById('piMake').value = res.make || ''; document.getElementById('piModel').value = res.model || '';
           document.getElementById('piReg').value = res.registration || ''; document.getElementById('piVin').value = res.vin || ''; document.getElementById('piKm').value = res.km || '';
-        } else { alert('AI could not read: ' + (res.error || 'Try a clearer photo')); }
-      } catch (err) { document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block'; alert('Network error'); }
+        } else { toast('AI could not read: ' + (res.error || 'Try clearer'), 'error'); }
+      } catch (err) { document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block'; toast('Network error', 'error'); }
     }; img.src = ev.target.result;
   }; reader.readAsDataURL(file);
 }
@@ -671,7 +713,7 @@ async function createJobFromPhoto() {
   const make = document.getElementById('piMake').value.trim(); const model = document.getElementById('piModel').value.trim();
   const reg = document.getElementById('piReg').value.trim(); const vin = document.getElementById('piVin').value.trim(); const km = document.getElementById('piKm').value.trim();
   const payload = { customer: 'New Customer (Photo)', phone: '', vehicle: (make + ' ' + model).trim(), registration: reg || vin, km: parseInt(km) || 0, complaint: 'Photo Intake', assigned_to: '', photos: [], signature: '', warranty_months: 6 };
-  try { const res = await jpost('/api/jobs', payload); if (res.success) { alert('✓ Job created!'); document.getElementById('photoIntakeModal').style.display = 'none'; showTab('jobs'); loadJobs(); } } catch (e) { alert('Error'); }
+  try { const res = await jpost('/api/jobs', payload); if (res.success) { toast('Job created!'); document.getElementById('photoIntakeModal').style.display = 'none'; showTab('jobs'); loadJobs(); } } catch (e) { toast('Error', 'error'); }
 }
 
 // STAFF MANAGER
@@ -695,13 +737,13 @@ async function loadStaffList() {
 }
 async function addNewStaff() {
   const name = document.getElementById('newStaffName').value.trim(); const role = document.getElementById('newStaffRole').value; const pin = document.getElementById('newStaffPin').value.trim();
-  if (!name || pin.length !== 4) { alert('Enter name and 4-digit PIN'); return; }
+  if (!name || pin.length !== 4) { toast('Enter name and 4-digit PIN', 'error'); return; }
   try {
     const res = await jpost('/api/staff', { name: name, role: role, pin: pin });
-    if (res.success) { await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin }); document.getElementById('newStaffName').value = ''; document.getElementById('newStaffPin').value = ''; loadStaffList(); loadStaffDropdown(); }
-  } catch (e) { alert('Error'); }
+    if (res.success) { await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin }); document.getElementById('newStaffName').value = ''; document.getElementById('newStaffPin').value = ''; loadStaffList(); loadStaffDropdown(); toast('Staff added'); }
+  } catch (e) { toast('Error', 'error'); }
 }
-async function deleteStaff(id) { if (!confirm('Delete?')) return; try { await jdel('/api/staff/' + id); loadStaffList(); loadStaffDropdown(); } catch (e) {} }
+async function deleteStaff(id) { if (!confirm('Delete?')) return; try { await jdel('/api/staff/' + id); loadStaffList(); loadStaffDropdown(); toast('Staff removed'); } catch (e) {} }
 async function loadStaffDropdown() { try { const d = await jget('/api/staff'); const sel = document.getElementById('jobAssigned'); sel.innerHTML = '<option value="">— Assign to staff —</option>' + (d.staff||[]).map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join(''); } catch (e) {} }
 
 // BARCODE SCANNER
