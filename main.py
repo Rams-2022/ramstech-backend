@@ -186,7 +186,7 @@ def pay_redirect(invoice_id: str):
 app.include_router(router_pay)
 
 # ═══════════════════════════════════════════════════════════════
-# INSPECTIONS (NEW)
+# INSPECTIONS
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/inspections")
 def list_inspections(): return {"inspections": store_list("inspections")}
@@ -199,16 +199,16 @@ async def create_inspection(r: Request):
         "id": iid,
         "customer": d.get("customer", ""),
         "vehicle": d.get("vehicle", ""),
-        "checklist": d.get("checklist", []), # list of checked items
+        "checklist": d.get("checklist", []),
         "notes": d.get("notes", ""),
-        "photos": d.get("photos", [])[:3], # max 3 photos
+        "photos": d.get("photos", [])[:3],
         "created": now()
     }
     store_save("inspections", iid, insp)
     return {"success": True, "inspection": insp}
 
 # ═══════════════════════════════════════════════════════════════
-# INVENTORY, APPOINTMENTS & CLOCK-INS
+# INVENTORY, APPOINTMENTS, CLOCK-INS
 # ═══════════════════════════════════════════════════════════════
 @app.get("/api/inventory")
 def list_inv(): return {"items": store_list("inventory")}
@@ -223,6 +223,7 @@ async def adj_inv(iid: str, r: Request):
     if not item: raise HTTPException(404)
     item["qty"] = max(0, int(item["qty"]) + int(d.get("delta", 0)))
     store_save("inventory", iid, item); return {"success": True, "item": item}
+
 @app.get("/api/appointments")
 def list_appts(): return {"appointments": store_list("appointments")}
 @app.post("/api/appointments")
@@ -232,6 +233,7 @@ async def create_appt(r: Request):
     store_save("appointments", aid, a); return {"success": True, "appointment": a}
 @app.delete("/api/appointments/{aid}")
 def del_appt(aid: str): store_delete("appointments", aid); return {"success": True}
+
 @app.get("/api/clockins")
 def list_clockins(): return {"clockins": store_list("clockins")}
 @app.post("/api/clockins")
@@ -248,12 +250,22 @@ async def clock_out(sid: str):
     raise HTTPException(404, "No active clock-in")
 
 # ═══════════════════════════════════════════════════════════════
-# CORE ROUTES & ANALYTICS
+# STAFF MANAGEMENT
 # ═══════════════════════════════════════════════════════════════
-KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
+@app.get("/api/staff")
+def list_staff(): return {"staff": store_list("staff")}
 
-@app.get("/api/whoami")
-def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "capabilities": ["*"]}
+@app.post("/api/staff")
+async def create_staff(r: Request):
+    d = await r.json(); sid = str(uuid.uuid4())[:8]
+    s = {"id": sid, "name": d.get("name", ""), "role": d.get("role", ""), "pin": d.get("pin", "")}
+    store_save("staff", sid, s)
+    return {"success": True, "staff": s}
+
+@app.delete("/api/staff/{sid}")
+def delete_staff(sid: str):
+    store_delete("staff", sid)
+    return {"success": True}
 
 @app.post("/api/staff/{sid}/pin")
 async def set_staff_pin(sid: str, r: Request):
@@ -262,6 +274,14 @@ async def set_staff_pin(sid: str, r: Request):
     staff = store_get("staff", sid)
     if not staff: raise HTTPException(404, "Staff not found")
     staff["pin"] = pin; store_save("staff", sid, staff); return {"success": True}
+
+# ═══════════════════════════════════════════════════════════════
+# CORE ROUTES, DATA LOOKUPS & ANALYTICS
+# ═══════════════════════════════════════════════════════════════
+KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
+
+@app.get("/api/whoami")
+def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "capabilities": ["*"]}
 
 @app.get("/api/jobs/kanban")
 def jobs_kanban():
@@ -352,6 +372,7 @@ async def set_job_cost(jid: str, r: Request):
     labour = h * rate; subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
     job.update({"labour_hours": h, "labour_rate": rate, "parts_cost": parts, "labour_cost": labour, "subtotal": subtotal, "vat": vat, "total": total})
     store_save("jobs", jid, job); return {"success": True, "job": job}
+
 @app.get("/api/customers")
 def list_customers(): return {"customers": store_list("customers")}
 @app.post("/api/customers")
@@ -359,6 +380,7 @@ async def create_customer(r: Request):
     d = await r.json(); cid = str(uuid.uuid4())[:8]
     c = {"id": cid, "name": d.get("name", ""), "phone": d.get("phone", ""), "email": d.get("email", ""), "address": d.get("address", ""), "created": today()}
     store_save("customers", cid, c); return {"success": True, "customer": c}
+
 @app.get("/api/invoices")
 def list_invoices(): return {"invoices": store_list("invoices")}
 @app.post("/api/invoices")
@@ -366,96 +388,80 @@ async def create_invoice(r: Request):
     d = await r.json(); iid = str(uuid.uuid4())[:8]
     i = {"id": iid, "customer": d.get("customer", ""), "vehicle": d.get("vehicle", ""), "description": d.get("description", ""), "labour": float(d.get("labour", 0)), "parts": float(d.get("parts", 0)), "subtotal": float(d.get("labour", 0)) + float(d.get("parts", 0)), "vat": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 0.15, "total": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 1.15, "amount_paid": 0, "paid": False, "created": now()}
     store_save("invoices", iid, i); return {"success": True, "invoice": i}
+
 @app.get("/api/workshop")
 def get_workshop(): return get_workshop_data()
 @app.post("/api/workshop")
 async def save_workshop(r: Request):
     d = await r.json(); save_workshop_data(d); return {"success": True, "workshop": get_workshop_data()}
 
+@app.get("/api/fault-codes")
+def search_fault_codes(search: str = ""):
+    q = search.strip().lower()
+    if not q: return {"codes": []}
+    results = []
+    for code, data in FAULT_CODES.items():
+        if q in code.lower() or q in data.get("description", "").lower():
+            results.append(data)
+    return {"codes": results}
+
+@app.get("/api/problems")
+def get_problems(): return {"problems": COMMON_PROBLEMS}
+
+@app.get("/api/vin/{vin}")
+def decode_vin(vin: str):
+    vin = vin.upper()
+    if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
+    wmi = vin[:3]; year_code = vin[9]
+    make, country = WMI_DB.get(wmi, ("Unknown", "Unknown"))
+    year = YEAR_CODES.get(year_code, "Unknown")
+    return {"vin": vin, "manufacturer": make, "country": country, "year": year}
+
 # ═══════════════════════════════════════════════════════════════
-# AI PANEL ENDPOINTS (NEWLY ADDED)
+# AI PANEL ENDPOINTS
 # ═══════════════════════════════════════════════════════════════
 @app.post("/api/fault-codes/ai")
 async def ai_explain_code(r: Request):
-    d = await r.json()
-    code = d.get("code", "")
-    vehicle = d.get("vehicle", "")
-    
+    d = await r.json(); code = d.get("code", ""); vehicle = d.get("vehicle", "")
     if not OPENAI_KEY: return {"reply": "AI not configured on server (missing API key)."}
-    
-    prompt = f"You are an expert mechanic. Explain the OBD fault code {code}. " \
-             f"{'Vehicle: ' + vehicle if vehicle else ''}. " \
-             f"Provide: 1. What it means. 2. Common causes. 3. Diagnostic steps to fix it. Keep it brief and easy to read."
-    
+    prompt = f"You are an expert mechanic. Explain the OBD fault code {code}. {'Vehicle: ' + vehicle if vehicle else ''}. Provide: 1. What it means. 2. Common causes. 3. Diagnostic steps to fix it. Keep it brief."
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=500)
         return {"reply": resp.choices[0].message.content}
-    except Exception as e:
-        return {"reply": f"Error communicating with AI: {str(e)}"}
+    except Exception as e: return {"reply": f"Error communicating with AI: {str(e)}"}
 
 @app.post("/api/fault-codes/ai-search")
 async def ai_search_symptom(r: Request):
-    d = await r.json()
-    query = d.get("query", "").lower()
-    vehicle = d.get("vehicle", "")
-    
-    # 1. Search your local data.py first for quick matches
+    d = await r.json(); query = d.get("query", "").lower(); vehicle = d.get("vehicle", "")
     local_matches = []
     for code, data in FAULT_CODES.items():
         if query in data.get("description", "").lower() or any(query in sym.lower() for sym in data.get("symptoms", [])):
             local_matches.append({"code": code, "description": data["description"]})
-            
     if not OPENAI_KEY: return {"reply": "AI not configured.", "local_matches": local_matches[:5]}
-    
-    # 2. Ask AI for a deeper answer
-    prompt = f"You are an expert mechanic. A customer describes this symptom: '{query}'. " \
-             f"{'Vehicle: ' + vehicle if vehicle else ''}. " \
-             f"List the most likely OBD fault codes and what the technician should check. Be concise."
-    
+    prompt = f"You are an expert mechanic. A customer describes this symptom: '{query}'. {'Vehicle: ' + vehicle if vehicle else ''}. List the most likely OBD fault codes and what the technician should check. Be concise."
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=500)
         return {"reply": resp.choices[0].message.content, "local_matches": local_matches[:5]}
-    except Exception as e:
-        return {"reply": f"Error: {str(e)}", "local_matches": local_matches[:5]}
+    except Exception as e: return {"reply": f"Error: {str(e)}", "local_matches": local_matches[:5]}
 
 @app.post("/api/ai-context")
 async def ai_context(r: Request):
-    d = await r.json()
-    message = d.get("message", "")
-    vehicle = d.get("vehicle", "")
-    img_b64 = d.get("image_base64")
-    
+    d = await r.json(); message = d.get("message", ""); vehicle = d.get("vehicle", ""); img_b64 = d.get("image_base64")
     if not OPENAI_KEY: return {"reply": "AI not configured."}
-    
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
-        
-        # If they uploaded a photo in the "Ask" tab
         if img_b64:
             if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
             prompt = f"Expert mechanic. {('Vehicle: ' + vehicle) if vehicle else ''}. The user says: '{message}'. Diagnose the issue in this photo."
-            resp = c.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                ]}],
-                max_tokens=800
-            )
+            resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt},{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}], max_tokens=800)
         else:
-            # Normal text chat
             prompt = f"Expert mechanic. {('Vehicle: ' + vehicle) if vehicle else ''}. Answer this: {message}"
             resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}], max_tokens=800)
-            
         return {"reply": resp.choices[0].message.content}
-    except Exception as e:
-        return {"reply": f"Error: {str(e)}"}
+    except Exception as e: return {"reply": f"Error: {str(e)}"}
 
-# ═══════════════════════════════════════════════════════════════
-# OTHER AI ENDPOINTS
-# ═══════════════════════════════════════════════════════════════
 @app.post("/api/chat")
 async def chat(r: Request):
     d = await r.json(); msg = d.get("message", "")
@@ -465,6 +471,7 @@ async def chat(r: Request):
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
+
 @app.post("/api/paint/match")
 async def match_paint(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
@@ -476,6 +483,7 @@ async def match_paint(r: Request):
         resp = c.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}], response_format={"type": "json_object"})
         return {"success": True, **json.loads(resp.choices[0].message.content)}
     except Exception as e: return {"success": False, "error": str(e)}
+
 @app.post("/api/diagnose/photo")
 async def diagnose_photo(r: Request):
     d = await r.json(); img = d.get("image_base64", "")
