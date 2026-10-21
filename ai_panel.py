@@ -118,19 +118,41 @@ function aiPicClear(){
 function aiVoice(){
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ alert('Voice needs Chrome on Android'); return; }
-  if(_rec){ try{ _rec.stop(); }catch(_){} }
+  
+  if(_rec){ 
+    try{ _rec.stop(); }catch(_){}
+    _rec = null;
+    return; 
+  }
+  
   _rec = new SR();
   _rec.lang = 'en-ZA';
   _rec.interimResults = false;
+  
   _rec.onresult = function(e){
     var t = e.results[0][0].transcript;
     t = t.replace(/\bp\s*zero\s*/gi,'P0').replace(/\bb\s*one\s*/gi,'B1');
     var f = {code:'aiCode', symptom:'aiSym', ask:'aiAsk'}[_m];
     var el = document.getElementById(f);
     el.value = (el.value ? el.value + ' ' : '') + t;
+    _rec = null; // Reset after success
   };
-  _rec.onerror = function(e){ alert('Voice: ' + e.error); };
-  _rec.start();
+  
+  _rec.onerror = function(e){ 
+    // Ignore "aborted" errors (happens if user clicks away or taps mic again)
+    if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        alert('Voice Error: ' + e.error); 
+    }
+    _rec = null; 
+  };
+  
+  _rec.onend = function() { _rec = null; };
+  
+  try {
+      _rec.start();
+  } catch(err) {
+      _rec = null;
+  }
 }
 
 async function aiSubmit(){
