@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Phase A - Final Polish)
+# pages.py — RamsTech v10.0 (Phase A - Modern UI)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -9,7 +9,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <style>
 :root{
 --bg:#f0f2f5;--card:#ffffff;--text:#1a1a2e;--text2:#6b7280;--border:#e5e7eb;
---primary:#E65100;--input-bg:#f9fafb;
+--primary:#E65100;--input-bg:#f8fafc;
 --grad1:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
 --grad2:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
 --grad3:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
@@ -48,7 +48,7 @@ box-shadow:0 6px 24px rgba(102,126,234,.35);
 
 /* HOME */
 .home-container{padding:16px;max-width:900px;margin:0 auto}
-.hero-card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;border:1px solid var(--border);}
+.hero-card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,0.02);}
 .cat-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;margin:20px 4px 12px;}
 .cat-grid{display:grid;grid-template-columns:1fr;gap:12px}
 .cat-card{
@@ -66,14 +66,14 @@ display:flex;align-items:center;gap:16px;
 
 /* TILES */
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:transform .1s;}
+.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:transform .1s;box-shadow:0 2px 8px rgba(0,0,0,0.02);}
 .tile:active{transform:scale(.95);}
 .tile-icon{font-size:32px;margin-bottom:8px;display:block}
 .tile-label{font-size:12px;font-weight:700;}
 .tile-accent{position:absolute;top:0;left:0;right:0;height:4px}
 
 /* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px;z-index:100;}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.04);}
 .bnav-item{flex:1;text-align:center;padding:6px 4px;cursor:pointer;border-radius:12px;transition:all .2s;}
 .bnav-icon{font-size:20px;display:block;margin-bottom:2px}
 .bnav-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;}
@@ -86,24 +86,98 @@ display:flex;align-items:center;gap:16px;
 @keyframes slideUp {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
 
-/* CARDS & FORMS */
-.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);transition:box-shadow .2s;}
-.card:active{box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+/* CARDS */
+.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);transition:box-shadow .2s;box-shadow:0 2px 10px rgba(0,0,0,0.03);}
 .card h3{color:var(--primary);margin-bottom:8px;font-size:15px;}
-.form-input{width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:10px;background:var(--input-bg);color:var(--text);transition:border-color .2s;}
-.form-input:focus{outline:none;border-color:var(--primary);}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:var(--grad1);color:white;transition:transform .1s,opacity .2s;}
-.btn:active{transform:scale(.97);opacity:.9;}
-.btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
-.btn-success{background:var(--grad4)}
-.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;cursor:pointer;transition:transform .1s;}
-.btn-sm:active{transform:scale(.95);}
-.btn-sm.whatsapp{background:#25D366;}
-.badge{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;color:white;}
+
+/* ═══════════════════════════════════════════════════════ */
+/* MODERN INPUTS & FORMS                                  */
+/* ═══════════════════════════════════════════════════════ */
+input, textarea, select {
+  width: 100%;
+  padding: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px; /* Smoother radius */
+  font-size: 16px; /* Prevents iOS auto-zoom */
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: inherit;
+  transition: all 0.2s ease;
+  -webkit-appearance: none; /* Removes default iOS styling */
+  appearance: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* The Focus Ring (Glows when tapped) */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(230, 81, 0, 0.15), inset 0 2px 4px rgba(0,0,0,0.02);
+  background: var(--card);
+}
+
+/* Custom Arrow for Select Dropdowns */
+select {
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px top 50%;
+  background-size: 12px auto;
+  padding-right: 40px; /* Make room for arrow */
+}
+body.dark select {
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+}
+
+/* ═══════════════════════════════════════════════════════ */
+/* MODERN BUTTONS                                         */
+/* ═══════════════════════════════════════════════════════ */
+.btn{
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 12px;
+  background: var(--grad1);
+  color: white;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  letter-spacing: 0.3px;
+}
+.btn:active{
+  transform: scale(0.96); /* Presses in */
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+.btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937);box-shadow: 0 4px 12px rgba(75,85,99,0.3);}
+.btn-dark:active{box-shadow: 0 2px 6px rgba(75,85,99,0.2);}
+.btn-success{background:var(--grad4);box-shadow: 0 4px 12px rgba(67,233,123,0.3);}
+.btn-success:active{box-shadow: 0 2px 6px rgba(67,233,123,0.2);}
+
+.btn-sm{
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.25);
+}
+.btn-sm:active{transform: scale(0.92); box-shadow: 0 1px 4px rgba(230, 81, 0, 0.2);}
+.btn-sm.whatsapp{background:#25D366;box-shadow: 0 2px 8px rgba(37,211,102,0.3);}
+
+.badge{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;color:white;letter-spacing:.5px;}
 .badge.high,.badge.critical,.badge.outstanding{background:#ef4444}
 .badge.medium{background:#f59e0b}
 .badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
-.back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
+
+.back-btn{background:var(--grad6);color:white;border:none;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;box-shadow:0 4px 12px rgba(48,207,208,.3);}
 
 /* CHAT BUBBLES */
 .chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);}
@@ -171,9 +245,9 @@ display:flex;align-items:center;gap:16px;
   <div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div>
 </div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
-<input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;padding:14px;border-radius:25px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
-<button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;">🎤</button>
-<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;">➤</button>
+<input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;border-radius:25px;">
+<button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);">🎤</button>
+<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px rgba(102,126,234,.3);">➤</button>
 </div>
 </div>
 
@@ -208,11 +282,11 @@ display:flex;align-items:center;gap:16px;
 <button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
 <div id="jobForm" style="display:none">
 <div class="card">
-<input class="form-input" id="jobCustomer" placeholder="Customer name">
-<input class="form-input" id="jobPhone" placeholder="Phone">
-<input class="form-input" id="jobVehicle" placeholder="Vehicle (e.g. 2018 Toyota Hilux)">
-<input class="form-input" id="jobVehicleReg" placeholder="Registration">
-<input class="form-input" id="jobKm" type="number" placeholder="Odometer (km)">
+<input type="text" class="form-input" id="jobCustomer" placeholder="Customer name">
+<input type="text" class="form-input" id="jobPhone" placeholder="Phone">
+<input type="text" class="form-input" id="jobVehicle" placeholder="Vehicle (e.g. 2018 Toyota Hilux)">
+<input type="text" class="form-input" id="jobVehicleReg" placeholder="Registration">
+<input type="number" class="form-input" id="jobKm" placeholder="Odometer (km)">
 <textarea class="form-input" id="jobComplaint" placeholder="Complaint / issue" rows="2"></textarea>
 <select class="form-input" id="jobAssigned"><option value="">— Assign to staff —</option></select>
 <button class="btn btn-success" onclick="createJob()">✓ Create Job</button>
@@ -228,10 +302,10 @@ display:flex;align-items:center;gap:16px;
 <button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
 <div id="customerForm" style="display:none">
 <div class="card">
-<input class="form-input" id="custName" placeholder="Full name">
-<input class="form-input" id="custPhone" placeholder="Phone number">
-<input class="form-input" id="custEmail" placeholder="Email (optional)">
-<input class="form-input" id="custAddress" placeholder="Address (optional)">
+<input type="text" class="form-input" id="custName" placeholder="Full name">
+<input type="text" class="form-input" id="custPhone" placeholder="Phone number">
+<input type="text" class="form-input" id="custEmail" placeholder="Email (optional)">
+<input type="text" class="form-input" id="custAddress" placeholder="Address (optional)">
 <button class="btn btn-success" onclick="createCustomer()">Save Customer</button>
 <button class="btn btn-dark" onclick="hideCustomerForm()">Cancel</button>
 </div>
@@ -258,7 +332,7 @@ display:flex;align-items:center;gap:16px;
 <button class="btn" onclick="showPOForm()">+ New Purchase Order</button>
 <div id="poForm" style="display:none">
 <div class="card">
-<input class="form-input" id="poSupplier" placeholder="Supplier Name">
+<input type="text" class="form-input" id="poSupplier" placeholder="Supplier Name">
 <textarea class="form-input" id="poItems" placeholder="Items (one per line)" rows="3"></textarea>
 <button class="btn btn-success" onclick="createPO()">Save PO</button>
 <button class="btn btn-dark" onclick="hidePOForm()">Cancel</button>
@@ -273,12 +347,12 @@ display:flex;align-items:center;gap:16px;
 <button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
 <div class="card">
 <h3>🏢 Workshop Branding</h3>
-<input class="form-input" id="wsLogo" placeholder="🔧" maxlength="4">
-<input class="form-input" id="wsName" placeholder="Workshop name">
-<input class="form-input" id="wsPhone" placeholder="Phone">
-<input class="form-input" id="wsAddress" placeholder="Address">
-<input class="form-input" id="wsEmail" placeholder="Email">
-<input class="form-input" id="wsRate" type="number" placeholder="Labour rate R/hr">
+<input type="text" class="form-input" id="wsLogo" placeholder="🔧" maxlength="4">
+<input type="text" class="form-input" id="wsName" placeholder="Workshop name">
+<input type="text" class="form-input" id="wsPhone" placeholder="Phone">
+<input type="text" class="form-input" id="wsAddress" placeholder="Address">
+<input type="text" class="form-input" id="wsEmail" placeholder="Email">
+<input type="number" class="form-input" id="wsRate" placeholder="Labour rate R/hr">
 <button class="btn btn-success" onclick="saveSettings()">Save Settings</button>
 </div>
 </div>
@@ -293,9 +367,7 @@ display:flex;align-items:center;gap:16px;
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
 // TOAST NOTIFICATIONS (Replaces alert)
-// ═══════════════════════════════════════════════════════
 function toast(msg, type='success') {
   const wrap = document.getElementById('toastWrap');
   const t = document.createElement('div');
