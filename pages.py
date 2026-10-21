@@ -356,7 +356,8 @@ input[type="checkbox"] {
 <div id="parts" class="panel">
 <div class="panel-title">🔩 Parts Search</div>
 <div style="display:flex; gap:8px; margin-bottom:14px;">
-    <input type="text" class="form-input" style="margin-bottom:0;" id="partsSearch" placeholder="🔍 Search part number or name..." oninput="searchParts()">
+    <input type="text" class="form-input" style="margin-bottom:0;" id="partsSearch" placeholder="🔍 Search part number or name..." onkeypress="if(event.key==='Enter') searchParts()">
+    <button class="btn" style="margin-bottom:0; width:auto; padding:0 20px; background:var(--grad1);" onclick="searchParts()"><i data-lucide="search"></i></button>
     <button class="btn" style="margin-bottom:0; width:auto; padding:0 20px;" onclick="document.getElementById('partsImage').click()"><i data-lucide="camera"></i></button>
 </div>
 <input type="file" id="partsImage" accept="image/*" capture="environment" class="form-input" style="display:none;" onchange="scanPart(event)">
@@ -680,17 +681,48 @@ async function searchParts() {
     c.innerHTML = '<div class="loading">Searching...</div>'; 
     try { 
         const d = await jget('/api/parts-search?q=' + encodeURIComponent(q)); 
-        c.innerHTML = d.results.length ? d.results.map(p=>`
-            <div class="card">
-                <h3>${esc(p.name)}</h3>
-                <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
-                <p style="font-size:12px;color:var(--text2);">${esc(p.brand)}</p>
-                <p style="font-size:18px;font-weight:800;color:var(--primary);margin-top:6px;">R${p.sell_price.toFixed(2)}</p>
-            </div>
-        `).join('') : '<div class="card"><p>No parts found</p></div>'; 
+        if (d.results && d.results.length > 0) {
+            c.innerHTML = d.results.map(p=>`
+                <div class="card">
+                    <h3>${esc(p.name)}</h3>
+                    <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
+                    <p style="font-size:12px;color:var(--text2);">${esc(p.brand)}</p>
+                    <p style="font-size:18px;font-weight:800;color:var(--primary);margin-top:6px;">R${p.sell_price.toFixed(2)}</p>
+                </div>
+            `).join('');
+        } else {
+            c.innerHTML = `
+                <div class="card">
+                    <h3>No local matches found</h3>
+                    <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">We couldn't find "<b>${esc(q)}</b>" in the local catalog.</p>
+                    <button class="btn" onclick="askAIPart('${esc(q)}')" style="background:var(--grad6);font-size:14px;">🤖 Ask AI to Identify Part</button>
+                </div>
+                <div id="partsAIResult" style="display:none; background:var(--input-bg); padding:14px; border-radius:8px; border:1px solid var(--border); margin-top:14px; font-size:14px; line-height:1.6;"></div>
+            `;
+        }
     } catch(e) { 
         c.innerHTML = '<div class="card"><p style="color:red;">Error searching parts. Please try again.</p></div>'; 
     } 
+}
+
+async function askAIPart(query) {
+    const resBox = document.getElementById('partsAIResult');
+    resBox.style.display = 'block';
+    resBox.innerHTML = '<span style="color:var(--primary);">Analyzing part details... please wait.</span>';
+    
+    try {
+        const res = await jpost('/api/parts/identify', { query: query });
+        if (res.success) {
+            let html = esc(res.reply)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            resBox.innerHTML = html;
+        } else {
+            resBox.innerHTML = `Error: ${res.error}`;
+        }
+    } catch(e) {
+        resBox.innerHTML = 'Network error.';
+    }
 }
 
 async function scanPart(e) {
