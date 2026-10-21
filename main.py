@@ -11,7 +11,7 @@ from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCE
 from pages import HTML_PAGE
 
 # ═══════════════════════════════════════════════════════════════
-# UI MODULES — Only the essential ones
+# UI MODULES
 # ═══════════════════════════════════════════════════════════════
 AI_PANEL_HTML = ""
 PWA_HTML = ""
@@ -72,7 +72,7 @@ def save_workshop_data(d):
     return d
 
 # ═══════════════════════════════════════════════════════════════
-# HOME & INJECTIONS
+# HOME ROUTE
 # ═══════════════════════════════════════════════════════════════
 @app.get("/", response_class=HTMLResponse)
 async def home():
@@ -302,6 +302,23 @@ async def create_job(r: Request):
     job = {"id": jid, "customer": d.get("customer", ""), "phone": d.get("phone", ""), "vehicle": d.get("vehicle", ""), "registration": d.get("registration", ""), "km": int(d.get("km", 0)), "complaint": d.get("complaint", ""), "assigned_to": d.get("assigned_to", ""), "photos": d.get("photos", [])[:5], "signature": d.get("signature", ""), "warranty_months": int(d.get("warranty_months", 6)), "status": "New", "timeline": [now() + " — Job created"], "labour_hours": 0, "labour_rate": get_workshop_data().get("labour_rate", 450), "parts_cost": 0, "labour_cost": 0, "subtotal": 0, "vat": 0, "total": 0, "created": now()}
     store_save("jobs", jid, job); return {"success": True, "job": job}
 
+@app.put("/api/jobs/{jid}")
+async def update_job(jid: str, r: Request):
+    d = await r.json(); job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    if "status" in d: job["status"] = d["status"]
+    store_save("jobs", jid, job); return {"success": True, "job": job}
+
+@app.post("/api/jobs/{jid}/cost")
+async def set_job_cost(jid: str, r: Request):
+    d = await r.json()
+    job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    h = float(d.get("labour_hours", 0)); rate = float(d.get("labour_rate", 450)); parts = float(d.get("parts_cost", 0))
+    labour = h * rate; subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
+    job.update({"labour_hours": h, "labour_rate": rate, "parts_cost": parts, "labour_cost": labour, "subtotal": subtotal, "vat": vat, "total": total})
+    store_save("jobs", jid, job); return {"success": True, "job": job}
+
 @app.get("/api/customers")
 def list_customers(): return {"customers": store_list("customers")}
 
@@ -332,75 +349,3 @@ async def chat(r: Request):
         resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
         return {"reply": resp.choices[0].message.content}
     except Exception as e: return {"reply": f"Error: {str(e)}"}
-
-# ═══════════════════════════════════════════════════════════════
-# BATCH 3: PARTS SEARCH, ORDERS, SCAN & PHOTO INTAKE
-# ═══════════════════════════════════════════════════════════════
-
-# --- Parts Search API ---
-@app.get("/api/parts-search")
-def search_parts(q: str = None, limit: int = 50):
-    # Simplified local search using the in-memory/MEM store
-    results = []
-    inv = store_list("inventory")
-    if q:
-        q_lower = q.lower()
-        inv = [i for i in inv if q_lower in str(i.get("part_number","")).lower() or q_lower in str(i.get("name","")).lower()]
-    
-    for i in inv[:limit]:
-        results.append({"source": "inventory", "id": i.get("id"), "part_number": i.get("part_number", ""), "name": i.get("name", ""), "qty": i.get("qty", 0), "cost_price": i.get("cost_price", 0), "sell_price": i.get("sell_price", 0)})
-    
-    return {"query": q or "", "count": len(results), "results": results}
-
-# --- Parts Orders API ---
-@app.get("/api/po/list")
-def list_pos():
-    return {"purchase_orders": store_list("purchase_orders")}
-
-@app.post("/api/po/create")
-async def create_po(r: Request):
-    d = await r.json()
-    pid = str(uuid.uuid4())[:8]
-    po = {"id": pid, "po_number": "PO-" + pid.upper(), "supplier": d.get("supplier", ""), "items": d.get("items", []), "status": "draft", "created": now()}
-    store_save("purchase_orders", pid, po)
-    return {"success": True, "po_id": pid, "po_number": po["po_number"]}
-
-# --- Scan API ---
-@app.get("/api/scan/lookup-part/{code}")
-def lookup_part(code: str):
-    code = code.strip().upper()
-    inv = [i for i in store_list("inventory") if code in str(i.get("part_number","")).upper()]
-    return {"code": code, "inventory": inv, "found": len(inv) > 0}
-
-@app.get("/api/scan/lookup-vin/{vin}")
-def lookup_vin(vin: str):
-    vin = vin.strip().upper()
-    if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
-    jobs = [j for j in store_list("jobs") if vin in str(j.get("registration","")).upper()]
-    
-    m, ctry, year = "Unknown", "Unknown", "Unknown"
-    try:
-        from data import WMI_DB, YEAR_CODES
-        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown"))
-        year = YEAR_CODES.get(vin[9], "Unknown")
-    except: pass
-    return {"vin": vin, "manufacturer": m, "country": ctry, "year": year, "history": jobs}
-
-# --- Photo Intake API ---
-@app.post("/api/photo/intake")
-async def photo_intake(r: Request):
-    d = await r.json()
-    img = d.get("image_base64", "")
-    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured or no image"}
-    
-    prompt = "Extract vehicle info from this image. Return ONLY JSON: {\"vin\":\"\",\"registration\":\"\",\"make\":\"\",\"model\":\"\",\"year\":\"\",\"km\":\"\"}"
-    try:
-        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
-        resp = c.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}],
-            response_format={"type": "json_object"}
-        )
-        return {"success": True, **json.loads(resp.choices[0].message.content)}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
