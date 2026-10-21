@@ -355,7 +355,12 @@ input[type="checkbox"] {
 <!-- PARTS SEARCH -->
 <div id="parts" class="panel">
 <div class="panel-title">🔩 Parts Search</div>
-<input type="text" class="form-input" id="partsSearch" placeholder="🔍 Search part number or name..." oninput="searchParts()">
+<div style="display:flex; gap:8px; margin-bottom:14px;">
+    <input type="text" class="form-input" style="margin-bottom:0;" id="partsSearch" placeholder="🔍 Search part number or name..." oninput="searchParts()">
+    <button class="btn" style="margin-bottom:0; width:auto; padding:0 20px;" onclick="document.getElementById('partsImage').click()"><i data-lucide="camera"></i></button>
+</div>
+<input type="file" id="partsImage" accept="image/*" capture="environment" class="form-input" style="display:none;" onchange="scanPart(event)">
+<div id="partsScanResult" style="display:none; margin-bottom:14px;"></div>
 <div id="partsResults"><div class="loading">Type to search...</div></div>
 </div>
 
@@ -668,7 +673,61 @@ async function clockOut(id) { await jpost('/api/clockins/' + id + '/out', {}); l
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
 async function saveSettings() { const p = { name: document.getElementById('wsName').value, logo: document.getElementById('wsLogo').value, phone: document.getElementById('wsPhone').value, address: document.getElementById('wsAddress').value, email: document.getElementById('wsEmail').value, labour_rate: parseFloat(document.getElementById('wsRate').value) || 450 }; await jpost('/api/workshop', p); toast('Settings saved!'); }
 
-async function searchParts() { const q = document.getElementById('partsSearch').value; if (!q) return; const c = document.getElementById('partsResults'); c.innerHTML = '<div class="loading">Searching...</div>'; try { const d = await jget('/api/parts-search?q=' + encodeURIComponent(q)); c.innerHTML = d.results.length ? d.results.map(p=>`<div class="card"><h3>${esc(p.name)}</h3><p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p><p>Price: R${p.sell_price.toFixed(2)}</p></div>`).join('') : '<div class="card"><p>No parts found</p></div>'; } catch(e) { c.innerHTML = 'Error'; } }
+async function searchParts() { 
+    const q = document.getElementById('partsSearch').value.trim(); 
+    if (!q) { document.getElementById('partsResults').innerHTML = '<div class="loading">Type to search...</div>'; return; } 
+    const c = document.getElementById('partsResults'); 
+    c.innerHTML = '<div class="loading">Searching...</div>'; 
+    try { 
+        const d = await jget('/api/parts-search?q=' + encodeURIComponent(q)); 
+        c.innerHTML = d.results.length ? d.results.map(p=>`
+            <div class="card">
+                <h3>${esc(p.name)}</h3>
+                <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
+                <p style="font-size:12px;color:var(--text2);">${esc(p.brand)}</p>
+                <p style="font-size:18px;font-weight:800;color:var(--primary);margin-top:6px;">R${p.sell_price.toFixed(2)}</p>
+            </div>
+        `).join('') : '<div class="card"><p>No parts found</p></div>'; 
+    } catch(e) { 
+        c.innerHTML = '<div class="card"><p style="color:red;">Error searching parts. Please try again.</p></div>'; 
+    } 
+}
+
+async function scanPart(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const resBox = document.getElementById('partsScanResult');
+    resBox.style.display = 'block';
+    resBox.innerHTML = '<div class="card" style="border-left:4px solid var(--primary);"><p style="color:var(--primary);font-weight:700;">Analyzing photo... please wait.</p></div>';
+    
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = async function() {
+            const canvas = document.createElement('canvas'); let w = img.width, h = img.height;
+            if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            
+            try {
+                const res = await jpost('/api/parts/identify', { image_base64: b64 });
+                if (res.success) {
+                    let html = esc(res.reply)
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br>');
+                    resBox.innerHTML = `<div class="card" style="border-left:4px solid var(--grad4);"><h3>🤖 AI Part Identification</h3><div style="font-size:14px;line-height:1.6;">${html}</div><button class="btn btn-dark" style="margin-top:12px;font-size:12px;padding:10px;" onclick="document.getElementById('partsScanResult').style.display='none'">Close</button></div>`;
+                } else {
+                    resBox.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${res.error}</p></div>`;
+                }
+            } catch (err) {
+                resBox.innerHTML = '<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Network error. Please try again.</p></div>';
+            }
+            // Reset file input
+            document.getElementById('partsImage').value = '';
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function showPOForm(){document.getElementById('poForm').style.display='block'} function hidePOForm(){document.getElementById('poForm').style.display='none'}
 async function createPO() { const sup = document.getElementById('poSupplier').value; const items = document.getElementById('poItems').value; if (!sup || !items) { toast('Supplier and items required', 'error'); return; } try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); toast('PO Created'); } catch(e) { toast('Error', 'error'); } }
 async function loadPOs() { try { const d = await jget('/api/po/list'); document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`<div class="card"><h3>PO #${p.po_number}</h3><p>${esc(p.supplier)}</p><p>Status: <b>${p.status}</b></p></div>`).join('') : '<div class="card"><p>No purchase orders</p></div>'; } catch(e){} }
