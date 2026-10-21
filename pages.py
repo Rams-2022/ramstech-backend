@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Sci-Fi Complete + Inventory/Appointments/Clockin)
+# pages.py — RamsTech v10.0 (Advanced Analytics UI)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -151,12 +151,14 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 </div>
 </div>
 
-<!-- DASHBOARD -->
+<!-- DASHBOARD (ADVANCED ANALYTICS) -->
 <div id="dashboard" class="panel">
-<div class="panel-title">📊 System Dashboard</div>
-<div id="dashStats" style="margin-bottom:16px;"><div class="loading">Loading...</div></div>
-<div class="card"><h3>💰 Revenue Stream</h3><canvas id="revenueChart"></canvas></div>
+<div class="panel-title">📊 Advanced Analytics</div>
+<div id="kpiCards" style="margin-bottom:16px;"></div>
+<div class="card"><h3>📈 Revenue Stream (7 Days)</h3><canvas id="revenueChart"></canvas></div>
 <div class="card"><h3>📋 Job Diagnostics</h3><canvas id="jobChart"></canvas></div>
+<div class="card"><h3>🔧 Top Mechanics</h3><canvas id="mechChart"></canvas></div>
+<div class="card"><h3>🔥 Top Services</h3><div id="topServicesList"></div></div>
 </div>
 
 <!-- AI CHAT -->
@@ -262,7 +264,7 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 <div id="invoiceList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- INVENTORY (NEW) -->
+<!-- INVENTORY -->
 <div id="inventory" class="panel">
 <div class="panel-title">📦 Inventory</div>
 <button class="btn" onclick="showInvForm()">+ Add Stock Item</button>
@@ -283,7 +285,7 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 <div id="inventoryList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- APPOINTMENTS (NEW) -->
+<!-- APPOINTMENTS -->
 <div id="appointments" class="panel">
 <div class="panel-title">📅 Appointments</div>
 <button class="btn" onclick="showApptForm()">+ New Appointment</button>
@@ -302,7 +304,7 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 <div id="apptList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- CLOCK IN/OUT (NEW) -->
+<!-- CLOCK IN/OUT -->
 <div id="clockin" class="panel">
 <div class="panel-title">🕐 Clock In/Out</div>
 <div id="clockinList"><div class="loading">Loading...</div></div>
@@ -356,14 +358,17 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 </div>
 
 <script>
+// TOAST NOTIFICATIONS (Replaces alert)
 function toast(msg, type='success') {
   const wrap = document.getElementById('toastWrap');
-  const t = document.createElement('div'); t.className = `toast ${type}`;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
   t.innerHTML = `<span>${type === 'success' ? '✓' : '⚠'}</span> ${msg}`;
   wrap.appendChild(t);
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
 }
 
+// CATEGORIES (Using Lucide Icon Names)
 const CATEGORIES = {
   diagnostics: { name: 'Diagnostics', icon: 'wrench', gradient: 'linear-gradient(135deg,#0ea5e9,#1e3a8a)', items: [
       {icon:'bot',label:'AI Chat',tab:'chat',color:'#0ea5e9'},{icon:'activity',label:'Fault Codes',tab:'codes',color:'#ef4444'},
@@ -430,14 +435,59 @@ async function jpost(u, b) { const r = await fetch(u, {method:'POST', headers:{'
 async function jput(u, b) { const r = await fetch(u, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
 async function jdel(u) { const r = await fetch(u, {method:'DELETE'}); return r.json(); }
 
-// DASHBOARD
-let rC = null, jC = null;
+// DASHBOARD ADVANCED ANALYTICS
+let rC = null, jC = null, mC = null;
 async function loadDashboard() { 
-  try { const d = await jget('/api/stats'); 
-    document.getElementById('dashStats').innerHTML = `<div class="stats-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;"><div class="stat-card" style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:var(--primary);">${d.jobs_total}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Jobs</div></div><div class="stat-card" style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:#8b5cf6;">${d.jobs_open}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Open</div></div><div class="stat-card" style="background:var(--card);padding:12px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:20px;font-weight:900;color:#10b981;">R${d.revenue}</div><div style="font-size:10px;color:var(--text2);text-transform:uppercase;">Revenue</div></div></div>`;
-    if (rC) rC.destroy(); rC = new Chart(document.getElementById('revenueChart'), {type:'line',data:{labels:d.revenue_labels,datasets:[{data:d.revenue_data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.4,pointBackgroundColor:'#0ea5e9'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
-    if (jC) jC.destroy(); jC = new Chart(document.getElementById('jobChart'), {type:'doughnut',data:{labels:['New','Progress','Done'],datasets:[{data:[d.jobs_new,d.jobs_progress,d.jobs_completed],backgroundColor:['#64748b','#f59e0b','#10b981'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},cutout:'75%'}});
-  } catch(e){}
+  try { 
+    const d = await jget('/api/analytics'); 
+    
+    // KPI Cards
+    document.getElementById('kpiCards').innerHTML = `
+      <div class="stats-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:#10b981;">R ${d.revenue.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Revenue</div>
+        </div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:#ef4444;">R ${d.expenses.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Expenses</div>
+        </div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:var(--primary);">R ${d.net_profit.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Net Profit</div>
+        </div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:#8b5cf6;">R ${d.avg_job.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Avg Job Value</div>
+        </div>
+      </div>`;
+
+    // Revenue Chart
+    if (rC) rC.destroy(); 
+    rC = new Chart(document.getElementById('revenueChart'), {
+      type:'line',
+      data:{labels:d.rev_labels,datasets:[{data:d.rev_data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.4,pointBackgroundColor:'#0ea5e9'}]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b'}},x:{grid:{display:false},ticks:{color:'#64748b'}}}}
+    });
+
+    // Job Status Chart
+    if (jC) jC.destroy(); 
+    jC = new Chart(document.getElementById('jobChart'), {
+      type:'doughnut',
+      data:{labels:d.status_labels,datasets:[{data:d.status_data,backgroundColor:['#64748b','#3b82f6','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#10b981','#16a34a','#475569'],borderWidth:0}]},
+      options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#64748b',boxWidth:12}}},cutout:'75%'}
+    });
+
+    // Top Mechanics Chart
+    if (mC) mC.destroy();
+    mC = new Chart(document.getElementById('mechChart'), {
+      type:'bar',
+      data:{labels:d.mech_labels,datasets:[{data:d.mech_data,backgroundColor:'#8b5cf6',borderRadius:4}]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b',stepSize:1}},x:{grid:{display:false},ticks:{color:'#64748b'}}}}
+    });
+
+    // Top Services List
+    document.getElementById('topServicesList').innerHTML = d.svc_labels.length 
+      ? d.svc_labels.map((label, i) => `<div class="list-item" style="display:flex;justify-content:space-between;"><span>${esc(label)}</span><span class="badge new">${d.svc_data[i]} jobs</span></div>`).join('')
+      : '<p style="color:var(--text2);font-size:13px;">No service data yet.</p>';
+
+  } catch(e){ console.error(e); }
 }
 
 // CHAT & VOICE
@@ -484,7 +534,7 @@ async function loadCustomers() { try { const d = await jget('/api/customers'); d
 async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>{ const isPaid = i.paid; const badge = isPaid ? 'paid' : 'outstanding'; const payBtn = !isPaid ? `<button class="btn-sm blue" onclick="window.location.href='/pay/${i.id}'">💳 Pay Now</button>` : ''; return `<div class="card"><h3>Invoice #${i.id} <span class="badge ${badge}">${badge.toUpperCase()}</span></h3><p><strong>${esc(i.customer)}</strong></p><p style="font-size:20px; font-weight:800; color:var(--primary); margin: 8px 0;">R ${i.total.toFixed(2)}</p><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 PDF</button><button class="btn-sm whatsapp" onclick="shareInvoiceWhatsApp('${i.id}', '${esc(i.customer)}', '${i.total}')">📱 Share</button>${payBtn}</div></div>`; }).join('') || '<div class="card"><p>No invoices yet</p></div>'; } catch(e){} }
 function shareInvoiceWhatsApp(id, customer, total) { const txt = `Hi ${customer}, your invoice #${id} is ready. Total due: R${total}. You can view and pay it here: https://ramstech.onrender.com/pay/${id}`; window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); }
 
-// INVENTORY (NEW)
+// INVENTORY
 function showInvForm(){document.getElementById('invForm').style.display='block'} function hideInvForm(){document.getElementById('invForm').style.display='none'}
 async function addInventory() {
   const name = document.getElementById('invPartName').value.trim();
@@ -503,7 +553,7 @@ async function loadInventory() {
 }
 async function adjInv(id, d) { await jpost('/api/inventory/' + id + '/adjust', {delta:d}); loadInventory(); }
 
-// APPOINTMENTS (NEW)
+// APPOINTMENTS
 function showApptForm(){document.getElementById('apptForm').style.display='block'} function hideApptForm(){document.getElementById('apptForm').style.display='none'}
 async function createAppt() {
   const c = document.getElementById('apptCustomer').value.trim(); const d = document.getElementById('apptDate').value; const t = document.getElementById('apptTime').value;
@@ -519,7 +569,7 @@ async function loadAppts() {
 }
 async function delAppt(id) { if (!confirm('Delete?')) return; await jdel('/api/appointments/' + id); loadAppts(); }
 
-// CLOCK INS (NEW)
+// CLOCK INS
 async function loadClockin() {
   try { const sd = await jget('/api/staff'); const cd = await jget('/api/clockins');
     document.getElementById('clockinList').innerHTML = sd.staff.length ? sd.staff.map(s => {
