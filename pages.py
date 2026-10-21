@@ -48,7 +48,6 @@ background-image:
 background-size: 30px 30px;
 background-attachment:fixed;
 }
-
 body.dark::before {
   content: ''; position: fixed; inset: 0; pointer-events: none;
   background: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.1) 0%, transparent 60%);
@@ -70,7 +69,7 @@ clip-path: polygon(0 0, 100% 0, 100% 90%, 95% 100%, 5% 100%, 0 90%);
 .top-btns button:active{transform:scale(0.9); background:rgba(0,0,0,0.4);}
 .lang-sel option{color:#333}
 
-/* HOME CARDS - MECHA STYLE */
+/* HOME CARDS */
 .home-container{padding:16px;max-width:900px;margin:0 auto}
 .hero-card{background:var(--card);border-radius:8px;padding:16px;margin-bottom:16px;border:1px solid var(--border);backdrop-filter:blur(10px);box-shadow:0 4px 20px rgba(0,0,0,0.1);}
 .cat-title{font-size:12px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:2px;margin:24px 4px 12px;display:flex;align-items:center;gap:8px;}
@@ -83,7 +82,7 @@ position:relative;overflow:hidden;
 box-shadow:0 8px 24px rgba(0,0,0,.3);transition:all .2s ease;
 display:flex;align-items:center;gap:16px;
 border:1px solid rgba(255,255,255,0.1);
-clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%); /* Cut bottom right */
+clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
 }
 .cat-card::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--primary); box-shadow: 0 0 15px var(--primary);
@@ -95,49 +94,81 @@ clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 
 .cat-count{font-size:12px;opacity:.9;font-weight:600;letter-spacing:1px;text-transform:uppercase;color: var(--primary);}
 .cat-arrow{font-size:24px;opacity:.8;}
 
-/* TILES - MECHA PANELS */
-.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* ═══════════════════════════════════════════════════════ */
+/* TACTICAL TILE GRID                                     */
+/* ═══════════════════════════════════════════════════════ */
+.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .tile{
-background:var(--card);border-radius:6px;padding:22px 12px;cursor:pointer;text-align:center;
-border:1px solid var(--border);border-top: 3px solid var(--primary);
-position:relative;transition:all .15s;box-shadow:0 4px 15px rgba(0,0,0,0.08);backdrop-filter:blur(10px);
-clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+background:var(--card);
+border-radius:4px;
+padding:24px 16px;
+cursor:pointer;
+text-align:center;
+border:1px solid var(--border);
+position:relative;
+transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.02);
+backdrop-filter:blur(10px);
+clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+overflow: hidden;
 }
-.tile:active{transform:scale(.95);background:rgba(14, 165, 233, 0.1);box-shadow:0 0 20px var(--primary-glow);}
-.tile-icon{font-size:32px;margin-bottom:10px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));}
-.tile-label{font-size:12px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;}
-.tile-accent{position:absolute;bottom:0;left:0;right:0;height:2px;opacity:0.5;}
+body.dark .tile { border-color: rgba(0, 242, 254, 0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.5), inset 0 0 20px rgba(0, 242, 254, 0.05); }
 
-/* BOTTOM NAV - MECHA DOCK */
+.tile::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--primary); opacity: 0.8; transition: opacity 0.2s, box-shadow 0.2s;
+}
+.tile:active{
+transform: scale(.95);
+background: rgba(14, 165, 233, 0.1);
+border-color: var(--primary);
+box-shadow: 0 0 25px var(--primary-glow), inset 0 0 20px var(--primary-glow);
+}
+.tile:active::before { opacity: 1; box-shadow: 0 0 15px var(--primary); }
+
+.tile-icon{font-size:38px;margin-bottom:12px;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));transition: transform 0.2s;}
+.tile:active .tile-icon { transform: scale(1.1); }
+.tile-label{font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color: var(--text);}
+.tile-accent{display:none;}
+
+/* ═══════════════════════════════════════════════════════ */
+/* HOLOGRAPHIC BOTTOM NAV                                 */
+/* ═══════════════════════════════════════════════════════ */
 .bottom-nav{
-position:fixed;bottom:0;left:0;right:0;
-background:rgba(5, 10, 20, 0.95);
+position:fixed;bottom:16px;left:16px;right:16px;
+background:rgba(5, 10, 20, 0.85);
 backdrop-filter:blur(20px);
-border-top:1px solid rgba(0, 242, 254, 0.3);
+border:1px solid rgba(0, 242, 254, 0.3);
+border-radius:20px;
 display:flex;justify-content:space-around;padding:12px 8px;z-index:100;
-box-shadow:0 -10px 40px rgba(0,0,0,0.5);
+box-shadow:0 10px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
 padding-bottom:env(safe-area-inset-bottom, 12px);
 }
-body:not(.dark) .bottom-nav { background:rgba(255, 255, 255, 0.95); border-top:1px solid var(--border); box-shadow:0 -4px 20px rgba(0,0,0,0.05); }
+body:not(.dark) .bottom-nav { background:rgba(255, 255, 255, 0.9); border:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,0.1); }
 
 .bnav-item{
 flex:1;text-align:center;padding:8px 4px;cursor:pointer;
 position:relative;display:flex;flex-direction:column;align-items:center;
-color:var(--text2);transition:all .2s;
+color:var(--text2);transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.bnav-icon{font-size:22px;display:block;margin-bottom:4px;transition:transform .3s cubic-bezier(0.34, 1.56, 0.64, 1);}
-.bnav-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.bnav-icon{font-size:22px;display:block;margin-bottom:4px;transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);}
+.bnav-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;transition:all .3s;}
 
-/* Mecha Bottom Nav Active State */
+/* Holographic Active State */
 .bnav-item.active { color: var(--primary); }
-.bnav-item.active .bnav-icon { transform: translateY(-4px) scale(1.15); filter: drop-shadow(0 0 10px var(--primary-glow)); }
+body.dark .bnav-item.active .bnav-icon { transform: translateY(-6px) scale(1.2); filter: drop-shadow(0 0 12px var(--primary)); }
+body:not(.dark) .bnav-item.active .bnav-icon { transform: translateY(-6px) scale(1.2); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); }
+.bnav-item.active .bnav-label { transform: translateY(2px); }
+
+/* Glowing indicator dot beneath active tab */
 .bnav-item.active::after {
-  content: ''; position: absolute; bottom: -12px; left: 20%; right: 20%; height: 3px;
-  background: var(--primary); box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); border-radius: 3px;
+  content: ''; position: absolute; bottom: -12px; width: 6px; height: 6px;
+  background: var(--primary); border-radius: 50%;
+  box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
 }
 
 /* PANELS */
-.panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:110px}
+.panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:120px}
 .panel.active{display:block;animation:techSlide .35s cubic-bezier(.16,1,.3,1)}
 @keyframes techSlide {from{opacity:0;transform:translateY(15px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .panel-title{font-size:20px;font-weight:900;color:var(--primary);margin-bottom:20px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:1px;}
