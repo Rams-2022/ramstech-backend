@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Phase B - Core Panels Complete)
+# pages.py — RamsTech v10.0 (Phase C - Integrations)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -95,6 +95,9 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 .badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
 .back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.msg { padding: 10px 14px; border-radius: 12px; margin-bottom: 8px; max-width: 85%; line-height: 1.4; font-size: 14px; }
+.msg.user { background: var(--grad1); color: white; margin-left: auto; border-bottom-right-radius: 2px; }
+.msg.ai { background: var(--input-bg); border: 1px solid var(--border); margin-right: auto; border-bottom-left-radius: 2px; }
 </style>
 </head>
 <body>
@@ -137,7 +140,9 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- AI CHAT -->
 <div id="chat" class="panel">
 <div class="panel-title">🤖 AI Assistant</div>
-<div class="chat-box" id="chatBox" style="height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;"><div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div></div>
+<div class="chat-box" id="chatBox" style="height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;">
+  <div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div>
+</div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
 <input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;padding:14px;border-radius:25px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
 <button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;">🎤</button>
@@ -168,35 +173,11 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <div id="vinResult"></div>
 </div>
 
-<!-- PAINT -->
-<div id="paint" class="panel">
-<div class="panel-title">🎨 Paint Match</div>
-<div class="card"><p style="font-size:13px">📸 Take a photo of a vehicle panel in good light. AI identifies colour and provides paint codes.</p></div>
-<input type="text" class="form-input" id="paintVehicle" placeholder="Vehicle info (optional)">
-<input type="file" id="paintImage" accept="image/*" capture="environment" class="form-input" onchange="previewPaint(event)">
-<div id="paintPreview"></div>
-<button class="btn" id="paintBtn" onclick="matchPaint()">🎨 Match Paint Colour</button>
-<div id="paintResult"></div>
-</div>
-
-<!-- PHOTO DIAG -->
-<div id="photo" class="panel">
-<div class="panel-title">📸 Photo Diagnosis</div>
-<div class="card"><p style="font-size:13px">📸 Take a photo of a mechanical issue. AI diagnoses the problem.</p></div>
-<input type="text" class="form-input" id="photoVehicle" placeholder="Vehicle info (optional)">
-<input type="file" id="photoImage" accept="image/*" capture="environment" class="form-input" onchange="previewDiag(event)">
-<div id="photoPreview"></div>
-<button class="btn" id="photoBtn" onclick="diagnosePhoto()">📸 Analyze Photo</button>
-<div id="photoResult"></div>
-</div>
-
 <!-- JOBS -->
 <div id="jobs" class="panel">
 <div class="panel-title">📋 Job Cards</div>
-
 <button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">📊 Open Kanban Board</button>
 <button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">📸 New Job from Photo</button>
-
 <button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
 <div id="jobForm" style="display:none">
 <div class="card">
@@ -214,7 +195,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <div id="jobList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- CUSTOMERS (UPGRADED) -->
+<!-- CUSTOMERS -->
 <div id="customers" class="panel">
 <div class="panel-title">👥 Customers</div>
 <button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
@@ -231,7 +212,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <div id="customerList"><div class="loading">Loading...</div></div>
 </div>
 
-<!-- INVOICES (UPGRADED) -->
+<!-- INVOICES -->
 <div id="invoices" class="panel">
 <div class="panel-title">💰 Invoices</div>
 <div id="invoiceList"><div class="loading">Loading...</div></div>
@@ -262,9 +243,7 @@ display:flex;justify-content:space-around;padding:8px 4px;z-index:100;
 <!-- SETTINGS -->
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ Settings</div>
-
 <button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
-
 <div class="card">
 <h3>🏢 Workshop Branding</h3>
 <input class="form-input" id="wsLogo" placeholder="🔧" maxlength="4">
@@ -293,9 +272,7 @@ const CATEGORIES = {
       {icon:'🤖',label:'AI Chat',tab:'chat',color:'#3b82f6'},
       {icon:'📟',label:'Fault Codes',tab:'codes',color:'#ef4444'},
       {icon:'📖',label:'Problems',tab:'problems',color:'#f59e0b'},
-      {icon:'🔍',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'},
-      {icon:'🎨',label:'Paint Match',tab:'paint',color:'#ec4899'},
-      {icon:'📸',label:'Photo Diag',tab:'photo',color:'#06b6d4'}
+      {icon:'🔍',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
   ]},
   workshop: { name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b,#dc2626)', items: [
       {icon:'📋',label:'Jobs',tab:'jobs',color:'#f59e0b'},
@@ -362,7 +339,7 @@ function showTab(name, el) {
 
   // AI ROBOT TOGGLE
   var fab = document.getElementById('aiFab');
-  var diagTabs = ['chat','codes','problems','vin','paint','photo'];
+  var diagTabs = ['chat','codes','problems','vin'];
   if (fab) {
     if (diagTabs.includes(name)) {
       fab.style.setProperty('display', 'flex', 'important');
@@ -407,29 +384,54 @@ async function loadDashboard() {
         <div class="stat-card purple"><div class="num">${d.jobs_open}</div><div class="lbl">Open</div></div>
         <div class="stat-card green"><div class="num">R${d.revenue}</div><div class="lbl">Revenue</div></div>
       </div>`;
-      
     if (rC) rC.destroy();
     rC = new Chart(document.getElementById('revenueChart'), {
-      type: 'line', 
-      data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.15)', fill: true, tension: .4 }] },
-      options: { responsive: true, plugins: { legend: { display: false } } }
+      type: 'line', data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.15)', fill: true, tension: .4 }] }, options: { responsive: true, plugins: { legend: { display: false } } }
     });
-
     if (jC) jC.destroy();
     jC = new Chart(document.getElementById('jobChart'), {
-      type: 'doughnut', 
-      data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#6b7280', '#f59e0b', '#10b981'] }] },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      type: 'doughnut', data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#6b7280', '#f59e0b', '#10b981'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
   } catch(e){ console.error(e); }
 }
 
-// API FETCHES
-async function searchCodes() { try { const d = await jget('/api/fault-codes?search='+document.getElementById('codeSearch').value); document.getElementById('codeResults').dataset.loaded='1'; document.getElementById('codeResults').innerHTML = d.codes.map(x=>'<div class="card"><h3>'+x.code+'</h3><p>'+esc(x.description)+'</p></div>').join(''); } catch(e){} }
-async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3></div>').join(''); } catch(e){} }
-async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
-async function matchPaint() { alert('Paint API placeholder'); }
-async function diagnosePhoto() { alert('Photo API placeholder'); }
+// AI CHAT & VOICE
+let rec = null, isRec = false;
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { alert('Voice not supported on this browser'); return; }
+  if (!rec) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    rec = new SR(); rec.lang = 'en-ZA';
+    rec.onresult = e => { document.getElementById('chatInput').value = e.results[0][0].transcript; resetMic(); sendMsg(); };
+    rec.onerror = resetMic; rec.onend = resetMic;
+  }
+  function resetMic() { isRec = false; document.getElementById('micBtn').style.background = 'var(--grad4)'; document.getElementById('micBtn').textContent = '🎤'; }
+  if (isRec) { rec.stop(); resetMic(); }
+  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').textContent = '⏹'; } catch (e) { alert(e.message); } }
+}
+
+async function sendMsg() {
+  const i = document.getElementById('chatInput');
+  const m = i.value.trim();
+  if (!m) return;
+  const b = document.getElementById('chatBox');
+  
+  b.innerHTML += '<div class="msg user">' + esc(m) + '</div>';
+  i.value = '';
+  b.scrollTop = b.scrollHeight;
+  
+  const typId = 'typ_' + Date.now();
+  b.innerHTML += `<div class="msg ai" id="${typId}">Thinking...</div>`;
+  b.scrollTop = b.scrollHeight;
+  
+  try {
+    const d = await jpost('/api/chat', {message:m});
+    document.getElementById(typId).outerHTML = '<div class="msg ai">' + esc(d.reply) + '</div>';
+  } catch (e) {
+    document.getElementById(typId).outerHTML = '<div class="msg ai">Error connecting to AI.</div>';
+  }
+  b.scrollTop = b.scrollHeight;
+}
 
 // JOBS
 async function loadJobs() {
@@ -453,6 +455,7 @@ async function loadJobs() {
       let statusOpts = statuses.map(s => `<option value="${s}" ${j.status === s ? 'selected' : ''}>${s}</option>`).join('');
       
       let invBtn = j.total ? `<button class="btn-sm green" onclick="generateInvoice('${j.id}')">Generate Invoice</button>` : '';
+      let waBtn = `<button class="btn-sm whatsapp" onclick="shareJobWhatsApp('${j.id}')">📱</button>`;
       
       return `
         <div class="card" id="job-${j.id}">
@@ -475,15 +478,22 @@ async function loadJobs() {
             <select class="form-input" style="margin:0;flex:1;padding:8px;font-size:12px;width:auto;" onchange="updateJobStatus('${j.id}', this.value)">
               ${statusOpts}
             </select>
-            <button class="btn-sm purple" onclick="setCost('${j.id}')">💰 Set Cost</button>
+            <button class="btn-sm purple" onclick="setCost('${j.id}')">💰 Cost</button>
             ${invBtn}
+            ${waBtn}
           </div>
         </div>
       `;
     }).join('');
-  } catch (e) { 
-    c.innerHTML = '<div class="card"><p>Error loading jobs</p></div>'; 
-  }
+  } catch (e) { c.innerHTML = '<div class="card"><p>Error loading jobs</p></div>'; }
+}
+
+async function shareJobWhatsApp(id) {
+  const d = await jget('/api/jobs');
+  const j = d.jobs.find(x => x.id == id);
+  if (!j) return;
+  const txt = `🔧 *Job #${j.id} Update*\n\nHi ${j.customer},\nYour vehicle (${j.vehicle}) is currently: *${j.status}*.\n\nIssue: ${j.complaint}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 }
 
 async function updateJobStatus(jid, newStatus) {
@@ -511,65 +521,40 @@ async function generateInvoice(jid) {
     const d = await jget('/api/jobs');
     const job = d.jobs.find(x => x.id == jid);
     if (!job) return;
-
-    const payload = {
-      customer: job.customer,
-      vehicle: job.vehicle,
-      description: job.complaint,
-      labour: job.labour_cost || 0,
-      parts: job.parts_cost || 0
-    };
-
+    const payload = { customer: job.customer, vehicle: job.vehicle, description: job.complaint, labour: job.labour_cost || 0, parts: job.parts_cost || 0 };
     const res = await jpost('/api/invoices', payload);
     if (res.success) {
       alert('✓ Invoice #' + res.invoice.id + ' generated!');
-      showTab('invoices');
-      loadInvoices();
+      showTab('invoices'); loadInvoices();
     }
   } catch(e) { alert('Error generating invoice'); }
 }
 
-// CUSTOMERS (UPGRADED)
+// CUSTOMERS
 function showCustomerForm(){document.getElementById('customerForm').style.display='block'} 
 function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
-
 async function createCustomer() {
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
   if (!name || !phone) { alert('Name and phone required'); return; }
-  
-  await jpost('/api/customers', {
-    name: name, phone: phone, 
-    email: document.getElementById('custEmail').value,
-    address: document.getElementById('custAddress').value
-  });
-  
-  document.getElementById('custName').value = '';
-  document.getElementById('custPhone').value = '';
-  document.getElementById('custEmail').value = '';
-  document.getElementById('custAddress').value = '';
-  hideCustomerForm();
-  loadCustomers();
+  await jpost('/api/customers', { name: name, phone: phone, email: document.getElementById('custEmail').value, address: document.getElementById('custAddress').value });
+  document.getElementById('custName').value = ''; document.getElementById('custPhone').value = '';
+  hideCustomerForm(); loadCustomers();
 }
-
 async function loadCustomers() { 
   try { 
     const d = await jget('/api/customers'); 
     document.getElementById('customerList').innerHTML = d.customers.map(c=>`
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <h3>👤 ${esc(c.name)}</h3>
-            <p>📞 ${esc(c.phone)}</p>
-            ${c.email ? `<p>📧 ${esc(c.email)}</p>` : ''}
-          </div>
+          <div><h3>👤 ${esc(c.name)}</h3><p>📞 ${esc(c.phone)}</p>${c.email ? `<p>📧 ${esc(c.email)}</p>` : ''}</div>
           <button class="btn-sm whatsapp" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}', '_blank')">📱 Chat</button>
         </div>
       </div>`).join('') || '<div class="card"><p>No customers yet</p></div>'; 
   } catch(e){} 
 }
 
-// INVOICES (UPGRADED)
+// INVOICES
 async function loadInvoices() { 
   try { 
     const d = await jget('/api/invoices'); 
@@ -577,7 +562,6 @@ async function loadInvoices() {
       const isPaid = i.paid;
       const badge = isPaid ? 'paid' : 'outstanding';
       const payBtn = !isPaid ? `<button class="btn-sm blue" onclick="window.location.href='/pay/${i.id}'">💳 Pay Now</button>` : '';
-      
       return `
         <div class="card">
           <h3>Invoice #${i.id} <span class="badge ${badge}">${badge.toUpperCase()}</span></h3>
@@ -601,20 +585,18 @@ function shareInvoiceWhatsApp(id, customer, total) {
 // SETTINGS
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
 async function saveSettings() {
-  const p = {
-    name: document.getElementById('wsName').value,
-    logo: document.getElementById('wsLogo').value,
-    phone: document.getElementById('wsPhone').value,
-    address: document.getElementById('wsAddress').value,
-    email: document.getElementById('wsEmail').value,
-    labour_rate: parseFloat(document.getElementById('wsRate').value) || 450
-  };
-  await jpost('/api/workshop', p);
-  alert('Settings saved!');
+  const p = { name: document.getElementById('wsName').value, logo: document.getElementById('wsLogo').value, phone: document.getElementById('wsPhone').value, address: document.getElementById('wsAddress').value, email: document.getElementById('wsEmail').value, labour_rate: parseFloat(document.getElementById('wsRate').value) || 450 };
+  await jpost('/api/workshop', p); alert('Settings saved!');
 }
-function sendMsg(){}
 
-// PARTS SEARCH & PURCHASE ORDERS
+// FAULT CODES & PROBLEMS
+async function searchCodes() { try { const d = await jget('/api/fault-codes?search='+document.getElementById('codeSearch').value); document.getElementById('codeResults').dataset.loaded='1'; document.getElementById('codeResults').innerHTML = d.codes.map(x=>'<div class="card"><h3>'+x.code+'</h3><p>'+esc(x.description)+'</p></div>').join(''); } catch(e){} }
+async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3></div>').join(''); } catch(e){} }
+
+// VIN
+async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
+
+// PARTS SEARCH & PO
 async function searchParts() {
   const q = document.getElementById('partsSearch').value;
   if (!q) return;
@@ -622,348 +604,125 @@ async function searchParts() {
   c.innerHTML = '<div class="loading">Searching...</div>';
   try {
     const d = await jget('/api/parts-search?q=' + encodeURIComponent(q));
-    c.innerHTML = d.results.length ? d.results.map(p=>`
-      <div class="card">
-        <h3>${esc(p.name)}</h3>
-        <p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p>
-        <p>Price: R${p.sell_price.toFixed(2)}</p>
-      </div>`).join('') : '<div class="card"><p>No parts found</p></div>';
+    c.innerHTML = d.results.length ? d.results.map(p=>`<div class="card"><h3>${esc(p.name)}</h3><p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p><p>Price: R${p.sell_price.toFixed(2)}</p></div>`).join('') : '<div class="card"><p>No parts found</p></div>';
   } catch(e) { c.innerHTML = 'Error searching'; }
 }
-
 function showPOForm(){document.getElementById('poForm').style.display='block'} 
 function hidePOForm(){document.getElementById('poForm').style.display='none'}
 async function createPO() {
-  const sup = document.getElementById('poSupplier').value;
-  const items = document.getElementById('poItems').value;
+  const sup = document.getElementById('poSupplier').value; const items = document.getElementById('poItems').value;
   if (!sup || !items) { alert('Supplier and items required'); return; }
-  try {
-    await jpost('/api/po/create', { supplier: sup, items: items });
-    hidePOForm();
-    loadPOs();
-  } catch(e) { alert('Error creating PO'); }
+  try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); } catch(e) { alert('Error creating PO'); }
 }
-async function loadPOs() { 
-  try { 
-    const d = await jget('/api/po/list'); 
-    document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`
-      <div class="card">
-        <h3>PO #${p.po_number}</h3>
-        <p>${esc(p.supplier)}</p>
-        <p>Status: <b>${p.status}</b></p>
-      </div>`).join('') : '<div class="card"><p>No purchase orders</p></div>';
-  } catch(e){} 
-}
+async function loadPOs() { try { const d = await jget('/api/po/list'); document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`<div class="card"><h3>PO #${p.po_number}</h3><p>${esc(p.supplier)}</p><p>Status: <b>${p.status}</b></p></div>`).join('') : '<div class="card"><p>No purchase orders</p></div>'; } catch(e){} }
 
-// MODALS & FEATURES
+// MODALS (Kanban, Photo, Staff, Scanner)
 async function openKanban() {
   let modal = document.getElementById('kanbanModal');
   if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'kanbanModal';
+    modal = document.createElement('div'); modal.id = 'kanbanModal';
     modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `
-      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);">
-        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-          <h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2>
-          <button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
-        </div>
-        <div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div>
-      </div>
-    `;
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2><button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div></div>`;
     document.body.appendChild(modal);
-  } else {
-    modal.style.display = 'block';
-  }
-  
-  const d = await jget('/api/jobs/kanban');
-  let html = '';
+  } else { modal.style.display = 'block'; }
+  const d = await jget('/api/jobs/kanban'); let html = '';
   d.statuses.forEach(s => {
     const items = d.columns[s] || [];
     html += `<div style="background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);"><h4 style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">${s} (${items.length})</h4>`;
-    items.forEach(j => {
-      html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`;
-    });
+    items.forEach(j => { html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`; });
     html += `</div>`;
   });
   document.getElementById('kanbanContent').innerHTML = html;
 }
 
-// PHOTO INTAKE
 async function openPhotoIntake() {
   let modal = document.getElementById('photoIntakeModal');
   if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'photoIntakeModal';
+    modal = document.createElement('div'); modal.id = 'photoIntakeModal';
     modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `
-      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);">
-        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-          <h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2>
-          <button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
-        </div>
-        <div id="piStep1" class="card" style="background:var(--input-bg);">
-          <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard. The AI will read the details and pre-fill the job card.</p>
-          <input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)">
-        </div>
-        <div id="piStep2" style="display:none;">
-          <div id="piPreview" style="margin-bottom:10px;"></div>
-          <div id="piResult" class="card" style="background:var(--input-bg);">
-            <h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3>
-            <input type="text" id="piMake" class="form-input" placeholder="Make (e.g. Toyota)">
-            <input type="text" id="piModel" class="form-input" placeholder="Model (e.g. Hilux)">
-            <input type="text" id="piReg" class="form-input" placeholder="Registration">
-            <input type="text" id="piVin" class="form-input" placeholder="VIN">
-            <input type="number" id="piKm" class="form-input" placeholder="Odometer (km)">
-            <button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button>
-          </div>
-        </div>
-        <div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);">
-          <div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>
-          Analyzing photo...
-        </div>
-      </div>
-    `;
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2><button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="piStep1" class="card" style="background:var(--input-bg);"><p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard.</p><input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)"></div><div id="piStep2" style="display:none;"><div id="piPreview" style="margin-bottom:10px;"></div><div id="piResult" class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3><input type="text" id="piMake" class="form-input" placeholder="Make"><input type="text" id="piModel" class="form-input" placeholder="Model"><input type="text" id="piReg" class="form-input" placeholder="Registration"><input type="text" id="piVin" class="form-input" placeholder="VIN"><input type="number" id="piKm" class="form-input" placeholder="Odometer"><button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button></div></div><div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);"><div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>Analyzing photo...</div></div>`;
     document.body.appendChild(modal);
-  } else {
-    modal.style.display = 'block';
-    document.getElementById('piStep1').style.display = 'block';
-    document.getElementById('piStep2').style.display = 'none';
-    document.getElementById('piImage').value = '';
-  }
+  } else { modal.style.display = 'block'; document.getElementById('piStep1').style.display = 'block'; document.getElementById('piStep2').style.display = 'none'; document.getElementById('piImage').value = ''; }
 }
 
 async function processPhotoIntake(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  document.getElementById('piStep1').style.display = 'none';
-  document.getElementById('piLoading').style.display = 'block';
-
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('piStep1').style.display = 'none'; document.getElementById('piLoading').style.display = 'block';
   const reader = new FileReader();
   reader.onload = async function(ev) {
     const img = new Image();
     img.onload = async function() {
-      const canvas = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > 1200) { h = (h * 1200) / w; w = 1200; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const canvas = document.createElement('canvas'); let w = img.width, h = img.height;
+      if (w > 1200) { h = (h * 1200) / w; w = 1200; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-
       document.getElementById('piPreview').innerHTML = '<img src="' + canvas.toDataURL('image/jpeg', 0.8) + '" style="width:100%;border-radius:12px;border:1px solid var(--border);">';
-
       try {
         const res = await jpost('/api/photo/intake', { image_base64: b64 });
-        document.getElementById('piLoading').style.display = 'none';
-        document.getElementById('piStep2').style.display = 'block';
-
+        document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block';
         if (res.success) {
-          document.getElementById('piMake').value = res.make || '';
-          document.getElementById('piModel').value = res.model || '';
-          document.getElementById('piReg').value = res.registration || '';
-          document.getElementById('piVin').value = res.vin || '';
-          document.getElementById('piKm').value = res.km || '';
-        } else {
-          alert('AI could not read the photo: ' + (res.error || 'Try a clearer photo'));
-        }
-      } catch (err) {
-        document.getElementById('piLoading').style.display = 'none';
-        document.getElementById('piStep2').style.display = 'block';
-        alert('Network error: ' + err.message);
-      }
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
+          document.getElementById('piMake').value = res.make || ''; document.getElementById('piModel').value = res.model || '';
+          document.getElementById('piReg').value = res.registration || ''; document.getElementById('piVin').value = res.vin || ''; document.getElementById('piKm').value = res.km || '';
+        } else { alert('AI could not read: ' + (res.error || 'Try a clearer photo')); }
+      } catch (err) { document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block'; alert('Network error'); }
+    }; img.src = ev.target.result;
+  }; reader.readAsDataURL(file);
 }
-
 async function createJobFromPhoto() {
-  const make = document.getElementById('piMake').value.trim();
-  const model = document.getElementById('piModel').value.trim();
-  const reg = document.getElementById('piReg').value.trim();
-  const vin = document.getElementById('piVin').value.trim();
-  const km = document.getElementById('piKm').value.trim();
-
-  const vehicle = (make + ' ' + model).trim();
-
-  const payload = {
-    customer: 'New Customer (Photo Intake)',
-    phone: '',
-    vehicle: vehicle || 'Unknown Vehicle',
-    registration: reg || vin,
-    km: parseInt(km) || 0,
-    complaint: 'Vehicle checked in via Photo Intake',
-    assigned_to: '',
-    photos: [],
-    signature: '',
-    warranty_months: 6
-  };
-
-  try {
-    const res = await jpost('/api/jobs', payload);
-    if (res.success) {
-      alert('✓ Job #' + res.job.id + ' created successfully!');
-      document.getElementById('photoIntakeModal').style.display = 'none';
-      showTab('jobs');
-      loadJobs();
-    }
-  } catch (e) {
-    alert('Error creating job: ' + e.message);
-  }
+  const make = document.getElementById('piMake').value.trim(); const model = document.getElementById('piModel').value.trim();
+  const reg = document.getElementById('piReg').value.trim(); const vin = document.getElementById('piVin').value.trim(); const km = document.getElementById('piKm').value.trim();
+  const payload = { customer: 'New Customer (Photo)', phone: '', vehicle: (make + ' ' + model).trim(), registration: reg || vin, km: parseInt(km) || 0, complaint: 'Photo Intake', assigned_to: '', photos: [], signature: '', warranty_months: 6 };
+  try { const res = await jpost('/api/jobs', payload); if (res.success) { alert('✓ Job created!'); document.getElementById('photoIntakeModal').style.display = 'none'; showTab('jobs'); loadJobs(); } } catch (e) { alert('Error'); }
 }
 
 // STAFF MANAGER
 async function openStaffManager() {
   let modal = document.getElementById('staffModal');
   if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'staffModal';
+    modal = document.createElement('div'); modal.id = 'staffModal';
     modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `
-      <div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);">
-        <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-          <h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2>
-          <button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
-        </div>
-        <div class="card" style="background:var(--input-bg);">
-          <h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3>
-          <input type="text" id="newStaffName" class="form-input" placeholder="Full Name">
-          <select id="newStaffRole" class="form-input">
-            <option value="technician">Technician</option>
-            <option value="manager">Manager</option>
-            <option value="receptionist">Receptionist</option>
-          </select>
-          <input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4">
-          <button class="btn btn-success" onclick="addNewStaff()">+ Add Staff Member</button>
-        </div>
-        <div id="staffList" style="margin-top:16px;">
-          <div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div>
-        </div>
-      </div>
-    `;
+    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2><button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3><input type="text" id="newStaffName" class="form-input" placeholder="Full Name"><select id="newStaffRole" class="form-input"><option value="technician">Technician</option><option value="manager">Manager</option></select><input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4"><button class="btn btn-success" onclick="addNewStaff()">+ Add Staff</button></div><div id="staffList" style="margin-top:16px;"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div></div></div>`;
     document.body.appendChild(modal);
-  } else {
-    modal.style.display = 'block';
-  }
+  } else { modal.style.display = 'block'; }
   loadStaffList();
 }
-
 async function loadStaffList() {
-  const list = document.getElementById('staffList');
-  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div>';
+  const list = document.getElementById('staffList'); list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Loading...</div>';
   try {
     const d = await jget('/api/staff');
-    if (!d.staff || d.staff.length === 0) {
-      list.innerHTML = '<p style="text-align:center;color:var(--text2);font-size:13px;">No staff added yet.</p>';
-      return;
-    }
-    let html = '';
-    d.staff.forEach(s => {
-      html += `
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;">
-          <div>
-            <strong style="font-size:14px;">${esc(s.name)}</strong><br>
-            <span style="font-size:11px;color:var(--text2);">${esc(s.role || 'Staff')} • PIN: ${s.pin || 'None'}</span>
-          </div>
-          <button class="btn-sm red" onclick="deleteStaff('${s.id}')">Delete</button>
-        </div>
-      `;
-    });
-    list.innerHTML = html;
-  } catch (e) {
-    list.innerHTML = '<p style="color:red;text-align:center;">Error loading staff</p>';
-  }
+    if (!d.staff || d.staff.length === 0) { list.innerHTML = '<p style="text-align:center;color:var(--text2);font-size:13px;">No staff added yet.</p>'; return; }
+    list.innerHTML = d.staff.map(s => `<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;"><div><strong style="font-size:14px;">${esc(s.name)}</strong><br><span style="font-size:11px;color:var(--text2);">${esc(s.role)} • PIN: ${s.pin || 'None'}</span></div><button class="btn-sm red" onclick="deleteStaff('${s.id}')">Delete</button></div>`).join('');
+  } catch (e) { list.innerHTML = '<p style="color:red;text-align:center;">Error loading staff</p>'; }
 }
-
 async function addNewStaff() {
-  const name = document.getElementById('newStaffName').value.trim();
-  const role = document.getElementById('newStaffRole').value;
-  const pin = document.getElementById('newStaffPin').value.trim();
-  
-  if (!name || pin.length !== 4) {
-    alert('Please enter a name and a 4-digit PIN');
-    return;
-  }
-
+  const name = document.getElementById('newStaffName').value.trim(); const role = document.getElementById('newStaffRole').value; const pin = document.getElementById('newStaffPin').value.trim();
+  if (!name || pin.length !== 4) { alert('Enter name and 4-digit PIN'); return; }
   try {
     const res = await jpost('/api/staff', { name: name, role: role, pin: pin });
-    if (res.success) {
-      await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin });
-      document.getElementById('newStaffName').value = '';
-      document.getElementById('newStaffPin').value = '';
-      loadStaffList();
-      loadStaffDropdown();
-    }
-  } catch (e) {
-    alert('Error adding staff: ' + e.message);
-  }
+    if (res.success) { await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin }); document.getElementById('newStaffName').value = ''; document.getElementById('newStaffPin').value = ''; loadStaffList(); loadStaffDropdown(); }
+  } catch (e) { alert('Error'); }
 }
-
-async function deleteStaff(id) {
-  if (!confirm('Delete this staff member?')) return;
-  try {
-    await jdel('/api/staff/' + id);
-    loadStaffList();
-    loadStaffDropdown();
-  } catch (e) {
-    alert('Error deleting staff');
-  }
-}
-
-async function loadStaffDropdown() {
-  try {
-    const d = await jget('/api/staff');
-    const sel = document.getElementById('jobAssigned');
-    sel.innerHTML = '<option value="">— Assign to staff —</option>' + (d.staff||[]).map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join('');
-  } catch (e) {}
-}
+async function deleteStaff(id) { if (!confirm('Delete?')) return; try { await jdel('/api/staff/' + id); loadStaffList(); loadStaffDropdown(); } catch (e) {} }
+async function loadStaffDropdown() { try { const d = await jget('/api/staff'); const sel = document.getElementById('jobAssigned'); sel.innerHTML = '<option value="">— Assign to staff —</option>' + (d.staff||[]).map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join(''); } catch (e) {} }
 
 // BARCODE SCANNER
 let html5QrCode = null;
 async function openScanner() {
   let modal = document.getElementById('scannerModal');
   if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'scannerModal';
+    modal = document.createElement('div'); modal.id = 'scannerModal';
     modal.style.cssText = 'display:block;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;';
-    modal.innerHTML = `
-      <div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;">
-        <h2 style="font-size:18px;">📷 Scan Barcode</h2>
-        <button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:24px;">✕</button>
-      </div>
-      <div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>
-    `;
+    modal.innerHTML = `<div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;"><h2 style="font-size:18px;">📷 Scan Barcode</h2><button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:24px;">✕</button></div><div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>`;
     document.body.appendChild(modal);
-  } else {
-    modal.style.display = 'block';
-  }
-
+  } else { modal.style.display = 'block'; }
   if (!html5QrCode) {
-    const script = document.createElement('script');
-    script.src = "https://unpkg.com/html5-qrcode";
+    const script = document.createElement('script'); script.src = "https://unpkg.com/html5-qrcode";
     script.onload = () => {
       html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
-        closeScanner();
-        document.getElementById('vinInput').value = text;
-        decodeVin();
-      });
-    };
-    document.body.appendChild(script);
-  } else {
-    html5Qrcode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => {
-      closeScanner();
-      document.getElementById('vinInput').value = text;
-      decodeVin();
-    });
-  }
+      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); });
+    }; document.body.appendChild(script);
+  } else { html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); }); }
 }
-
-function closeScanner() {
-  document.getElementById('scannerModal').style.display = 'none';
-  if (html5QrCode) html5QrCode.stop().catch(e=>{});
-}
+function closeScanner() { document.getElementById('scannerModal').style.display = 'none'; if (html5QrCode) html5QrCode.stop().catch(e=>{}); }
 </script>
 </body>
 </html>"""
