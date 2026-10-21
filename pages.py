@@ -746,6 +746,7 @@ async function searchCodes() {
 
 // PROBLEMS SEARCH & MODAL
 window.ALL_PROBLEMS = [];
+window.CURRENT_PROBLEM_TITLE = ""; // Global variable to store the active problem
 
 async function loadProblems() { 
     try { 
@@ -825,6 +826,9 @@ async function showProblemDetails(problemTitle) {
     const p = window.ALL_PROBLEMS.find(x => x.title === problemTitle);
     if (!p) return;
     
+    // SAVE THE CURRENT PROBLEM TITLE GLOBALLY
+    window.CURRENT_PROBLEM_TITLE = p.title;
+    
     let modal = document.getElementById('probModal');
     if (!modal) { 
         modal = document.createElement('div'); 
@@ -841,25 +845,31 @@ async function showProblemDetails(problemTitle) {
             <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
             <h3 style="font-size:14px;margin-bottom:10px;">🤖 AI Deep Dive</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Need exact testing procedures? Let the AI generate a step-by-step diagnostic guide.</p>
-            <button class="btn" onclick="getAIProcedure('${esc(p.title)}')" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
+            <!-- Notice we don't pass the title here anymore, we just call the function -->
+            <button class="btn" onclick="getAIProcedure()" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
             <div id="pmAIResult" style="margin-top:15px;font-size:14px;line-height:1.6;display:none;background:var(--input-bg);padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
         </div>`;
         document.body.appendChild(modal); 
     }
     
+    // Update the UI elements every time the modal opens
     document.getElementById('pmTitle').textContent = p.title;
     document.getElementById('pmSub').textContent = `${p.system} • ${p.severity} Severity`;
     
     document.getElementById('pmCauses').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Possible Causes:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.causes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     document.getElementById('pmChecks').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Basic Checks:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     
+    // Clear previous AI result
     document.getElementById('pmAIResult').style.display = 'none';
     document.getElementById('pmAIResult').innerHTML = '';
     
     modal.style.display = 'block';
 }
 
-async function getAIProcedure(problemTitle) {
+async function getAIProcedure() {
+    const problemTitle = window.CURRENT_PROBLEM_TITLE;
+    if (!problemTitle) return;
+
     const resBox = document.getElementById('pmAIResult');
     resBox.style.display = 'block';
     resBox.innerHTML = '<span style="color:var(--primary);">Generating procedures... please wait.</span>';
