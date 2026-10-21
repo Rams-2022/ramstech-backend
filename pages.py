@@ -743,6 +743,78 @@ async function searchCodes() {
     } 
 }
 
+async function loadProblems() { 
+    try { 
+        const d = await jget('/api/problems'); 
+        document.getElementById('problemList').innerHTML = d.problems.map((x, i) => `
+            <div class="card" style="cursor:pointer;" onclick="showProblemDetails(${i})">
+                <h3>${esc(x.title)}</h3>
+                <p style="font-size:13px;color:var(--text2);">${esc(x.system)} - ${esc(x.severity)}</p>
+            </div>
+        `).join(''); 
+        window._problems = d.problems; // Store for the modal
+    } catch(e){} 
+}
+
+async function showProblemDetails(index) {
+    const p = window._problems[index];
+    let modal = document.getElementById('probModal');
+    if (!modal) { 
+        modal = document.createElement('div'); 
+        modal.id = 'probModal'; 
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;padding:16px;overflow:auto;'; 
+        modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:20px auto;color:var(--text);border:1px solid var(--primary);position:relative;">
+            <button onclick="document.getElementById('probModal').style.display='none'" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button>
+            <h2 id="pmTitle" style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:4px;"></h2>
+            <p id="pmSub" style="font-size:12px;color:var(--text2);margin-bottom:16px;"></p>
+            
+            <div id="pmCauses" style="margin-bottom:16px;"></div>
+            <div id="pmChecks" style="margin-bottom:16px;"></div>
+            
+            <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
+            <h3 style="font-size:14px;margin-bottom:10px;">🤖 AI Deep Dive</h3>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Need exact testing procedures? Let the AI generate a step-by-step diagnostic guide.</p>
+            <button class="btn" onclick="getAIProcedure('${esc(p.title)}')" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
+            <div id="pmAIResult" style="margin-top:15px;font-size:14px;line-height:1.6;display:none;background:var(--input-bg);padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
+        </div>`;
+        document.body.appendChild(modal); 
+    }
+    
+    // Populate modal
+    document.getElementById('pmTitle').textContent = p.title;
+    document.getElementById('pmSub').textContent = `${p.system} • ${p.severity} Severity`;
+    
+    document.getElementById('pmCauses').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Possible Causes:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.causes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
+    document.getElementById('pmChecks').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Basic Checks:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
+    
+    // Reset AI section
+    document.getElementById('pmAIResult').style.display = 'none';
+    document.getElementById('pmAIResult').innerHTML = '';
+    
+    modal.style.display = 'block';
+}
+
+async function getAIProcedure(problemTitle) {
+    const resBox = document.getElementById('pmAIResult');
+    resBox.style.display = 'block';
+    resBox.innerHTML = '<span style="color:var(--primary);">Generating procedures... please wait.</span>';
+    
+    try {
+        const res = await jpost('/api/problems/ai-procedure', { problem: problemTitle });
+        if (res.reply) {
+            // Convert markdown-ish text to basic HTML for readability
+            let html = esc(res.reply)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            resBox.innerHTML = html;
+        } else {
+            resBox.innerHTML = 'Error getting response.';
+        }
+    } catch(e) {
+        resBox.innerHTML = 'Network error.';
+    }
+}
+
 async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><p style="font-size:13px;color:var(--text2);">'+esc(x.system)+' - '+esc(x.severity)+'</p></div>').join(''); } catch(e){} }
 
 let paintB64 = '';
