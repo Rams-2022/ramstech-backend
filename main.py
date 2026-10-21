@@ -467,7 +467,6 @@ async def chat(r: Request):
     d = await r.json(); msg = d.get("message", "")
     if not OPENAI_KEY: return {"reply": "AI not configured"}
     
-    # THE MAGIC: Tell the AI exactly who it is and how to format answers
     system_prompt = (
         "You are RAMSTECH AI, an elite master mechanic and technical advisor. "
         "You specialize in automotive and heavy-duty systems including: "
@@ -490,7 +489,7 @@ async def chat(r: Request):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": msg}
             ], 
-            max_tokens=1000 # Increased to allow for long procedural steps
+            max_tokens=1000
         )
         return {"reply": resp.choices[0].message.content}
     except Exception as e: 
