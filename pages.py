@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Sci-Fi SVG Icons)
+# pages.py — RamsTech v10.0 (Sci-Fi Complete)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -6,7 +6,6 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RamsTech — AI Workshop Assistant</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- LUCIDE ICONS LIBRARY -->
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
 :root{
@@ -286,6 +285,28 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <div id="vinResult"></div>
 </div>
 
+<!-- PAINT -->
+<div id="paint" class="panel">
+<div class="panel-title">🎨 Paint Match</div>
+<div class="card"><p style="font-size:13px;color:var(--text2);">📸 Take a photo of a vehicle panel in good light. AI identifies colour and provides paint codes.</p></div>
+<input type="text" class="form-input" id="paintVehicle" placeholder="Vehicle info (optional)">
+<input type="file" id="paintImage" accept="image/*" capture="environment" class="form-input" onchange="previewPaint(event)">
+<div id="paintPreview"></div>
+<button class="btn" id="paintBtn" onclick="matchPaint()">🎨 Match Paint Colour</button>
+<div id="paintResult"></div>
+</div>
+
+<!-- PHOTO DIAG -->
+<div id="photo" class="panel">
+<div class="panel-title">📸 Photo Diagnosis</div>
+<div class="card"><p style="font-size:13px;color:var(--text2);">📸 Take a photo of a mechanical issue. AI diagnoses the problem.</p></div>
+<input type="text" class="form-input" id="photoVehicle" placeholder="Vehicle info (optional)">
+<input type="file" id="photoImage" accept="image/*" capture="environment" class="form-input" onchange="previewDiag(event)">
+<div id="photoPreview"></div>
+<button class="btn" id="photoBtn" onclick="diagnosePhoto()">📸 Analyze Photo</button>
+<div id="photoResult"></div>
+</div>
+
 <!-- JOBS -->
 <div id="jobs" class="panel">
 <div class="panel-title">📋 Job Cards</div>
@@ -410,7 +431,9 @@ const CATEGORIES = {
       {icon:'bot',label:'AI Chat',tab:'chat',color:'#0ea5e9'},
       {icon:'activity',label:'Fault Codes',tab:'codes',color:'#ef4444'},
       {icon:'book-open',label:'Problems',tab:'problems',color:'#f59e0b'},
-      {icon:'search',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
+      {icon:'search',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'},
+      {icon:'palette',label:'Paint Match',tab:'paint',color:'#ec4899'},
+      {icon:'camera',label:'Photo Diag',tab:'photo',color:'#06b6d4'}
   ]},
   workshop: { name: 'Workshop', icon: 'clipboard-list', gradient: 'linear-gradient(135deg,#f59e0b,#b91c1c)', items: [
       {icon:'clipboard-list',label:'Jobs',tab:'jobs',color:'#f59e0b'},
@@ -482,7 +505,7 @@ function showTab(name, el) {
 
   // AI ROBOT TOGGLE
   var fab = document.getElementById('aiFab');
-  var diagTabs = ['chat','codes','problems','vin'];
+  var diagTabs = ['chat','codes','problems','vin','paint','photo'];
   if (fab) {
     if (diagTabs.includes(name)) {
       fab.style.setProperty('display', 'flex', 'important');
@@ -741,6 +764,124 @@ async function loadProblems() { try { const d = await jget('/api/problems'); doc
 
 // VIN
 async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
+
+// AI VISION (PAINT & DIAG)
+let paintB64 = '';
+async function previewPaint(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > 1000) { h = (h * 1000) / w; w = 1000; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      paintB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      document.getElementById('paintPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function matchPaint() {
+  const btn = document.getElementById('paintBtn');
+  const c = document.getElementById('paintResult');
+  if (!paintB64) { toast('Please select an image first', 'error'); return; }
+  
+  btn.disabled = true; btn.textContent = '🎨 Analyzing...';
+  c.innerHTML = '<div class="loading">Scanning paint colour using AI...</div>';
+  
+  try {
+    const res = await jpost('/api/paint/match', { image_base64: paintB64 });
+    if (!res.success) throw new Error(res.error || 'Failed to analyze');
+    
+    const col = res.detected_colour || {};
+    let h = `<div class="card" style="border-left:4px solid ${col.hex_code || '#ccc'};">
+      <div style="height:60px;border-radius:8px;background:${col.hex_code || '#000'};margin-bottom:12px;box-shadow:inset 0 0 10px rgba(0,0,0,0.2);"></div>
+      <h3>${esc(col.name || 'Unknown Colour')}</h3>
+      <p style="font-family:monospace;font-size:18px;">${col.hex_code || ''}</p>
+      <p style="font-size:12px;color:var(--text2);">Confidence: ${res.confidence || 'Low'}</p>
+    </div>`;
+    
+    if (res.brand_codes && res.brand_codes.length) {
+      h += `<div class="card"><h3>Brand Codes</h3>`;
+      res.brand_codes.forEach(b => { h += `<div class="list-item"><strong>${esc(b.brand)}:</strong> ${esc(b.code)}</div>`; });
+      h += `</div>`;
+    }
+    
+    if (res.mixing_formula) {
+      const m = res.mixing_formula;
+      h += `<div class="card"><h3>Mixing Formula</h3><p><strong>Base:</strong> ${esc(m.base_colour || '')}</p>`;
+      if (m.toners) m.toners.forEach(t => { h += `<div class="list-item">• ${esc(t.name)}: ${esc(t.parts)} parts</div>`; });
+      h += `</div>`;
+    }
+    c.innerHTML = h;
+  } catch(e) {
+    c.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${e.message}</p></div>`;
+  }
+  btn.disabled = false; btn.textContent = '🎨 Match Paint Colour';
+}
+
+let diagB64 = '';
+async function previewDiag(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > 1000) { h = (h * 1000) / w; w = 1000; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      diagB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      document.getElementById('photoPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function diagnosePhoto() {
+  const btn = document.getElementById('photoBtn');
+  const c = document.getElementById('photoResult');
+  if (!diagB64) { toast('Please select an image first', 'error'); return; }
+  
+  btn.disabled = true; btn.textContent = '📸 Analyzing...';
+  c.innerHTML = '<div class="loading">Scanning photo for mechanical issues...</div>';
+  
+  try {
+    const res = await jpost('/api/diagnose/photo', { image_base64: diagB64, vehicle_info: document.getElementById('photoVehicle').value });
+    if (!res.success) throw new Error(res.error || 'Failed to analyze');
+    
+    let h = `<div class="card" style="border-left:4px solid var(--primary);">
+      <h3>🔍 ${esc(res.problem || 'Issue Detected')}</h3>
+      <p><strong>Confidence:</strong> ${esc(res.confidence || 'Medium')}</p>
+      <p style="margin-top:8px;font-size:14px;">${esc(res.description || '')}</p>
+    </div>`;
+    
+    if (res.possible_causes && res.possible_causes.length) {
+      h += `<div class="card"><h3>Possible Causes</h3>`;
+      res.possible_causes.forEach(x => { h += `<div class="list-item">• ${esc(x)}</div>`; });
+      h += `</div>`;
+    }
+    
+    if (res.diagnostic_steps && res.diagnostic_steps.length) {
+      h += `<div class="card"><h3>Diagnostic Steps</h3>`;
+      res.diagnostic_steps.forEach(x => { h += `<div class="list-item">• ${esc(x)}</div>`; });
+      h += `</div>`;
+    }
+    c.innerHTML = h;
+  } catch(e) {
+    c.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${e.message}</p></div>`;
+  }
+  btn.disabled = false; btn.textContent = '📸 Analyze Photo';
+}
 
 // PARTS SEARCH & PO
 async function searchParts() {
