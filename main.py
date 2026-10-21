@@ -209,6 +209,26 @@ def _mark_paid(invoice_id, amount, provider, ref):
     store_save("invoices", invoice_id, inv)
     return {"success": True, "invoice_id": invoice_id, "paid": inv["paid"]}
 
+def _success_page(title, message, color="#16a34a", icon="✓"):
+    return HTMLResponse(f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
+<style>body{{font-family:-apple-system,sans-serif;margin:0;padding:40px 20px;background:#f5f5f5;text-align:center;color:#1a1a1a}}
+.card{{max-width:400px;margin:60px auto;background:#fff;border-radius:16px;padding:40px 28px;box-shadow:0 4px 20px rgba(0,0,0,0.06)}}
+.icon{{font-size:56px;color:{color};margin-bottom:16px}} h1{{margin:0 0 8px;font-size:22px;}}
+p{{margin:0;color:#666;line-height:1.6;font-size:15px}}</style></head><body>
+<div class="card"><div class="icon">{icon}</div><h1>{title}</h1><p>{message}</p></div></body></html>""")
+
+@router_pay.get("/pay/success")
+def pay_success(inv: str = ""):
+    return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
+
+@router_pay.get("/pay/cancelled")
+def pay_cancelled(inv: str = ""):
+    return _success_page("Payment cancelled", "No charge was made. You can pay any time.", color="#f59e0b", icon="!")
+
+@router_pay.get("/pay/demo")
+def pay_demo(inv: str = "", amount: str = "0"):
+    return _success_page("Demo mode", f"Console mode is active (no real gateway configured). Would have charged R{amount} for invoice {inv}.", color="#666", icon="⚙")
+
 @router_pay.get("/pay/{invoice_id}")
 def pay_redirect(invoice_id: str):
     inv = store_get("invoices", invoice_id)
