@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Complete with Inspections)
+# pages.py — RamsTech v10.0 (Fixed Checkboxes)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -83,10 +83,25 @@ body:not(.dark) .bnav-item.active .bnav-icon{transform:translateY(-6px) scale(1.
 body.dark .card{border-left:3px solid var(--primary);box-shadow:0 4px 20px rgba(0,0,0,0.3);}
 .card h3{color:var(--primary);margin-bottom:10px;font-size:16px;font-weight:800;letter-spacing:0.5px;}
 
-input,textarea,select{width:100%;padding:16px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;background:var(--input-bg);color:var(--text);font-family:inherit;transition:all 0.2s ease;-webkit-appearance:none;appearance:none;box-shadow:inset 0 3px 6px rgba(0,0,0,0.05);}
-input:focus,textarea:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow),inset 0 3px 6px rgba(0,0,0,0.05);background:var(--bg);}
+input:not([type="checkbox"]),textarea,select{width:100%;padding:16px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;background:var(--input-bg);color:var(--text);font-family:inherit;transition:all 0.2s ease;-webkit-appearance:none;appearance:none;box-shadow:inset 0 3px 6px rgba(0,0,0,0.05);}
+input:not([type="checkbox"]):focus,textarea:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow),inset 0 3px 6px rgba(0,0,0,0.05);background:var(--bg);}
 select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");background-repeat:no-repeat;background-position:right 16px top 50%;background-size:12px auto;padding-right:40px;}
 body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300f2fe%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");}
+
+/* THE FIX: Checkboxes are fully restored */
+input[type="checkbox"] { 
+  -webkit-appearance: checkbox !important; 
+  appearance: checkbox !important; 
+  width: 24px !important; 
+  height: 24px !important; 
+  padding: 0 !important; 
+  margin: 0 !important; 
+  accent-color: var(--primary); 
+  cursor: pointer; 
+  flex-shrink: 0;
+}
+.checklist-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s; }
+.checklist-item:active { background: var(--bg); }
 
 .btn{width:100%;padding:16px;border:none;border-radius:8px;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:12px;background:var(--grad1);color:#fff;text-transform:uppercase;letter-spacing:1px;transition:all 0.15s cubic-bezier(0.4, 0, 0.2, 1);box-shadow:0 4px 15px var(--primary-glow);border-bottom:3px solid rgba(0,0,0,0.3);}
 .btn:active{transform:translateY(2px);box-shadow:0 2px 5px var(--primary-glow);border-bottom:1px solid rgba(0,0,0,0.3);}
@@ -118,10 +133,6 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 .toast.out{animation:toastOut .2s ease forwards;}
 @keyframes toastOut{to{opacity:0;transform:translateY(-20px) scale(.9)}}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-
-/* Checklist Styles */
-.checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--input-bg); border-radius: 6px; border: 1px solid var(--border); margin-bottom: 8px; }
-.checklist-item input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -178,7 +189,7 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 </div>
 </div>
 
-<!-- INSPECTIONS (NEW) -->
+<!-- INSPECTIONS -->
 <div id="inspections" class="panel">
 <div class="panel-title">📋 Vehicle Inspections</div>
 <button class="btn" onclick="showInspectForm()">+ New Inspection</button>
@@ -386,7 +397,6 @@ body.dark select{background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csv
 </div>
 
 <script>
-// TOAST NOTIFICATIONS (Replaces alert)
 function toast(msg, type='success') {
   const wrap = document.getElementById('toastWrap');
   const t = document.createElement('div');
@@ -396,7 +406,6 @@ function toast(msg, type='success') {
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
 }
 
-// CATEGORIES (Using Lucide Icon Names)
 const CATEGORIES = {
   diagnostics: { name: 'Diagnostics', icon: 'wrench', gradient: 'linear-gradient(135deg,#0ea5e9,#1e3a8a)', items: [
       {icon:'bot',label:'AI Chat',tab:'chat',color:'#0ea5e9'},{icon:'activity',label:'Fault Codes',tab:'codes',color:'#ef4444'},
@@ -468,57 +477,24 @@ let rC = null, jC = null, mC = null;
 async function loadDashboard() { 
   try { 
     const d = await jget('/api/analytics'); 
-    
-    // KPI Cards
     document.getElementById('kpiCards').innerHTML = `
       <div class="stats-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:#10b981;">R ${d.revenue.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Revenue</div>
-        </div>
-        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:#ef4444;">R ${d.expenses.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Expenses</div>
-        </div>
-        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:var(--primary);">R ${d.net_profit.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Net Profit</div>
-        </div>
-        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:#8b5cf6;">R ${d.avg_job.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Avg Job Value</div>
-        </div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:22px;font-weight:900;color:#10b981;">R ${d.revenue.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Revenue</div></div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:22px;font-weight:900;color:#ef4444;">R ${d.expenses.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Total Expenses</div></div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:22px;font-weight:900;color:var(--primary);">R ${d.net_profit.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Net Profit</div></div>
+        <div class="stat-card" style="background:var(--card);padding:14px;border-radius:8px;border:1px solid var(--border);text-align:center;"><div style="font-size:22px;font-weight:900;color:#8b5cf6;">R ${d.avg_job.toFixed(0)}</div><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Avg Job Value</div></div>
       </div>`;
-
-    // Revenue Chart
     if (rC) rC.destroy(); 
-    rC = new Chart(document.getElementById('revenueChart'), {
-      type:'line',
-      data:{labels:d.rev_labels,datasets:[{data:d.rev_data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.4,pointBackgroundColor:'#0ea5e9'}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b'}},x:{grid:{display:false},ticks:{color:'#64748b'}}}}
-    });
-
-    // Job Status Chart
+    rC = new Chart(document.getElementById('revenueChart'), { type:'line', data:{labels:d.rev_labels,datasets:[{data:d.rev_data,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.4,pointBackgroundColor:'#0ea5e9'}]}, options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b'}},x:{grid:{display:false},ticks:{color:'#64748b'}}}} });
     if (jC) jC.destroy(); 
-    jC = new Chart(document.getElementById('jobChart'), {
-      type:'doughnut',
-      data:{labels:d.status_labels,datasets:[{data:d.status_data,backgroundColor:['#64748b','#3b82f6','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#10b981','#16a34a','#475569'],borderWidth:0}]},
-      options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#64748b',boxWidth:12}}},cutout:'75%'}
-    });
-
-    // Top Mechanics Chart
+    jC = new Chart(document.getElementById('jobChart'), { type:'doughnut', data:{labels:d.status_labels,datasets:[{data:d.status_data,backgroundColor:['#64748b','#3b82f6','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#10b981','#16a34a','#475569'],borderWidth:0}]}, options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#64748b',boxWidth:12}}},cutout:'75%'} });
     if (mC) mC.destroy();
-    mC = new Chart(document.getElementById('mechChart'), {
-      type:'bar',
-      data:{labels:d.mech_labels,datasets:[{data:d.mech_data,backgroundColor:'#8b5cf6',borderRadius:4}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b',stepSize:1}},x:{grid:{display:false},ticks:{color:'#64748b'}}}}
-    });
-
-    // Top Services List
-    document.getElementById('topServicesList').innerHTML = d.svc_labels.length 
-      ? d.svc_labels.map((label, i) => `<div class="list-item" style="display:flex;justify-content:space-between;"><span>${esc(label)}</span><span class="badge new">${d.svc_data[i]} jobs</span></div>`).join('')
-      : '<p style="color:var(--text2);font-size:13px;">No service data yet.</p>';
-
+    mC = new Chart(document.getElementById('mechChart'), { type:'bar', data:{labels:d.mech_labels,datasets:[{data:d.mech_data,backgroundColor:'#8b5cf6',borderRadius:4}]}, options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#64748b',stepSize:1}},x:{grid:{display:false},ticks:{color:'#64748b'}}}} });
+    document.getElementById('topServicesList').innerHTML = d.svc_labels.length ? d.svc_labels.map((label, i) => `<div class="list-item" style="display:flex;justify-content:space-between;"><span>${esc(label)}</span><span class="badge new">${d.svc_data[i]} jobs</span></div>`).join('') : '<p style="color:var(--text2);font-size:13px;">No service data yet.</p>';
   } catch(e){ console.error(e); }
 }
 
-// INSPECTIONS (NEW)
+// INSPECTIONS
 const INSPECT_ITEMS = ["Brakes", "Tyres", "Lights", "Suspension", "Fluids (Oil/Coolant)", "Exhaust", "Steering", "Wipers", "Horn", "Seatbelts"];
 let inspectB64 = "";
 
@@ -531,10 +507,7 @@ function showInspectForm() {
     </label>
   `).join('');
 }
-function hideInspectForm() { 
-  document.getElementById('inspectForm').style.display = 'none'; 
-  inspectB64 = ""; document.getElementById('inspPhotoPreview').innerHTML = "";
-}
+function hideInspectForm() { document.getElementById('inspectForm').style.display = 'none'; inspectB64 = ""; document.getElementById('inspPhotoPreview').innerHTML = ""; }
 
 async function previewInspectPhoto(e) {
   const file = e.target.files[0]; if (!file) return;
@@ -567,11 +540,7 @@ async function createInspection() {
 
   try {
     const res = await jpost('/api/inspections', payload);
-    if (res.success) {
-      toast('Inspection saved!');
-      hideInspectForm();
-      loadInspections();
-    }
+    if (res.success) { toast('Inspection saved!'); hideInspectForm(); loadInspections(); }
   } catch(e) { toast('Error saving', 'error'); }
 }
 
