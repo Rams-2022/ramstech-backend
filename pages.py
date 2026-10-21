@@ -1,4 +1,4 @@
-# pages.py — RamsTech v10.0 (Mecha Interface Edition)
+# pages.py — RamsTech v10.0 (Sci-Fi SVG Icons)
 HTML_PAGE = r"""<!DOCTYPE html>
 <html>
 <head>
@@ -6,6 +6,8 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RamsTech — AI Workshop Assistant</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- LUCIDE ICONS LIBRARY -->
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
 :root{
 --bg:#eef2f6;
@@ -88,29 +90,22 @@ clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--primary); box-shadow: 0 0 15px var(--primary);
 }
 .cat-card:active{transform:scale(.97);box-shadow:0 4px 12px rgba(0,0,0,.4)}
-.cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));min-width:50px;text-align:center;}
+.cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));min-width:50px;text-align:center;display:flex;justify-content:center;}
+.cat-icon svg { width: 38px; height: 38px; stroke-width: 1.5; }
 .cat-info{flex:1;}
 .cat-name{font-size:18px;font-weight:900;margin-bottom:4px;letter-spacing:0.5px;text-shadow: 0 2px 4px rgba(0,0,0,0.5);}
 .cat-count{font-size:12px;opacity:.9;font-weight:600;letter-spacing:1px;text-transform:uppercase;color: var(--primary);}
 .cat-arrow{font-size:24px;opacity:.8;}
 
-/* ═══════════════════════════════════════════════════════ */
-/* TACTICAL TILE GRID                                     */
-/* ═══════════════════════════════════════════════════════ */
+/* TACTICAL TILE GRID */
 .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .tile{
-background:var(--card);
-border-radius:4px;
-padding:24px 16px;
-cursor:pointer;
-text-align:center;
-border:1px solid var(--border);
-position:relative;
-transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.02);
-backdrop-filter:blur(10px);
+background:var(--card);border-radius:4px;padding:24px 16px;cursor:pointer;text-align:center;border:1px solid var(--border);
+position:relative;transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.02);backdrop-filter:blur(10px);
 clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
 overflow: hidden;
+display:flex;flex-direction:column;align-items:center;
 }
 body.dark .tile { border-color: rgba(0, 242, 254, 0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.5), inset 0 0 20px rgba(0, 242, 254, 0.05); }
 
@@ -119,21 +114,17 @@ body.dark .tile { border-color: rgba(0, 242, 254, 0.2); box-shadow: 0 4px 15px r
   background: var(--primary); opacity: 0.8; transition: opacity 0.2s, box-shadow 0.2s;
 }
 .tile:active{
-transform: scale(.95);
-background: rgba(14, 165, 233, 0.1);
-border-color: var(--primary);
+transform: scale(.95);background: rgba(14, 165, 233, 0.1);border-color: var(--primary);
 box-shadow: 0 0 25px var(--primary-glow), inset 0 0 20px var(--primary-glow);
 }
 .tile:active::before { opacity: 1; box-shadow: 0 0 15px var(--primary); }
 
-.tile-icon{font-size:38px;margin-bottom:12px;display:block;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));transition: transform 0.2s;}
+.tile-icon{font-size:38px;margin-bottom:12px;display:flex;justify-content:center;align-items:center;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));transition: transform 0.2s;height: 40px;}
+.tile-icon svg { width: 32px; height: 32px; stroke-width: 1.8; }
 .tile:active .tile-icon { transform: scale(1.1); }
 .tile-label{font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color: var(--text);}
-.tile-accent{display:none;}
 
-/* ═══════════════════════════════════════════════════════ */
-/* HOLOGRAPHIC BOTTOM NAV                                 */
-/* ═══════════════════════════════════════════════════════ */
+/* HOLOGRAPHIC BOTTOM NAV */
 .bottom-nav{
 position:fixed;bottom:16px;left:16px;right:16px;
 background:rgba(5, 10, 20, 0.85);
@@ -151,7 +142,8 @@ flex:1;text-align:center;padding:8px 4px;cursor:pointer;
 position:relative;display:flex;flex-direction:column;align-items:center;
 color:var(--text2);transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.bnav-icon{font-size:22px;display:block;margin-bottom:4px;transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);}
+.bnav-icon{font-size:22px;display:flex;justify-content:center;align-items:center;margin-bottom:4px;transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);height:24px;}
+.bnav-icon svg { width: 22px; height: 22px; stroke-width: 2; }
 .bnav-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;transition:all .3s;}
 
 /* Holographic Active State */
@@ -159,8 +151,6 @@ color:var(--text2);transition:all .3s cubic-bezier(0.34, 1.56, 0.64, 1);
 body.dark .bnav-item.active .bnav-icon { transform: translateY(-6px) scale(1.2); filter: drop-shadow(0 0 12px var(--primary)); }
 body:not(.dark) .bnav-item.active .bnav-icon { transform: translateY(-6px) scale(1.2); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); }
 .bnav-item.active .bnav-label { transform: translateY(2px); }
-
-/* Glowing indicator dot beneath active tab */
 .bnav-item.active::after {
   content: ''; position: absolute; bottom: -12px; width: 6px; height: 6px;
   background: var(--primary); border-radius: 50%;
@@ -201,7 +191,7 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 .badge.medium{background:#f59e0b;box-shadow:0 2px 8px rgba(245,158,11,0.3);}
 .badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981;box-shadow:0 2px 8px rgba(16,185,129,0.3);}
 
-.back-btn{background:var(--grad6);color:white;border:none;padding:12px 18px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:16px;box-shadow:0 4px 15px rgba(139,92,246,.4);border-bottom:2px solid rgba(0,0,0,0.3);text-transform:uppercase;letter-spacing:1px;}
+.back-btn{background:var(--grad6);color:white;border:none;padding:12px 18px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:16px;box-shadow:0 4px 15px rgba(139,92,246,.4);border-bottom:2px solid rgba(0,0,0,0.3);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:6px;}
 
 .chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);box-shadow:inset 0 4px 10px rgba(0,0,0,0.05);}
 .msg{padding:12px 16px;border-radius:12px;margin-bottom:10px;max-width:85%;line-height:1.45;font-size:14px;animation:msgIn .2s ease;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
@@ -226,7 +216,7 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <div id="toastWrap"></div>
 
 <div class="header">
-<h1><span class="logo" id="logoDisplay">⚙️</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
+<h1><span class="logo" id="logoDisplay"><i data-lucide="cpu"></i></span> <span id="wsNameDisplay">RAMSTECH</span></h1>
 <p id="wsSubtitle">AI WORKSHOP ASSISTANT v10.0</p>
 <div class="top-btns">
 <select class="lang-sel" id="langSel" onchange="setLang()">
@@ -245,7 +235,7 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <div class="cat-grid" id="categoryGrid"></div>
 </div>
 <div id="subView" style="display:none">
-<button class="back-btn" onclick="backToCategories()">← RETURN TO MAIN</button>
+<button class="back-btn" onclick="backToCategories()"><i data-lucide="arrow-left"></i> RETURN TO MAIN</button>
 <div class="cat-title" id="subTitle"></div>
 <div class="tile-grid" id="subGrid"></div>
 </div>
@@ -268,8 +258,8 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 </div>
 <div class="input-row" style="display:flex;gap:8px;align-items:center;">
 <input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;border-radius:25px;">
-<button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);">🎤</button>
-<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px var(--primary-glow);">➤</button>
+<button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;box-shadow:0 4px 12px rgba(67,233,123,.3);display:flex;align-items:center;justify-content:center;"><i data-lucide="mic"></i></button>
+<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;box-shadow:0 4px 12px var(--primary-glow);display:flex;align-items:center;justify-content:center;"><i data-lucide="send"></i></button>
 </div>
 </div>
 
@@ -290,7 +280,7 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <!-- VIN -->
 <div id="vin" class="panel">
 <div class="panel-title">🔍 VIN Decoder</div>
-<button class="btn" onclick="openScanner()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">📷 Scan VIN / Barcode</button>
+<button class="btn" onclick="openScanner()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;gap:8px;"><i data-lucide="camera"></i> Scan VIN / Barcode</button>
 <input type="text" class="form-input" id="vinInput" placeholder="Enter 17-character VIN" maxlength="17" style="text-transform:uppercase">
 <button class="btn" onclick="decodeVin()">Decode VIN</button>
 <div id="vinResult"></div>
@@ -299,8 +289,8 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <!-- JOBS -->
 <div id="jobs" class="panel">
 <div class="panel-title">📋 Job Cards</div>
-<button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">📊 Open Kanban Board</button>
-<button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">📸 New Job from Photo</button>
+<button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;gap:8px;"><i data-lucide="layout-dashboard"></i> Open Kanban Board</button>
+<button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);display:flex;align-items:center;justify-content:center;gap:8px;"><i data-lucide="camera"></i> New Job from Photo</button>
 <button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
 <div id="jobForm" style="display:none">
 <div class="card">
@@ -366,7 +356,7 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 <!-- SETTINGS -->
 <div id="settings" class="panel">
 <div class="panel-title">⚙️ System Settings</div>
-<button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
+<button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;gap:8px;"><i data-lucide="users"></i> Manage Staff & PINs</button>
 <div class="card">
 <h3>🏢 Workshop Branding</h3>
 <input type="text" class="form-input" id="wsLogo" placeholder="🔧" maxlength="4">
@@ -381,11 +371,26 @@ body.dark select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3
 
 <!-- BOTTOM NAVIGATION -->
 <div class="bottom-nav no-print">
-  <div class="bnav-item active" onclick="showTab('home',this)"><div class="bnav-icon">🏠</div><div class="bnav-label">Home</div></div>
-  <div class="bnav-item" onclick="showTab('dashboard',this)"><div class="bnav-icon">📊</div><div class="bnav-label">Dash</div></div>
-  <div class="bnav-item" onclick="showTab('chat',this)"><div class="bnav-icon">🤖</div><div class="bnav-label">AI</div></div>
-  <div class="bnav-item" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
-  <div class="bnav-item" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
+  <div class="bnav-item active" onclick="showTab('home',this)">
+    <div class="bnav-icon"><i data-lucide="home"></i></div>
+    <div class="bnav-label">Home</div>
+  </div>
+  <div class="bnav-item" onclick="showTab('dashboard',this)">
+    <div class="bnav-icon"><i data-lucide="bar-chart-3"></i></div>
+    <div class="bnav-label">Dash</div>
+  </div>
+  <div class="bnav-item" onclick="showTab('chat',this)">
+    <div class="bnav-icon"><i data-lucide="bot"></i></div>
+    <div class="bnav-label">AI</div>
+  </div>
+  <div class="bnav-item" onclick="showTab('jobs',this)">
+    <div class="bnav-icon"><i data-lucide="clipboard-list"></i></div>
+    <div class="bnav-label">Jobs</div>
+  </div>
+  <div class="bnav-item" onclick="showTab('settings',this)">
+    <div class="bnav-icon"><i data-lucide="settings"></i></div>
+    <div class="bnav-label">More</div>
+  </div>
 </div>
 
 <script>
@@ -399,51 +404,56 @@ function toast(msg, type='success') {
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
 }
 
-// CATEGORIES
+// CATEGORIES (Using Lucide Icon Names)
 const CATEGORIES = {
-  diagnostics: { name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#0ea5e9,#1e3a8a)', items: [
-      {icon:'🤖',label:'AI Chat',tab:'chat',color:'#0ea5e9'},
-      {icon:'📟',label:'Fault Codes',tab:'codes',color:'#ef4444'},
-      {icon:'📖',label:'Problems',tab:'problems',color:'#f59e0b'},
-      {icon:'🔍',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
+  diagnostics: { name: 'Diagnostics', icon: 'wrench', gradient: 'linear-gradient(135deg,#0ea5e9,#1e3a8a)', items: [
+      {icon:'bot',label:'AI Chat',tab:'chat',color:'#0ea5e9'},
+      {icon:'activity',label:'Fault Codes',tab:'codes',color:'#ef4444'},
+      {icon:'book-open',label:'Problems',tab:'problems',color:'#f59e0b'},
+      {icon:'search',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
   ]},
-  workshop: { name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b,#b91c1c)', items: [
-      {icon:'📋',label:'Jobs',tab:'jobs',color:'#f59e0b'},
-      {icon:'👥',label:'Customers',tab:'customers',color:'#10b981'},
-      {icon:'💰',label:'Invoices',tab:'invoices',color:'#10b981'}
+  workshop: { name: 'Workshop', icon: 'clipboard-list', gradient: 'linear-gradient(135deg,#f59e0b,#b91c1c)', items: [
+      {icon:'clipboard-list',label:'Jobs',tab:'jobs',color:'#f59e0b'},
+      {icon:'users',label:'Customers',tab:'customers',color:'#10b981'},
+      {icon:'dollar-sign',label:'Invoices',tab:'invoices',color:'#10b981'}
   ]},
-  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#065f46)', items: [
-      {icon:'🛒',label:'Purchase',tab:'purchase',color:'#3b82f6'}
+  operations: { name: 'Operations', icon: 'settings', gradient: 'linear-gradient(135deg,#10b981,#065f46)', items: [
+      {icon:'shopping-cart',label:'Purchase',tab:'purchase',color:'#3b82f6'}
   ]},
-  reference: { name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: [
-      {icon:'🔩',label:'Parts Search',tab:'parts',color:'#6b7280'}
+  reference: { name: 'Reference', icon: 'book', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: [
+      {icon:'package',label:'Parts Search',tab:'parts',color:'#6b7280'}
   ]},
-  business: { name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#334155,#0f172a)', items: [
-      {icon:'📊',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
-      {icon:'⚙️',label:'Settings',tab:'settings',color:'#6b7280'}
+  business: { name: 'Business', icon: 'briefcase', gradient: 'linear-gradient(135deg,#334155,#0f172a)', items: [
+      {icon:'bar-chart-3',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
+      {icon:'settings',label:'Settings',tab:'settings',color:'#6b7280'}
   ]}
 };
 
+// Render Category Grid
 document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
   `<div class="cat-card" style="background:${cat.gradient}" onclick="openCategory('${key}')">
-    <div class="cat-icon">${cat.icon}</div>
+    <div class="cat-icon"><i data-lucide="${cat.icon}"></i></div>
     <div class="cat-info"><div class="cat-name">${cat.name}</div><div class="cat-count">${cat.items.length} modules</div></div>
     <div class="cat-arrow">›</div>
   </div>`
 ).join('');
 
+// Render Sub-category Tiles
 function openCategory(key) {
   const cat = CATEGORIES[key];
   document.getElementById('categoryView').style.display = 'none';
   document.getElementById('subView').style.display = 'block';
-  document.getElementById('subTitle').textContent = cat.icon + ' ' + cat.name;
+  document.getElementById('subTitle').innerHTML = `<i data-lucide="${cat.icon}" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:6px;color:var(--primary);"></i> ${cat.name}`;
+  
   document.getElementById('subGrid').innerHTML = cat.items.map(item =>
     `<div class="tile" onclick="showTab('${item.tab}')">
-      <div class="tile-accent" style="background:${item.color}"></div>
-      <div class="tile-icon" style="color:${item.color}">${item.icon}</div>
+      <div class="tile-icon" style="color:${item.color}"><i data-lucide="${item.icon}"></i></div>
       <div class="tile-label">${item.label}</div>
     </div>`
   ).join('');
+  
+  // Initialize the newly created SVGs
+  lucide.createIcons();
   window.scrollTo(0, 0);
 }
 
@@ -538,9 +548,9 @@ function toggleMic() {
     rec.onresult = e => { document.getElementById('chatInput').value = e.results[0][0].transcript; resetMic(); sendMsg(); };
     rec.onerror = resetMic; rec.onend = resetMic;
   }
-  function resetMic() { isRec = false; document.getElementById('micBtn').style.background = 'var(--grad4)'; document.getElementById('micBtn').textContent = '🎤'; }
+  function resetMic() { isRec = false; document.getElementById('micBtn').style.background = 'var(--grad4)'; document.getElementById('micBtn').innerHTML = '<i data-lucide="mic"></i>'; lucide.createIcons(); }
   if (isRec) { rec.stop(); resetMic(); }
-  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').textContent = '⏹'; } catch (e) { toast(e.message, 'error'); } }
+  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').innerHTML = '<i data-lucide="square"></i>'; lucide.createIcons(); } catch (e) { toast(e.message, 'error'); } }
 }
 
 async function sendMsg() {
@@ -859,6 +869,9 @@ async function openScanner() {
   } else { html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); }); }
 }
 function closeScanner() { document.getElementById('scannerModal').style.display = 'none'; if (html5QrCode) html5QrCode.stop().catch(e=>{}); }
+
+// INIT LUCIDE ICONS
+lucide.createIcons();
 </script>
 </body>
 </html>"""
