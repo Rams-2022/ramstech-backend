@@ -1,770 +1,453 @@
-# pages.py — RamsTech v10.0 (Phase A - Final Polish)
-HTML_PAGE = r"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RamsTech — AI Workshop Assistant</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-:root{
---bg:#f0f2f5;--card:#ffffff;--text:#1a1a2e;--text2:#6b7280;--border:#e5e7eb;
---primary:#E65100;--input-bg:#f9fafb;
---grad1:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
---grad2:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
---grad3:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
---grad4:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);
---grad5:linear-gradient(135deg,#fa709a 0%,#fee140 100%);
---grad6:linear-gradient(135deg,#30cfd0 0%,#330867 100%);
+from fastapi import FastAPI, HTTPException, Request, APIRouter
+from fastapi.responses import HTMLResponse, StreamingResponse, Response, RedirectResponse
+from datetime import datetime, timedelta
+import openai, os, json, uuid, csv, io, urllib.request, urllib.parse, urllib.error, hmac, hashlib, base64
+
+import db
+from data import (FAULT_CODES, WMI_DB, YEAR_CODES, TORQUE_SPECS, TORQUE_SEQUENCES,
+                  PARTS_CATALOG, COMMON_PROBLEMS, WIRING_LIBRARY, OBD_PIDS,
+                  BULB_CHART, BATTERY_SIZES, TYRE_SIZES, FUSE_BOXES,
+                  INSPECTION_CATEGORIES, SERVICE_INTERVALS, TRANSLATIONS)
+from pages import HTML_PAGE
+
+# ═══════════════════════════════════════════════════════════════
+# UI MODULES
+# ═══════════════════════════════════════════════════════════════
+AI_PANEL_HTML = ""
+PWA_HTML = ""
+
+try:
+    from ai_panel import AI_PANEL_HTML
+except Exception as _e: print(f"[main] ai_panel unavailable: {_e}")
+
+try:
+    from pwa import router as _pwa_router, PWA_HTML
+except Exception as _e: print(f"[main] pwa unavailable: {_e}")
+
+app = FastAPI(title="RamsTech")
+
+# ═══════════════════════════════════════════════════════════════
+# CORE SETUP & DB
+# ═══════════════════════════════════════════════════════════════
+OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+db.init()
+
+MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices",
+                       "inventory", "purchase_orders", "staff", "clockins", "expenses",
+                       "fuel_logs", "workshops", "damage_reports"]}
+WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "", "logo": "RT", "labour_rate": 450}
+
+def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
+def today(): return datetime.now().strftime("%Y-%m-%d")
+
+def store_list(t):
+    if db.is_ready(): return db.get_all(t)
+    return list(MEM[t].values())
+
+def store_get(t, i):
+    if db.is_ready(): return db.get_one(t, i)
+    return MEM[t].get(i)
+
+def store_save(t, i, row):
+    if db.is_ready():
+        exists = db.get_one(t, i)
+        return db.update(t, i, row) if exists else db.insert(t, row)
+    MEM[t][i] = row
+    return row
+
+def store_delete(t, i):
+    if db.is_ready(): return db.delete(t, i)
+    MEM[t].pop(i, None)
+    return True
+
+def get_workshop_data():
+    if db.is_ready():
+        w = db.get_workshop()
+        if w: return w
+    return WORKSHOP
+
+def save_workshop_data(d):
+    if db.is_ready(): return db.save_workshop(d)
+    WORKSHOP.update(d)
+    return d
+
+# ═══════════════════════════════════════════════════════════════
+# HOME ROUTE
+# ═══════════════════════════════════════════════════════════════
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    html = HTML_PAGE
+    idx = html.rfind("</body>")
+    if idx == -1: return html
+
+    inject = ""
+    if AI_PANEL_HTML: inject += AI_PANEL_HTML
+    if PWA_HTML: inject += PWA_HTML
+
+    return html[:idx] + inject + html[idx:]
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "database": ("supabase" if db.is_ready() else "memory")}
+
+
+# ═══════════════════════════════════════════════════════════════
+# INVOICES PDF GENERATOR
+# ═══════════════════════════════════════════════════════════════
+def _meta(job):
+    sig = job.get("signature") or ""
+    if sig.startswith("{"):
+        try: return json.loads(sig)
+        except Exception: pass
+    return {"customer_sig": sig, "owner_sig": "", "stage": "", "progress": 0, "tech": "", "started_by": "", "completed_by": "", "qc_by": ""}
+
+@app.get("/api/workflow/invoice-html/{jid}", response_class=HTMLResponse)
+def invoice_html(jid: str):
+    job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    meta = _meta(job)
+    w = get_workshop_data()
+
+    logo = w.get("logo") or "🔧"
+    name = w.get("name") or "RAMSTECH"
+    phone = w.get("phone") or ""
+    address = w.get("address") or ""
+    email = w.get("email") or ""
+
+    labour = float(job.get("labour_cost") or 0)
+    parts = float(job.get("parts_cost") or 0)
+    subtotal = float(job.get("subtotal") or 0)
+    vat = float(job.get("vat") or 0)
+    total = float(job.get("total") or 0)
+    created = job.get("created") or ""
+    inv_no = "INV-" + jid.upper()
+    cust_sig = meta.get("customer_sig") or ""
+    owner_sig = meta.get("owner_sig") or ""
+
+    def sig_block(label, sig):
+        if sig and sig.startswith("data:image"):
+            return f'<div class="sigbox"><img src="{sig}"><div class="siglabel">{label}</div></div>'
+        return f'<div class="sigbox empty"><div class="siglabel">{label} — not signed</div></div>'
+
+    timeline_rows = "".join([f"<tr><td>{entry}</td></tr>" for entry in (job.get("timeline") or [])])
+
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{inv_no}</title>
+<style>*{{box-sizing:border-box;margin:0;padding:0;}}body{{font-family:-apple-system,sans-serif;background:#f0f2f5;color:#1a1a2e;padding:16px;}}.page{{max-width:800px;margin:0 auto;background:#fff;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:12px;}}.header{{display:flex;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #E65100;margin-bottom:24px;}}.brand{{display:flex;gap:14px;align-items:center;}}.logo{{font-size:48px;}}.brand h1{{font-size:22px;color:#E65100;font-weight:800;}}.inv-meta{{text-align:right;}}.inv-meta h2{{font-size:22px;font-weight:800;}}.section{{margin-bottom:20px;}}.section h3{{font-size:12px;color:#E65100;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid #e5e7eb;}}.row{{display:flex;gap:20px;}}.col{{flex:1;}}.field{{font-size:13px;margin-bottom:6px;}}.field b{{color:#666;min-width:90px;display:inline-block;}}table.items{{width:100%;border-collapse:collapse;margin-top:8px;}}table.items th{{background:#E65100;color:#fff;padding:10px;font-size:12px;}}table.items td{{padding:10px;border-bottom:1px solid #eee;font-size:13px;}}table.items td.amt{{text-align:right;font-weight:600;}}table.totals{{width:100%;margin-top:16px;}}table.totals td{{padding:8px 10px;font-size:13px;}}table.totals td:last-child{{text-align:right;font-weight:600;}}table.totals tr.grand{{background:#fff5ec;}}table.totals tr.grand td{{font-size:16px;font-weight:800;color:#E65100;border-top:2px solid #E65100;}}.sigs{{display:flex;gap:16px;margin-top:14px;}}.sigbox{{flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end;}}.sigbox img{{max-width:100%;max-height:80px;}}.siglabel{{font-size:11px;color:#666;}}.print-bar{{position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:100;}}.print-bar button{{padding:10px 18px;background:#E65100;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;}}@media print{{body{{background:#fff;padding:0;}}.page{{box-shadow:none;padding:0;}}.print-bar{{display:none;}}}}</style></head><body>
+<div class="print-bar"><button onclick="window.print()">🖨 Print</button><button onclick="window.close()">Close</button></div>
+<div class="page">
+<div class="header"><div class="brand"><div class="logo">{logo}</div><div><h1>{name}</h1><div class="sub">{phone}<br>{address}<br>{email}</div></div></div><div class="inv-meta"><h2>{inv_no}</h2><p>Date: {created}</p><p>Job: #{jid}</p><p><span style="background:#10b981;color:#fff;padding:4px 12px;border-radius:12px;font-size:11px;">{job.get('status','')}</span></p></div></div>
+<div class="section"><h3>Customer & Vehicle</h3><div class="row"><div class="col"><div class="field"><b>Customer:</b> {job.get('customer','')}</div><div class="field"><b>Phone:</b> {job.get('phone','')}</div></div><div class="col"><div class="field"><b>Vehicle:</b> {job.get('vehicle','')}</div><div class="field"><b>Registration:</b> {job.get('registration','')}</div></div></div></div>
+<div class="section"><h3>Work Performed</h3><div class="field">{job.get('complaint','')}</div>
+<table class="items"><thead><tr><th>Description</th><th style="text-align:right;">Amount</th></tr></thead><tbody><tr><td>Labour</td><td class="amt">R {labour:,.2f}</td></tr><tr><td>Parts</td><td class="amt">R {parts:,.2f}</td></tr></tbody></table>
+<table class="totals"><tr><td>Subtotal</td><td>R {subtotal:,.2f}</td></tr><tr><td>VAT (15%)</td><td>R {vat:,.2f}</td></tr><tr class="grand"><td>TOTAL DUE</td><td>R {total:,.2f}</td></tr></table></div>
+<div class="section"><h3>Signatures</h3><div class="sigs">{sig_block("Customer Approval", cust_sig)}{sig_block("Owner Approval", owner_sig)}</div></div>
+<div class="footer" style="text-align:center;font-size:11px;color:#888;margin-top:32px;">{name} — Thank you for your business.</div>
+</div></body></html>"""
+    return HTMLResponse(content=html)
+
+
+# ═══════════════════════════════════════════════════════════════
+# PAYMENTS ROUTER
+# ═══════════════════════════════════════════════════════════════
+router_pay = APIRouter(tags=["payments"])
+
+def detect_provider():
+    if os.getenv("YOCO_SECRET_KEY", "").strip(): return "yoco"
+    if os.getenv("PAYFAST_MERCHANT_ID", "").strip(): return "payfast"
+    if os.getenv("STRIPE_SECRET_KEY", "").strip(): return "stripe"
+    return "console"
+
+def _public_base(): return os.getenv("PUBLIC_BASE_URL", "https://ramstech.onrender.com").rstrip("/")
+
+def create_payment_link(invoice):
+    try:
+        amt = float(invoice.get("total", 0)) - float(invoice.get("amount_paid", 0))
+        if amt <= 0.005: return {"success": False, "error": "Nothing outstanding"}
+        provider = detect_provider()
+        cents = int(round(amt * 100))
+        inv_id = invoice.get("id", "")
+        desc = f"Invoice {inv_id} — {invoice.get('description', '')[:40]}"
+
+        if provider == "yoco": return _yoco_checkout(inv_id, cents, desc)
+        if provider == "payfast": return _payfast_link(inv_id, amt, desc)
+        if provider == "stripe": return _stripe_link(inv_id, cents, desc)
+        return {"success": True, "provider": "console", "url": f"{_public_base()}/pay/demo?inv={inv_id}&amount={amt:.2f}", "ref": f"console_{inv_id}"}
+    except Exception as e: return {"success": False, "error": str(e)}
+
+def _yoco_checkout(invoice_id, amount_cents, description):
+    key = os.getenv("YOCO_SECRET_KEY", "").strip()
+    payload = {"amount": amount_cents, "currency": "ZAR", "successUrl": f"{_public_base()}/pay/success?inv={invoice_id}", "cancelUrl": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "failureUrl": f"{_public_base()}/pay/failed?inv={invoice_id}", "metadata": {"invoiceId": invoice_id}}
+    req = urllib.request.Request("https://online.yoco.com/v1/checkouts", data=json.dumps(payload).encode("utf-8"), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            d = json.loads(resp.read().decode("utf-8"))
+            return {"success": True, "provider": "yoco", "url": d.get("redirectUrl"), "ref": d.get("id")}
+    except Exception as e: return {"success": False, "provider": "yoco", "error": str(e)}
+
+def _payfast_link(invoice_id, amount_rands, description):
+    merchant_id = os.getenv("PAYFAST_MERCHANT_ID", "").strip()
+    merchant_key = os.getenv("PAYFAST_MERCHANT_KEY", "").strip()
+    form = {"merchant_id": merchant_id, "merchant_key": merchant_key, "return_url": f"{_public_base()}/pay/success?inv={invoice_id}", "cancel_url": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "notify_url": f"{_public_base()}/api/payments/webhook/payfast", "m_payment_id": invoice_id, "amount": f"{amount_rands:.2f}", "item_name": f"Invoice {invoice_id}"}
+    return {"success": True, "provider": "payfast", "url": "https://www.payfast.co.za/eng/process?" + urllib.parse.urlencode(form), "ref": invoice_id}
+
+def _stripe_link(invoice_id, amount_cents, description):
+    key = os.getenv("STRIPE_SECRET_KEY", "").strip()
+    form = {"mode": "payment", "success_url": f"{_public_base()}/pay/success?inv={invoice_id}", "cancel_url": f"{_public_base()}/pay/cancelled?inv={invoice_id}", "line_items[0][quantity]": "1", "line_items[0][price_data][currency]": "zar", "line_items[0][price_data][unit_amount]": str(amount_cents), "line_items[0][price_data][product_data][name]": f"Invoice {invoice_id}"}
+    req = urllib.request.Request("https://api.stripe.com/v1/checkout/sessions", data=urllib.parse.urlencode(form).encode("utf-8"), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            d = json.loads(resp.read().decode("utf-8"))
+            return {"success": True, "provider": "stripe", "url": d.get("url"), "ref": d.get("id")}
+    except Exception as e: return {"success": False, "provider": "stripe", "error": str(e)}
+
+def _mark_paid(invoice_id, amount, provider, ref):
+    inv = store_get("invoices", invoice_id)
+    if not inv: return {"success": False, "error": "Invoice not found"}
+    if inv.get("paid"): return {"success": True, "already": True}
+    inv["amount_paid"] = float(inv.get("amount_paid", 0)) + float(amount)
+    inv["paid"] = inv["amount_paid"] >= float(inv.get("total", 0)) - 0.005
+    store_save("invoices", invoice_id, inv)
+    return {"success": True, "invoice_id": invoice_id, "paid": inv["paid"]}
+
+def _success_page(title, message, color="#16a34a", icon="✓"):
+    return HTMLResponse(f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
+<style>body{{font-family:-apple-system,sans-serif;margin:0;padding:40px 20px;background:#f5f5f5;text-align:center;color:#1a1a1a}}
+.card{{max-width:400px;margin:60px auto;background:#fff;border-radius:16px;padding:40px 28px;box-shadow:0 4px 20px rgba(0,0,0,0.06)}}
+.icon{{font-size:56px;color:{color};margin-bottom:16px}} h1{{margin:0 0 8px;font-size:22px;}}
+p{{margin:0;color:#666;line-height:1.6;font-size:15px}}</style></head><body>
+<div class="card"><div class="icon">{icon}</div><h1>{title}</h1><p>{message}</p></div></body></html>""")
+
+@router_pay.get("/pay/success")
+def pay_success(inv: str = ""):
+    return _success_page("Payment received", f"Thank you! Invoice {inv} has been marked as paid.")
+
+@router_pay.get("/pay/cancelled")
+def pay_cancelled(inv: str = ""):
+    return _success_page("Payment cancelled", "No charge was made. You can pay any time.", color="#f59e0b", icon="!")
+
+@router_pay.get("/pay/demo")
+def pay_demo(inv: str = "", amount: str = "0"):
+    return _success_page("Demo mode", f"Console mode is active (no real gateway configured). Would have charged R{amount} for invoice {inv}.", color="#666", icon="⚙")
+
+@router_pay.get("/pay/{invoice_id}")
+def pay_redirect(invoice_id: str):
+    inv = store_get("invoices", invoice_id)
+    if not inv: raise HTTPException(404, "Invoice not found")
+    link = create_payment_link(inv)
+    if not link.get("success"): raise HTTPException(500, link.get("error"))
+    inv["payment_link"] = link
+    store_save("invoices", invoice_id, inv)
+    return RedirectResponse(link["url"], status_code=302)
+
+@router_pay.post("/api/payments/webhook/yoco")
+async def webhook_yoco(request: Request):
+    event = await request.json()
+    if "succeeded" not in event.get("type", "").lower(): return {"success": True}
+    payload = event.get("payload") or {}
+    return _mark_paid(payload.get("metadata", {}).get("invoiceId"), payload.get("amount", 0)/100, "yoco", payload.get("id"))
+
+@router_pay.post("/api/payments/webhook/stripe")
+async def webhook_stripe(request: Request):
+    event = await request.json()
+    if event.get("type") != "checkout.session.completed": return {"success": True}
+    session = event.get("data", {}).get("object", {})
+    return _mark_paid(session.get("metadata", {}).get("invoiceId"), session.get("amount_total", 0)/100, "stripe", session.get("id"))
+
+app.include_router(router_pay)
+
+
+# ═══════════════════════════════════════════════════════════════
+# STAFF & KANBAN ROUTES
+# ═══════════════════════════════════════════════════════════════
+ROLES = {
+    "owner": {"label": "Owner", "capabilities": ["*"]},
+    "manager": {"label": "Manager", "capabilities": ["view_jobs", "edit_jobs", "view_customers", "view_invoices"]},
+    "technician": {"label": "Technician", "capabilities": ["view_own_jobs", "edit_own_jobs", "clock_in"]},
 }
-body.dark{
---bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--border:#334155;
---input-bg:#0f172a;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{
-font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-background:var(--bg);color:var(--text);padding-bottom:20px;
-transition:background .3s,color .3s;
-background-image:
-radial-gradient(circle at 20% 20%,rgba(230,81,0,.08) 0%,transparent 40%),
-radial-gradient(circle at 80% 60%,rgba(102,126,234,.08) 0%,transparent 40%),
-radial-gradient(circle at 50% 90%,rgba(240,147,251,.06) 0%,transparent 40%);
-background-attachment:fixed;
-}
+KANBAN_STATUSES = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"]
 
-/* HEADER & NAV */
-.header{
-background:var(--grad1);color:white;padding:16px 14px 18px;
-position:relative;overflow:hidden;
-border-bottom-left-radius:24px;border-bottom-right-radius:24px;
-box-shadow:0 6px 24px rgba(102,126,234,.35);
-}
-.header h1{font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;z-index:1;font-weight:800;letter-spacing:.5px;}
-.header p{font-size:11px;opacity:.9;margin-top:3px;text-align:center;position:relative;z-index:1}
-.top-btns{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
-.top-btns button, .lang-sel{background:rgba(255,255,255,.25);border:none;color:white;padding:8px;border-radius:10px;font-size:13px;cursor:pointer;backdrop-filter:blur(8px);}
-.lang-sel option{color:#333}
+@app.get("/api/roles")
+def list_roles(): return {"roles": [{"id": k, "label": v["label"]} for k, v in ROLES.items()]}
 
-/* HOME */
-.home-container{padding:16px;max-width:900px;margin:0 auto}
-.hero-card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:16px;border:1px solid var(--border);}
-.cat-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;margin:20px 4px 12px;}
-.cat-grid{display:grid;grid-template-columns:1fr;gap:12px}
-.cat-card{
-border-radius:20px;padding:20px 18px;color:white;cursor:pointer;
-position:relative;overflow:hidden;
-box-shadow:0 8px 24px rgba(0,0,0,.15);transition:all .25s ease;
-display:flex;align-items:center;gap:16px;
-}
-.cat-card:active{transform:scale(.97);box-shadow:0 4px 12px rgba(0,0,0,.2)}
-.cat-icon{font-size:38px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2));min-width:50px;text-align:center;}
-.cat-info{flex:1;}
-.cat-name{font-size:17px;font-weight:800;margin-bottom:3px}
-.cat-count{font-size:12px;opacity:.85;}
-.cat-arrow{font-size:20px;opacity:.7;}
+@app.get("/api/whoami")
+def whoami(): return {"authenticated": True, "user": "Owner", "role": "owner", "capabilities": ["*"]}
 
-/* TILES */
-.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:16px 12px;cursor:pointer;text-align:center;border:1px solid var(--border);position:relative;transition:transform .1s;}
-.tile:active{transform:scale(.95);}
-.tile-icon{font-size:32px;margin-bottom:8px;display:block}
-.tile-label{font-size:12px;font-weight:700;}
-.tile-accent{position:absolute;top:0;left:0;right:0;height:4px}
+@app.post("/api/staff/{sid}/pin")
+async def set_staff_pin(sid: str, r: Request):
+    d = await r.json(); pin = str(d.get("pin") or "").strip()
+    if not pin or len(pin) < 4 or not pin.isdigit(): raise HTTPException(400, "PIN must be 4 digits")
+    staff = store_get("staff", sid)
+    if not staff: raise HTTPException(404, "Staff not found")
+    staff["pin"] = pin; store_save("staff", sid, staff); return {"success": True}
 
-/* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px;z-index:100;}
-.bnav-item{flex:1;text-align:center;padding:6px 4px;cursor:pointer;border-radius:12px;transition:all .2s;}
-.bnav-icon{font-size:20px;display:block;margin-bottom:2px}
-.bnav-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;}
-.bnav-item.active .bnav-label{color:var(--primary)}
-.bnav-item.active{background:rgba(230,81,0,.08)}
+@app.get("/api/jobs/kanban")
+def jobs_kanban():
+    jobs = store_list("jobs")
+    columns = {s: [] for s in KANBAN_STATUSES}
+    for j in jobs:
+        s = j.get("status") or "New"
+        if s not in columns: columns[s] = []
+        columns[s].append({"id": j.get("id"), "customer": j.get("customer", ""), "vehicle": j.get("vehicle", "")})
+    return {"statuses": KANBAN_STATUSES, "columns": columns}
 
-/* PANELS & ANIMATIONS */
-.panel{display:none;padding:16px;max-width:800px;margin:0 auto;padding-bottom:100px}
-.panel.active{display:block;animation:slideUp .3s cubic-bezier(.16,1,.3,1)}
-@keyframes slideUp {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.panel-title{font-size:20px;font-weight:800;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+@app.post("/api/jobs/{jid}/status")
+async def set_job_status(jid: str, r: Request):
+    d = await r.json(); new_status = (d.get("status") or "").strip()
+    if new_status not in KANBAN_STATUSES: raise HTTPException(400, "Invalid status")
+    job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    job["status"] = new_status
+    store_save("jobs", jid, job)
+    return {"success": True, "job": job}
 
-/* CARDS & FORMS */
-.card{background:var(--card);padding:16px;border-radius:16px;margin-bottom:12px;border:1px solid var(--border);transition:box-shadow .2s;}
-.card:active{box-shadow:0 4px 12px rgba(0,0,0,0.05);}
-.card h3{color:var(--primary);margin-bottom:8px;font-size:15px;}
-.form-input{width:100%;padding:14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;margin-bottom:10px;background:var(--input-bg);color:var(--text);transition:border-color .2s;}
-.form-input:focus{outline:none;border-color:var(--primary);}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;background:var(--grad1);color:white;transition:transform .1s,opacity .2s;}
-.btn:active{transform:scale(.97);opacity:.9;}
-.btn-dark{background:linear-gradient(135deg,#4b5563,#1f2937)}
-.btn-success{background:var(--grad4)}
-.btn-sm{padding:8px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;margin-right:5px;background:var(--primary);color:white;cursor:pointer;transition:transform .1s;}
-.btn-sm:active{transform:scale(.95);}
-.btn-sm.whatsapp{background:#25D366;}
-.badge{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;color:white;}
-.badge.high,.badge.critical,.badge.outstanding{background:#ef4444}
-.badge.medium{background:#f59e0b}
-.badge.low,.badge.ok,.badge.completed,.badge.paid{background:#10b981}
-.back-btn{background:var(--grad6);color:white;border:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;}
 
-/* CHAT BUBBLES */
-.chat-box{height:calc(100vh - 280px);overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;background:var(--input-bg);}
-.msg{padding:12px 16px;border-radius:18px;margin-bottom:10px;max-width:85%;line-height:1.45;font-size:14px;animation:msgIn .2s ease;}
-@keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-.msg.user{background:var(--grad1);color:white;margin-left:auto;border-bottom-right-radius:4px;box-shadow:0 4px 12px rgba(102,126,234,.2);}
-.msg.ai{background:var(--card);border:1px solid var(--border);margin-right:auto;border-bottom-left-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.05);}
+# ═══════════════════════════════════════════════════════════════
+# CORE ROUTES (Jobs, Customers, Invoices, Stats)
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/translations/{lang}")
+def get_translations(lang: str): return {"lang": lang, "strings": TRANSLATIONS.get(lang, TRANSLATIONS["en"])}
 
-/* TOAST NOTIFICATIONS */
-#toastWrap{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-.toast{background:#111;color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toastIn .3s cubic-bezier(.16,1,.3,1);display:flex;align-items:center;gap:8px;}
-.toast.success{background:#10b981;}
-.toast.error{background:#ef4444;}
-@keyframes toastIn{from{opacity:0;transform:translateY(-20px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
-.toast.out{animation:toastOut .2s ease forwards;}
-@keyframes toastOut{to{opacity:0;transform:translateY(-20px) scale(.9)}}
-
-@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-</style>
-</head>
-<body>
-
-<!-- TOAST CONTAINER -->
-<div id="toastWrap"></div>
-
-<div class="header">
-<h1><span class="logo" id="logoDisplay">🔧</span> <span id="wsNameDisplay">RAMSTECH</span></h1>
-<p id="wsSubtitle">AI Workshop Assistant v10.0</p>
-<div class="top-btns">
-<select class="lang-sel" id="langSel" onchange="setLang()">
-<option value="en">EN</option><option value="af">AF</option><option value="zu">ZU</option>
-</select>
-<button onclick="toggleTheme()" id="themeBtn">🌙</button>
-</div>
-</div>
-
-<!-- HOME -->
-<div id="home" class="panel active">
-<div class="home-container">
-<div class="hero-card"><div id="status">Checking backend...</div></div>
-<div id="categoryView">
-<div class="cat-title">Choose a Category</div>
-<div class="cat-grid" id="categoryGrid"></div>
-</div>
-<div id="subView" style="display:none">
-<button class="back-btn" onclick="backToCategories()">← Back to Categories</button>
-<div class="cat-title" id="subTitle"></div>
-<div class="tile-grid" id="subGrid"></div>
-</div>
-</div>
-</div>
-
-<!-- DASHBOARD -->
-<div id="dashboard" class="panel">
-<div class="panel-title">📊 Dashboard</div>
-<div id="dashStats" style="margin-bottom:16px;"><div class="loading">Loading...</div></div>
-<div class="card"><h3>💰 Revenue (7 days)</h3><canvas id="revenueChart"></canvas></div>
-<div class="card"><h3>📋 Job Status</h3><canvas id="jobChart"></canvas></div>
-</div>
-
-<!-- AI CHAT -->
-<div id="chat" class="panel">
-<div class="panel-title">🤖 AI Assistant</div>
-<div class="chat-box" id="chatBox">
-  <div class="msg ai">Hi! I'm RamsTech AI. Ask about repairs, diagnostics, or tools.</div>
-</div>
-<div class="input-row" style="display:flex;gap:8px;align-items:center;">
-<input type="text" id="chatInput" placeholder="Ask about repairs..." onkeypress="if(event.key==='Enter')sendMsg()" style="flex:1;padding:14px;border-radius:25px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);">
-<button class="mic-btn" id="micBtn" onclick="toggleMic()" style="padding:14px;border-radius:50%;background:var(--grad4);color:white;border:none;">🎤</button>
-<button onclick="sendMsg()" style="padding:14px;border-radius:50%;background:var(--grad1);color:white;border:none;">➤</button>
-</div>
-</div>
-
-<!-- FAULT CODES -->
-<div id="codes" class="panel">
-<div class="panel-title">📟 Fault Codes</div>
-<input type="text" class="form-input" id="codeSearch" placeholder="🔍 Search code or description..." oninput="searchCodes()">
-<div id="codeResults"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- PROBLEMS -->
-<div id="problems" class="panel">
-<div class="panel-title">📖 Common Problems</div>
-<input type="text" class="form-input" id="problemSearch" placeholder="🔍 Search problems..." oninput="filterProblems()">
-<div id="problemList"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- VIN -->
-<div id="vin" class="panel">
-<div class="panel-title">🔍 VIN Decoder</div>
-<button class="btn" onclick="openScanner()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">📷 Scan VIN / Barcode</button>
-<input type="text" class="form-input" id="vinInput" placeholder="Enter 17-character VIN" maxlength="17" style="text-transform:uppercase">
-<button class="btn" onclick="decodeVin()">Decode VIN</button>
-<div id="vinResult"></div>
-</div>
-
-<!-- JOBS -->
-<div id="jobs" class="panel">
-<div class="panel-title">📋 Job Cards</div>
-<button class="btn" onclick="openKanban()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">📊 Open Kanban Board</button>
-<button class="btn" onclick="openPhotoIntake()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">📸 New Job from Photo</button>
-<button class="btn no-print" onclick="showJobForm()">+ New Job Card (Manual)</button>
-<div id="jobForm" style="display:none">
-<div class="card">
-<input class="form-input" id="jobCustomer" placeholder="Customer name">
-<input class="form-input" id="jobPhone" placeholder="Phone">
-<input class="form-input" id="jobVehicle" placeholder="Vehicle (e.g. 2018 Toyota Hilux)">
-<input class="form-input" id="jobVehicleReg" placeholder="Registration">
-<input class="form-input" id="jobKm" type="number" placeholder="Odometer (km)">
-<textarea class="form-input" id="jobComplaint" placeholder="Complaint / issue" rows="2"></textarea>
-<select class="form-input" id="jobAssigned"><option value="">— Assign to staff —</option></select>
-<button class="btn btn-success" onclick="createJob()">✓ Create Job</button>
-<button class="btn btn-dark" onclick="hideJobForm()">Cancel</button>
-</div>
-</div>
-<div id="jobList"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- CUSTOMERS -->
-<div id="customers" class="panel">
-<div class="panel-title">👥 Customers</div>
-<button class="btn no-print" onclick="showCustomerForm()">+ New Customer</button>
-<div id="customerForm" style="display:none">
-<div class="card">
-<input class="form-input" id="custName" placeholder="Full name">
-<input class="form-input" id="custPhone" placeholder="Phone number">
-<input class="form-input" id="custEmail" placeholder="Email (optional)">
-<input class="form-input" id="custAddress" placeholder="Address (optional)">
-<button class="btn btn-success" onclick="createCustomer()">Save Customer</button>
-<button class="btn btn-dark" onclick="hideCustomerForm()">Cancel</button>
-</div>
-</div>
-<div id="customerList"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- INVOICES -->
-<div id="invoices" class="panel">
-<div class="panel-title">💰 Invoices</div>
-<div id="invoiceList"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- PARTS SEARCH -->
-<div id="parts" class="panel">
-<div class="panel-title">🔩 Parts Search</div>
-<input type="text" class="form-input" id="partsSearch" placeholder="🔍 Search part number or name..." oninput="searchParts()">
-<div id="partsResults"><div class="loading">Type to search...</div></div>
-</div>
-
-<!-- PURCHASE ORDERS -->
-<div id="purchase" class="panel">
-<div class="panel-title">🛒 Purchase Orders</div>
-<button class="btn" onclick="showPOForm()">+ New Purchase Order</button>
-<div id="poForm" style="display:none">
-<div class="card">
-<input class="form-input" id="poSupplier" placeholder="Supplier Name">
-<textarea class="form-input" id="poItems" placeholder="Items (one per line)" rows="3"></textarea>
-<button class="btn btn-success" onclick="createPO()">Save PO</button>
-<button class="btn btn-dark" onclick="hidePOForm()">Cancel</button>
-</div>
-</div>
-<div id="poList"><div class="loading">Loading...</div></div>
-</div>
-
-<!-- SETTINGS -->
-<div id="settings" class="panel">
-<div class="panel-title">⚙️ Settings</div>
-<button class="btn" onclick="openStaffManager()" style="background:linear-gradient(135deg,#10b981,#059669);">👥 Manage Staff & PINs</button>
-<div class="card">
-<h3>🏢 Workshop Branding</h3>
-<input class="form-input" id="wsLogo" placeholder="🔧" maxlength="4">
-<input class="form-input" id="wsName" placeholder="Workshop name">
-<input class="form-input" id="wsPhone" placeholder="Phone">
-<input class="form-input" id="wsAddress" placeholder="Address">
-<input class="form-input" id="wsEmail" placeholder="Email">
-<input class="form-input" id="wsRate" type="number" placeholder="Labour rate R/hr">
-<button class="btn btn-success" onclick="saveSettings()">Save Settings</button>
-</div>
-</div>
-
-<!-- BOTTOM NAVIGATION -->
-<div class="bottom-nav no-print">
-  <div class="bnav-item active" onclick="showTab('home',this)"><div class="bnav-icon">🏠</div><div class="bnav-label">Home</div></div>
-  <div class="bnav-item" onclick="showTab('dashboard',this)"><div class="bnav-icon">📊</div><div class="bnav-label">Dash</div></div>
-  <div class="bnav-item" onclick="showTab('chat',this)"><div class="bnav-icon">🤖</div><div class="bnav-label">AI</div></div>
-  <div class="bnav-item" onclick="showTab('jobs',this)"><div class="bnav-icon">📋</div><div class="bnav-label">Jobs</div></div>
-  <div class="bnav-item" onclick="showTab('settings',this)"><div class="bnav-icon">⚙️</div><div class="bnav-label">More</div></div>
-</div>
-
-<script>
-// ═══════════════════════════════════════════════════════
-// TOAST NOTIFICATIONS (Replaces alert)
-// ═══════════════════════════════════════════════════════
-function toast(msg, type='success') {
-  const wrap = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<span>${type === 'success' ? '✓' : '⚠'}</span> ${msg}`;
-  wrap.appendChild(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 3000);
-}
-
-// CATEGORIES
-const CATEGORIES = {
-  diagnostics: { name: 'Diagnostics', icon: '🔧', gradient: 'linear-gradient(135deg,#2196F3,#0d47a1)', items: [
-      {icon:'🤖',label:'AI Chat',tab:'chat',color:'#3b82f6'},
-      {icon:'📟',label:'Fault Codes',tab:'codes',color:'#ef4444'},
-      {icon:'📖',label:'Problems',tab:'problems',color:'#f59e0b'},
-      {icon:'🔍',label:'VIN Decoder',tab:'vin',color:'#8b5cf6'}
-  ]},
-  workshop: { name: 'Workshop', icon: '📋', gradient: 'linear-gradient(135deg,#f59e0b,#dc2626)', items: [
-      {icon:'📋',label:'Jobs',tab:'jobs',color:'#f59e0b'},
-      {icon:'👥',label:'Customers',tab:'customers',color:'#10b981'},
-      {icon:'💰',label:'Invoices',tab:'invoices',color:'#10b981'}
-  ]},
-  operations: { name: 'Operations', icon: '⚙️', gradient: 'linear-gradient(135deg,#10b981,#047857)', items: [
-      {icon:'🛒',label:'Purchase',tab:'purchase',color:'#3b82f6'}
-  ]},
-  reference: { name: 'Reference', icon: '📚', gradient: 'linear-gradient(135deg,#8b5cf6,#4c1d95)', items: [
-      {icon:'🔩',label:'Parts Search',tab:'parts',color:'#6b7280'}
-  ]},
-  business: { name: 'Business', icon: '💼', gradient: 'linear-gradient(135deg,#1f2937,#4b5563)', items: [
-      {icon:'📊',label:'Dashboard',tab:'dashboard',color:'#3b82f6'},
-      {icon:'⚙️',label:'Settings',tab:'settings',color:'#6b7280'}
-  ]}
-};
-
-document.getElementById('categoryGrid').innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
-  `<div class="cat-card" style="background:${cat.gradient}" onclick="openCategory('${key}')">
-    <div class="cat-icon">${cat.icon}</div>
-    <div class="cat-info"><div class="cat-name">${cat.name}</div><div class="cat-count">${cat.items.length} features</div></div>
-    <div class="cat-arrow">›</div>
-  </div>`
-).join('');
-
-function openCategory(key) {
-  const cat = CATEGORIES[key];
-  document.getElementById('categoryView').style.display = 'none';
-  document.getElementById('subView').style.display = 'block';
-  document.getElementById('subTitle').textContent = cat.icon + ' ' + cat.name;
-  document.getElementById('subGrid').innerHTML = cat.items.map(item =>
-    `<div class="tile" onclick="showTab('${item.tab}')">
-      <div class="tile-accent" style="background:${item.color}"></div>
-      <div class="tile-icon" style="color:${item.color}">${item.icon}</div>
-      <div class="tile-label">${item.label}</div>
-    </div>`
-  ).join('');
-  window.scrollTo(0, 0);
-}
-
-function backToCategories() {
-  document.getElementById('subView').style.display = 'none';
-  document.getElementById('categoryView').style.display = 'block';
-  window.scrollTo(0, 0);
-}
-
-function showTab(name, el) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  
-  var subV = document.getElementById('subView');
-  var catV = document.getElementById('categoryView');
-  if (subV) subV.style.display = 'none';
-  if (catV) catV.style.display = 'block';
-
-  var panel = document.getElementById(name);
-  if (panel) panel.classList.add('active');
-  
-  if (el) {
-    document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-  }
-  window.scrollTo(0, 0);
-
-  // AI ROBOT TOGGLE
-  var fab = document.getElementById('aiFab');
-  var diagTabs = ['chat','codes','problems','vin'];
-  if (fab) {
-    if (diagTabs.includes(name)) {
-      fab.style.setProperty('display', 'flex', 'important');
-      fab.style.setProperty('opacity', '1', 'important');
-      fab.style.setProperty('visibility', 'visible', 'important');
-    } else {
-      fab.style.setProperty('display', 'none', 'important');
-      fab.style.setProperty('opacity', '0', 'important');
-      fab.style.setProperty('visibility', 'hidden', 'important');
-    }
-  }
-
-  // Loaders
-  const loaders = {
-    codes: () => !document.getElementById('codeResults').dataset.loaded && searchCodes(),
-    problems: () => !document.getElementById('problemList').dataset.loaded && loadProblems(),
-    jobs: () => { loadJobs(); loadStaffDropdown(); },
-    customers: loadCustomers, invoices: loadInvoices, settings: loadSettings, dashboard: loadDashboard,
-    parts: searchParts, purchase: loadPOs
-  };
-  if (loaders[name]) try { loaders[name](); } catch (e) { console.error(e); }
-}
-
-// HELPERS
-function toggleTheme() { document.body.classList.toggle('dark'); document.getElementById('themeBtn').textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; }
-async function checkStatus() { try { await fetch('/health'); document.getElementById('status').innerHTML = '<span style="color:green;font-weight:bold;">✓ Backend Online</span>'; } catch (e) { document.getElementById('status').innerHTML = '<span style="color:red;font-weight:bold;">✗ Backend Offline</span>'; } }
-checkStatus();
-function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-async function jget(u) { const r = await fetch(u); return r.json(); }
-async function jpost(u, b) { const r = await fetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
-async function jput(u, b) { const r = await fetch(u, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
-async function jdel(u) { const r = await fetch(u, {method:'DELETE'}); return r.json(); }
-
-// DASHBOARD CHARTS
-let rC = null, jC = null;
-async function loadDashboard() { 
-  try { 
-    const d = await jget('/api/stats'); 
-    document.getElementById('dashStats').innerHTML = `
-      <div class="stats-row">
-        <div class="stat-card blue"><div class="num">${d.jobs_total}</div><div class="lbl">Jobs</div></div>
-        <div class="stat-card purple"><div class="num">${d.jobs_open}</div><div class="lbl">Open</div></div>
-        <div class="stat-card green"><div class="num">R${d.revenue}</div><div class="lbl">Revenue</div></div>
-      </div>`;
-    if (rC) rC.destroy();
-    rC = new Chart(document.getElementById('revenueChart'), {
-      type: 'line', data: { labels: d.revenue_labels, datasets: [{ data: d.revenue_data, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.15)', fill: true, tension: .4 }] }, options: { responsive: true, plugins: { legend: { display: false } } }
-    });
-    if (jC) jC.destroy();
-    jC = new Chart(document.getElementById('jobChart'), {
-      type: 'doughnut', data: { labels: ['New', 'Progress', 'Done'], datasets: [{ data: [d.jobs_new, d.jobs_progress, d.jobs_completed], backgroundColor: ['#6b7280', '#f59e0b', '#10b981'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  } catch(e){ console.error(e); }
-}
-
-// AI CHAT & VOICE
-let rec = null, isRec = false;
-function toggleMic() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { toast('Voice not supported', 'error'); return; }
-  if (!rec) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    rec = new SR(); rec.lang = 'en-ZA';
-    rec.onresult = e => { document.getElementById('chatInput').value = e.results[0][0].transcript; resetMic(); sendMsg(); };
-    rec.onerror = resetMic; rec.onend = resetMic;
-  }
-  function resetMic() { isRec = false; document.getElementById('micBtn').style.background = 'var(--grad4)'; document.getElementById('micBtn').textContent = '🎤'; }
-  if (isRec) { rec.stop(); resetMic(); }
-  else { try { rec.start(); isRec = true; document.getElementById('micBtn').style.background = 'var(--grad2)'; document.getElementById('micBtn').textContent = '⏹'; } catch (e) { toast(e.message, 'error'); } }
-}
-
-async function sendMsg() {
-  const i = document.getElementById('chatInput');
-  const m = i.value.trim();
-  if (!m) return;
-  const b = document.getElementById('chatBox');
-  
-  b.innerHTML += '<div class="msg user">' + esc(m) + '</div>';
-  i.value = '';
-  b.scrollTop = b.scrollHeight;
-  
-  const typId = 'typ_' + Date.now();
-  b.innerHTML += `<div class="msg ai" id="${typId}">Thinking...</div>`;
-  b.scrollTop = b.scrollHeight;
-  
-  try {
-    const d = await jpost('/api/chat', {message:m});
-    document.getElementById(typId).outerHTML = '<div class="msg ai">' + esc(d.reply) + '</div>';
-  } catch (e) {
-    document.getElementById(typId).outerHTML = '<div class="msg ai">Error connecting to AI.</div>';
-  }
-  b.scrollTop = b.scrollHeight;
-}
-
-// JOBS
-async function loadJobs() {
-  const c = document.getElementById('jobList');
-  c.innerHTML = '<div class="loading">Loading...</div>';
-  try {
-    const d = await jget('/api/jobs');
-    if (!d.jobs.length) { c.innerHTML = '<div class="card"><p>No jobs yet. Tap + New Job Card to create one.</p></div>'; return; }
+@app.get("/api/stats")
+def get_stats():
+    jobs = store_list("jobs"); invs = store_list("invoices"); exps = store_list("expenses"); custs = store_list("customers")
+    rev = sum(float(i.get("total", 0)) for i in invs); exp = sum(float(e.get("amount", 0)) for e in exps)
     
-    const jobs = d.jobs.reverse();
-    c.innerHTML = jobs.map(j => {
-      let badgeClass = 'new';
-      if (j.status === 'Completed' || j.status === 'Invoiced') badgeClass = 'completed';
-      if (j.status === 'In Progress' || j.status === 'Diagnosing') badgeClass = 'medium';
-      if (j.status === 'Awaiting Parts' || j.status === 'Awaiting Approval') badgeClass = 'high';
-      
-      let cost = j.total ? `<div style="margin-top:10px;padding:10px;background:var(--input-bg);border-radius:10px;font-size:13px;"><strong>💰 Total: R${j.total.toFixed(2)}</strong></div>` : '';
-      let as = j.assigned_to ? `<p style="color:var(--text2);font-size:12px;">👷 ${esc(j.assigned_to)}</p>` : '';
-      
-      const statuses = ["New", "Diagnosing", "Awaiting Approval", "Awaiting Parts", "In Progress", "QC", "Ready for Pickup", "Completed", "Invoiced"];
-      let statusOpts = statuses.map(s => `<option value="${s}" ${j.status === s ? 'selected' : ''}>${s}</option>`).join('');
-      
-      let invBtn = j.total ? `<button class="btn-sm green" onclick="generateInvoice('${j.id}')">Invoice</button>` : '';
-      let waBtn = `<button class="btn-sm whatsapp" onclick="shareJobWhatsApp('${j.id}')">📱</button>`;
-      
-      return `
-        <div class="card" id="job-${j.id}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div>
-              <h3>Job #${j.id} <span class="badge ${badgeClass}">${esc(j.status)}</span></h3>
-              <p><strong>${esc(j.customer)}</strong></p>
-              <p>🚗 ${esc(j.vehicle)} ${j.registration ? '(' + esc(j.registration) + ')' : ''}</p>
-              ${as}
-            </div>
-            <div style="text-align:right;">
-              <p style="font-size:11px;color:var(--text2);">${esc(j.created)}</p>
-            </div>
-          </div>
-          
-          <p style="color:var(--text2);font-size:13px;margin-top:8px;">${esc(j.complaint)}</p>
-          ${cost}
-          
-          <div class="no-print" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <select class="form-input" style="margin:0;flex:1;padding:8px;font-size:12px;width:auto;" onchange="updateJobStatus('${j.id}', this.value)">
-              ${statusOpts}
-            </select>
-            <button class="btn-sm purple" onclick="setCost('${j.id}')">💰 Cost</button>
-            ${invBtn}
-            ${waBtn}
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (e) { c.innerHTML = '<div class="card"><p>Error loading jobs</p></div>'; }
-}
-
-async function shareJobWhatsApp(id) {
-  const d = await jget('/api/jobs');
-  const j = d.jobs.find(x => x.id == id);
-  if (!j) return;
-  const txt = `🔧 *Job #${j.id} Update*\n\nHi ${j.customer},\nYour vehicle (${j.vehicle}) is currently: *${j.status}*.\n\nIssue: ${j.complaint}`;
-  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
-}
-
-async function updateJobStatus(jid, newStatus) {
-  try {
-    await jput('/api/jobs/' + jid, { status: newStatus });
-    toast('Status updated to ' + newStatus);
-    loadJobs(); 
-    if (document.getElementById('kanbanModal') && document.getElementById('kanbanModal').style.display === 'block') openKanban();
-  } catch (e) { toast('Failed to update status', 'error'); }
-}
-
-async function setCost(id) {
-  const h = prompt('Labour hours:', '1');
-  if (h === null) return;
-  const p = prompt('Parts cost (R):', '0');
-  if (p === null) return;
-  const rate = 450; 
-  try {
-    await jpost('/api/jobs/' + id + '/cost', { labour_hours: parseFloat(h), labour_rate: rate, parts_cost: parseFloat(p) });
-    toast('Cost updated successfully');
-    loadJobs();
-  } catch(e) { toast('Error setting cost', 'error'); }
-}
-
-async function generateInvoice(jid) {
-  try {
-    const d = await jget('/api/jobs');
-    const job = d.jobs.find(x => x.id == jid);
-    if (!job) return;
-    const payload = { customer: job.customer, vehicle: job.vehicle, description: job.complaint, labour: job.labour_cost || 0, parts: job.parts_cost || 0 };
-    const res = await jpost('/api/invoices', payload);
-    if (res.success) {
-      toast('Invoice #' + res.invoice.id + ' generated!');
-      showTab('invoices'); loadInvoices();
+    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    data = [1500, 2300, 1800, 3200, 2800, 4500, 3900] 
+    
+    return {
+        "jobs_total": len(jobs), "jobs_open": sum(1 for j in jobs if j.get("status") != "Completed"),
+        "jobs_completed": sum(1 for j in jobs if j.get("status") == "Completed"),
+        "jobs_new": sum(1 for j in jobs if j.get("status") == "New"),
+        "jobs_progress": sum(1 for j in jobs if j.get("status") == "In Progress"),
+        "customers": len(custs), "revenue": round(rev, 2), "expenses": round(exp, 2),
+        "revenue_labels": labels, "revenue_data": data
     }
-  } catch(e) { toast('Error generating invoice', 'error'); }
-}
 
-// CUSTOMERS
-function showCustomerForm(){document.getElementById('customerForm').style.display='block'} 
-function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
-async function createCustomer() {
-  const name = document.getElementById('custName').value.trim();
-  const phone = document.getElementById('custPhone').value.trim();
-  if (!name || !phone) { toast('Name and phone required', 'error'); return; }
-  await jpost('/api/customers', { name: name, phone: phone, email: document.getElementById('custEmail').value, address: document.getElementById('custAddress').value });
-  document.getElementById('custName').value = ''; document.getElementById('custPhone').value = '';
-  hideCustomerForm(); loadCustomers();
-  toast('Customer added');
-}
-async function loadCustomers() { 
-  try { 
-    const d = await jget('/api/customers'); 
-    document.getElementById('customerList').innerHTML = d.customers.map(c=>`
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div><h3>👤 ${esc(c.name)}</h3><p>📞 ${esc(c.phone)}</p>${c.email ? `<p>📧 ${esc(c.email)}</p>` : ''}</div>
-          <button class="btn-sm whatsapp" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}', '_blank')">📱 Chat</button>
-        </div>
-      </div>`).join('') || '<div class="card"><p>No customers yet</p></div>'; 
-  } catch(e){} 
-}
+@app.get("/api/jobs")
+def list_jobs(): return {"jobs": store_list("jobs")}
 
-// INVOICES
-async function loadInvoices() { 
-  try { 
-    const d = await jget('/api/invoices'); 
-    document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>{
-      const isPaid = i.paid;
-      const badge = isPaid ? 'paid' : 'outstanding';
-      const payBtn = !isPaid ? `<button class="btn-sm blue" onclick="window.location.href='/pay/${i.id}'">💳 Pay Now</button>` : '';
-      return `
-        <div class="card">
-          <h3>Invoice #${i.id} <span class="badge ${badge}">${badge.toUpperCase()}</span></h3>
-          <p><strong>${esc(i.customer)}</strong></p>
-          <p style="font-size:20px; font-weight:800; color:var(--primary); margin: 8px 0;">R ${i.total.toFixed(2)}</p>
-          <div style="display:flex; gap:5px; flex-wrap:wrap;">
-            <button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 PDF</button>
-            <button class="btn-sm whatsapp" onclick="shareInvoiceWhatsApp('${i.id}', '${esc(i.customer)}', '${i.total}')">📱 Share</button>
-            ${payBtn}
-          </div>
-        </div>`;
-    }).join('') || '<div class="card"><p>No invoices yet</p></div>'; 
-  } catch(e){} 
-}
+@app.post("/api/jobs")
+async def create_job(r: Request):
+    d = await r.json(); jid = str(uuid.uuid4())[:8]
+    job = {"id": jid, "customer": d.get("customer", ""), "phone": d.get("phone", ""), "vehicle": d.get("vehicle", ""), "registration": d.get("registration", ""), "km": int(d.get("km", 0)), "complaint": d.get("complaint", ""), "assigned_to": d.get("assigned_to", ""), "photos": d.get("photos", [])[:5], "signature": d.get("signature", ""), "warranty_months": int(d.get("warranty_months", 6)), "status": "New", "timeline": [now() + " — Job created"], "labour_hours": 0, "labour_rate": get_workshop_data().get("labour_rate", 450), "parts_cost": 0, "labour_cost": 0, "subtotal": 0, "vat": 0, "total": 0, "created": now()}
+    store_save("jobs", jid, job); return {"success": True, "job": job}
 
-function shareInvoiceWhatsApp(id, customer, total) {
-  const txt = `Hi ${customer}, your invoice #${id} is ready. Total due: R${total}. You can view and pay it here: https://ramstech.onrender.com/pay/${id}`;
-  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
-}
+@app.put("/api/jobs/{jid}")
+async def update_job(jid: str, r: Request):
+    d = await r.json(); job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    if "status" in d: job["status"] = d["status"]
+    store_save("jobs", jid, job); return {"success": True, "job": job}
 
-// SETTINGS
-async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
-async function saveSettings() {
-  const p = { name: document.getElementById('wsName').value, logo: document.getElementById('wsLogo').value, phone: document.getElementById('wsPhone').value, address: document.getElementById('wsAddress').value, email: document.getElementById('wsEmail').value, labour_rate: parseFloat(document.getElementById('wsRate').value) || 450 };
-  await jpost('/api/workshop', p); toast('Settings saved!');
-}
+@app.post("/api/jobs/{jid}/cost")
+async def set_job_cost(jid: str, r: Request):
+    d = await r.json()
+    job = store_get("jobs", jid)
+    if not job: raise HTTPException(404, "Job not found")
+    h = float(d.get("labour_hours", 0)); rate = float(d.get("labour_rate", 450)); parts = float(d.get("parts_cost", 0))
+    labour = h * rate; subtotal = labour + parts; vat = subtotal * 0.15; total = subtotal + vat
+    job.update({"labour_hours": h, "labour_rate": rate, "parts_cost": parts, "labour_cost": labour, "subtotal": subtotal, "vat": vat, "total": total})
+    store_save("jobs", jid, job); return {"success": True, "job": job}
 
-// FAULT CODES & PROBLEMS
-async function searchCodes() { try { const d = await jget('/api/fault-codes?search='+document.getElementById('codeSearch').value); document.getElementById('codeResults').dataset.loaded='1'; document.getElementById('codeResults').innerHTML = d.codes.map(x=>'<div class="card"><h3>'+x.code+'</h3><p>'+esc(x.description)+'</p></div>').join(''); } catch(e){} }
-async function loadProblems() { try { const d = await jget('/api/problems'); document.getElementById('problemList').innerHTML = d.problems.map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3></div>').join(''); } catch(e){} }
+@app.get("/api/customers")
+def list_customers(): return {"customers": store_list("customers")}
 
-// VIN
-async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
+@app.post("/api/customers")
+async def create_customer(r: Request):
+    d = await r.json(); cid = str(uuid.uuid4())[:8]
+    c = {"id": cid, "name": d.get("name", ""), "phone": d.get("phone", ""), "email": d.get("email", ""), "address": d.get("address", ""), "created": today()}
+    store_save("customers", cid, c); return {"success": True, "customer": c}
 
-// PARTS SEARCH & PO
-async function searchParts() {
-  const q = document.getElementById('partsSearch').value;
-  if (!q) return;
-  const c = document.getElementById('partsResults');
-  c.innerHTML = '<div class="loading">Searching...</div>';
-  try {
-    const d = await jget('/api/parts-search?q=' + encodeURIComponent(q));
-    c.innerHTML = d.results.length ? d.results.map(p=>`<div class="card"><h3>${esc(p.name)}</h3><p style="font-size:12px;font-family:monospace;">${esc(p.part_number)}</p><p>Price: R${p.sell_price.toFixed(2)}</p></div>`).join('') : '<div class="card"><p>No parts found</p></div>';
-  } catch(e) { c.innerHTML = 'Error searching'; }
-}
-function showPOForm(){document.getElementById('poForm').style.display='block'} 
-function hidePOForm(){document.getElementById('poForm').style.display='none'}
-async function createPO() {
-  const sup = document.getElementById('poSupplier').value; const items = document.getElementById('poItems').value;
-  if (!sup || !items) { toast('Supplier and items required', 'error'); return; }
-  try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); toast('PO Created'); } catch(e) { toast('Error creating PO', 'error'); }
-}
-async function loadPOs() { try { const d = await jget('/api/po/list'); document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`<div class="card"><h3>PO #${p.po_number}</h3><p>${esc(p.supplier)}</p><p>Status: <b>${p.status}</b></p></div>`).join('') : '<div class="card"><p>No purchase orders</p></div>'; } catch(e){} }
+@app.get("/api/invoices")
+def list_invoices(): return {"invoices": store_list("invoices")}
 
-// MODALS (Kanban, Photo, Staff, Scanner)
-async function openKanban() {
-  let modal = document.getElementById('kanbanModal');
-  if (!modal) {
-    modal = document.createElement('div'); modal.id = 'kanbanModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2><button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div></div>`;
-    document.body.appendChild(modal);
-  } else { modal.style.display = 'block'; }
-  const d = await jget('/api/jobs/kanban'); let html = '';
-  d.statuses.forEach(s => {
-    const items = d.columns[s] || [];
-    html += `<div style="background:var(--input-bg);border-radius:10px;padding:10px;border:1px solid var(--border);"><h4 style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">${s} (${items.length})</h4>`;
-    items.forEach(j => { html += `<div style="background:var(--card);padding:10px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--primary);"><h5 style="font-size:13px;margin-bottom:2px;">#${j.id} ${esc(j.customer)}</h5><p style="font-size:11px;color:var(--text2);">${esc(j.vehicle)}</p></div>`; });
-    html += `</div>`;
-  });
-  document.getElementById('kanbanContent').innerHTML = html;
-}
+@app.post("/api/invoices")
+async def create_invoice(r: Request):
+    d = await r.json(); iid = str(uuid.uuid4())[:8]
+    i = {"id": iid, "customer": d.get("customer", ""), "vehicle": d.get("vehicle", ""), "description": d.get("description", ""), "labour": float(d.get("labour", 0)), "parts": float(d.get("parts", 0)), "subtotal": float(d.get("labour", 0)) + float(d.get("parts", 0)), "vat": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 0.15, "total": (float(d.get("labour", 0)) + float(d.get("parts", 0))) * 1.15, "amount_paid": 0, "paid": False, "created": now()}
+    store_save("invoices", iid, i); return {"success": True, "invoice": i}
 
-async function openPhotoIntake() {
-  let modal = document.getElementById('photoIntakeModal');
-  if (!modal) {
-    modal = document.createElement('div'); modal.id = 'photoIntakeModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📸 Photo Intake</h2><button onclick="document.getElementById('photoIntakeModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="piStep1" class="card" style="background:var(--input-bg);"><p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Take a photo of the VIN sticker, license plate, or dashboard.</p><input type="file" id="piImage" accept="image/*" capture="environment" class="form-input" onchange="processPhotoIntake(event)"></div><div id="piStep2" style="display:none;"><div id="piPreview" style="margin-bottom:10px;"></div><div id="piResult" class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Vehicle Details</h3><input type="text" id="piMake" class="form-input" placeholder="Make"><input type="text" id="piModel" class="form-input" placeholder="Model"><input type="text" id="piReg" class="form-input" placeholder="Registration"><input type="text" id="piVin" class="form-input" placeholder="VIN"><input type="number" id="piKm" class="form-input" placeholder="Odometer"><button class="btn btn-success" onclick="createJobFromPhoto()">✓ Create Job Card</button></div></div><div id="piLoading" style="display:none;text-align:center;padding:20px;color:var(--primary);"><div class="spinner" style="border:3px solid rgba(0,0,0,0.1);border-top-color:var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>Analyzing photo...</div></div>`;
-    document.body.appendChild(modal);
-  } else { modal.style.display = 'block'; document.getElementById('piStep1').style.display = 'block'; document.getElementById('piStep2').style.display = 'none'; document.getElementById('piImage').value = ''; }
-}
+@app.get("/api/workshop")
+def get_workshop(): return get_workshop_data()
 
-async function processPhotoIntake(e) {
-  const file = e.target.files[0]; if (!file) return;
-  document.getElementById('piStep1').style.display = 'none'; document.getElementById('piLoading').style.display = 'block';
-  const reader = new FileReader();
-  reader.onload = async function(ev) {
-    const img = new Image();
-    img.onload = async function() {
-      const canvas = document.createElement('canvas'); let w = img.width, h = img.height;
-      if (w > 1200) { h = (h * 1200) / w; w = 1200; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-      document.getElementById('piPreview').innerHTML = '<img src="' + canvas.toDataURL('image/jpeg', 0.8) + '" style="width:100%;border-radius:12px;border:1px solid var(--border);">';
-      try {
-        const res = await jpost('/api/photo/intake', { image_base64: b64 });
-        document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block';
-        if (res.success) {
-          document.getElementById('piMake').value = res.make || ''; document.getElementById('piModel').value = res.model || '';
-          document.getElementById('piReg').value = res.registration || ''; document.getElementById('piVin').value = res.vin || ''; document.getElementById('piKm').value = res.km || '';
-        } else { toast('AI could not read: ' + (res.error || 'Try clearer'), 'error'); }
-      } catch (err) { document.getElementById('piLoading').style.display = 'none'; document.getElementById('piStep2').style.display = 'block'; toast('Network error', 'error'); }
-    }; img.src = ev.target.result;
-  }; reader.readAsDataURL(file);
-}
-async function createJobFromPhoto() {
-  const make = document.getElementById('piMake').value.trim(); const model = document.getElementById('piModel').value.trim();
-  const reg = document.getElementById('piReg').value.trim(); const vin = document.getElementById('piVin').value.trim(); const km = document.getElementById('piKm').value.trim();
-  const payload = { customer: 'New Customer (Photo)', phone: '', vehicle: (make + ' ' + model).trim(), registration: reg || vin, km: parseInt(km) || 0, complaint: 'Photo Intake', assigned_to: '', photos: [], signature: '', warranty_months: 6 };
-  try { const res = await jpost('/api/jobs', payload); if (res.success) { toast('Job created!'); document.getElementById('photoIntakeModal').style.display = 'none'; showTab('jobs'); loadJobs(); } } catch (e) { toast('Error', 'error'); }
-}
+@app.post("/api/workshop")
+async def save_workshop(r: Request):
+    d = await r.json(); save_workshop_data(d); return {"success": True, "workshop": get_workshop_data()}
 
-// STAFF MANAGER
-async function openStaffManager() {
-  let modal = document.getElementById('staffModal');
-  if (!modal) {
-    modal = document.createElement('div'); modal.id = 'staffModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;padding:16px;overflow:auto;';
-    modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:600px;margin:0 auto;color:var(--text);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">👥 Manage Staff</h2><button onclick="document.getElementById('staffModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div class="card" style="background:var(--input-bg);"><h3 style="margin-bottom:10px;font-size:14px;">Add New Staff</h3><input type="text" id="newStaffName" class="form-input" placeholder="Full Name"><select id="newStaffRole" class="form-input"><option value="technician">Technician</option><option value="manager">Manager</option></select><input type="number" id="newStaffPin" class="form-input" placeholder="4-digit PIN" maxlength="4"><button class="btn btn-success" onclick="addNewStaff()">+ Add Staff</button></div><div id="staffList" style="margin-top:16px;"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Loading...</div></div></div>`;
-    document.body.appendChild(modal);
-  } else { modal.style.display = 'block'; }
-  loadStaffList();
-}
-async function loadStaffList() {
-  const list = document.getElementById('staffList'); list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">Loading...</div>';
-  try {
-    const d = await jget('/api/staff');
-    if (!d.staff || d.staff.length === 0) { list.innerHTML = '<p style="text-align:center;color:var(--text2);font-size:13px;">No staff added yet.</p>'; return; }
-    list.innerHTML = d.staff.map(s => `<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px;"><div><strong style="font-size:14px;">${esc(s.name)}</strong><br><span style="font-size:11px;color:var(--text2);">${esc(s.role)} • PIN: ${s.pin || 'None'}</span></div><button class="btn-sm red" onclick="deleteStaff('${s.id}')">Delete</button></div>`).join('');
-  } catch (e) { list.innerHTML = '<p style="color:red;text-align:center;">Error loading staff</p>'; }
-}
-async function addNewStaff() {
-  const name = document.getElementById('newStaffName').value.trim(); const role = document.getElementById('newStaffRole').value; const pin = document.getElementById('newStaffPin').value.trim();
-  if (!name || pin.length !== 4) { toast('Enter name and 4-digit PIN', 'error'); return; }
-  try {
-    const res = await jpost('/api/staff', { name: name, role: role, pin: pin });
-    if (res.success) { await jpost('/api/staff/' + res.staff.id + '/pin', { pin: pin }); document.getElementById('newStaffName').value = ''; document.getElementById('newStaffPin').value = ''; loadStaffList(); loadStaffDropdown(); toast('Staff added'); }
-  } catch (e) { toast('Error', 'error'); }
-}
-async function deleteStaff(id) { if (!confirm('Delete?')) return; try { await jdel('/api/staff/' + id); loadStaffList(); loadStaffDropdown(); toast('Staff removed'); } catch (e) {} }
-async function loadStaffDropdown() { try { const d = await jget('/api/staff'); const sel = document.getElementById('jobAssigned'); sel.innerHTML = '<option value="">— Assign to staff —</option>' + (d.staff||[]).map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '</option>').join(''); } catch (e) {} }
+@app.post("/api/chat")
+async def chat(r: Request):
+    d = await r.json(); msg = d.get("message", "")
+    if not OPENAI_KEY: return {"reply": "AI not configured"}
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY)
+        resp = c.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": msg}], max_tokens=800)
+        return {"reply": resp.choices[0].message.content}
+    except Exception as e: return {"reply": f"Error: {str(e)}"}
 
-// BARCODE SCANNER
-let html5QrCode = null;
-async function openScanner() {
-  let modal = document.getElementById('scannerModal');
-  if (!modal) {
-    modal = document.createElement('div'); modal.id = 'scannerModal';
-    modal.style.cssText = 'display:block;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;';
-    modal.innerHTML = `<div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;"><h2 style="font-size:18px;">📷 Scan Barcode</h2><button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:24px;">✕</button></div><div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>`;
-    document.body.appendChild(modal);
-  } else { modal.style.display = 'block'; }
-  if (!html5QrCode) {
-    const script = document.createElement('script'); script.src = "https://unpkg.com/html5-qrcode";
-    script.onload = () => {
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); });
-    }; document.body.appendChild(script);
-  } else { html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); }); }
-}
-function closeScanner() { document.getElementById('scannerModal').style.display = 'none'; if (html5QrCode) html5QrCode.stop().catch(e=>{}); }
-</script>
-</body>
-</html>"""
+
+# ═══════════════════════════════════════════════════════════════
+# PARTS, ORDERS, SCANNER & AI INTAKE ROUTES
+# ═══════════════════════════════════════════════════════════════
+@app.get("/api/parts-search")
+def search_parts(q: str = None, limit: int = 50):
+    results = []
+    inv = store_list("inventory")
+    if q:
+        q_lower = q.lower()
+        inv = [i for i in inv if q_lower in str(i.get("part_number","")).lower() or q_lower in str(i.get("name","")).lower()]
+    
+    for i in inv[:limit]:
+        results.append({"source": "inventory", "id": i.get("id"), "part_number": i.get("part_number", ""), "name": i.get("name", ""), "qty": i.get("qty", 0), "cost_price": i.get("cost_price", 0), "sell_price": i.get("sell_price", 0)})
+    
+    return {"query": q or "", "count": len(results), "results": results}
+
+@app.get("/api/po/list")
+def list_pos():
+    return {"purchase_orders": store_list("purchase_orders")}
+
+@app.post("/api/po/create")
+async def create_po(r: Request):
+    d = await r.json()
+    pid = str(uuid.uuid4())[:8]
+    po = {"id": pid, "po_number": "PO-" + pid.upper(), "supplier": d.get("supplier", ""), "items": d.get("items", []), "status": "draft", "created": now()}
+    store_save("purchase_orders", pid, po)
+    return {"success": True, "po_id": pid, "po_number": po["po_number"]}
+
+@app.get("/api/scan/lookup-part/{code}")
+def lookup_part(code: str):
+    code = code.strip().upper()
+    inv = [i for i in store_list("inventory") if code in str(i.get("part_number","")).upper()]
+    return {"code": code, "inventory": inv, "found": len(inv) > 0}
+
+@app.get("/api/scan/lookup-vin/{vin}")
+def lookup_vin(vin: str):
+    vin = vin.strip().upper()
+    if len(vin) != 17: raise HTTPException(400, "VIN must be 17 characters")
+    jobs = [j for j in store_list("jobs") if vin in str(j.get("registration","")).upper()]
+    
+    m, ctry, year = "Unknown", "Unknown", "Unknown"
+    try:
+        from data import WMI_DB, YEAR_CODES
+        m, ctry = WMI_DB.get(vin[:3], ("Unknown", "Unknown"))
+        year = YEAR_CODES.get(vin[9], "Unknown")
+    except: pass
+    return {"vin": vin, "manufacturer": m, "country": ctry, "year": year, "history": jobs}
+
+@app.post("/api/photo/intake")
+async def photo_intake(r: Request):
+    d = await r.json()
+    img = d.get("image_base64", "")
+    if not img or not OPENAI_KEY: return {"success": False, "error": "AI not configured or no image"}
+    
+    prompt = "Extract vehicle info from this image. Return ONLY JSON: {\"vin\":\"\",\"registration\":\"\",\"make\":\"\",\"model\":\"\",\"year\":\"\",\"km\":\"\"}"
+    try:
+        c = openai.OpenAI(api_key=OPENAI_KEY, timeout=60.0)
+        resp = c.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]}],
+            response_format={"type": "json_object"}
+        )
+        return {"success": True, **json.loads(resp.choices[0].message.content)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
