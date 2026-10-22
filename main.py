@@ -579,15 +579,13 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
-        # A stricter system prompt to reduce hallucinations
+        # STRICT SYSTEM PROMPT WITH CHAIN OF THOUGHT
         system_prompt = (
-            "You are an expert auto parts specialist. Your knowledge is strictly based on OEM part numbers and automotive databases. "
-            "Do NOT guess. If you are not sure about a part, state that you are unsure. "
-            "Always format your answer clearly with these sections:\n"
-            "### Part Name\n"
-            "### Function\n"
-            "### Vehicle Fitment (Make, Model, Years, Engine Code)\n"
-            "### OEM Cross-References (if any)"
+            "You are an expert automotive parts specialist with access to OEM databases. "
+            "Do NOT guess. If you are unsure, state that you are unsure. "
+            "Before identifying the part name, you MUST list known OEM cross-references for the given part number. "
+            "Use these cross-references to deduce the correct part. "
+            "Example: For part number 06A115561B, cross-references include Mann W719/30, Mahle OC47. These confirm it is an Oil Filter Element, not a housing."
         )
 
         if img_b64:
@@ -605,9 +603,14 @@ async def identify_part(r: Request):
                 max_tokens=1000
             )
         elif query:
-            prompt = f"Identify the auto part with the following description or part number: '{query}'. Provide its name, function, vehicle fitment, and cross-references."
+            prompt = f"Identify the auto part with the following description or part number: '{query}'.\n\n" \
+                     f"Provide the following sections:\n" \
+                     f"### OEM Cross-References\n" \
+                     f"### Part Name\n" \
+                     f"### Function\n" \
+                     f"### Vehicle Fitment (Make, Model, Years, Engine Code)"
             resp = c.chat.completions.create(
-                model="gpt-4o", # Upgraded from mini to the full model for better accuracy
+                model="gpt-4o", 
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
