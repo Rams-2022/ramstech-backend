@@ -520,7 +520,6 @@ async def ai_problem_procedure(r: Request):
     vehicle = d.get("vehicle", "")
     if not OPENAI_KEY: return {"reply": "AI not configured"}
     
-    # LOCK THE AI INTO THE SPECIFIC PROBLEM USING SYSTEM PROMPT
     system_prompt = f"You are a master mechanic. You are diagnosing EXACTLY ONE specific issue: '{problem}'. Do NOT diagnose anything else. You must provide the diagnostic procedure strictly for this specific problem."
     
     prompt = f"Vehicle: {vehicle if vehicle else 'Unspecified'}. Problem: {problem}. " \
@@ -579,18 +578,16 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
-        # STRICT SYSTEM PROMPT WITH CHAIN OF THOUGHT
+        # STRICT SYSTEM PROMPT: Stop hallucinating.
         system_prompt = (
-            "You are an expert automotive parts specialist with access to OEM databases. "
-            "Do NOT guess. If you are unsure, state that you are unsure. "
-            "Before identifying the part name, you MUST list known OEM cross-references for the given part number. "
-            "Use these cross-references to deduce the correct part. "
-            "Example: For part number 06A115561B, cross-references include Mann W719/30, Mahle OC47. These confirm it is an Oil Filter Element, not a housing."
+            "You are a highly factual automotive parts database. "
+            "You must NOT guess. If you are not 100% confident in the exact part number, you must reply exactly with: 'I am not 100% certain. Please use the Search Web button to verify this part number.' "
+            "Do not invent cross-references."
         )
 
         if img_b64:
             if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
-            prompt = f"Analyze this image of an auto part. Extract the part number if visible. Then, using your knowledge base, identify the part name, function, and vehicle fitment. If no part number is visible, describe the part based on its visual features."
+            prompt = f"Analyze this image of an auto part. Extract the part number if visible. Then, identify the part name and vehicle fitment. If you are not certain, say so."
             resp = c.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -600,22 +597,17 @@ async def identify_part(r: Request):
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
                     ]}
                 ],
-                max_tokens=1000
+                max_tokens=500
             )
         elif query:
-            prompt = f"Identify the auto part with the following description or part number: '{query}'.\n\n" \
-                     f"Provide the following sections:\n" \
-                     f"### OEM Cross-References\n" \
-                     f"### Part Name\n" \
-                     f"### Function\n" \
-                     f"### Vehicle Fitment (Make, Model, Years, Engine Code)"
+            prompt = f"Identify the auto part with the following part number: '{query}'. Provide the Part Name, Function, and Vehicle Fitment. If you are not 100% sure, output 'UNKNOWN'."
             resp = c.chat.completions.create(
                 model="gpt-4o", 
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1000
+                max_tokens=500
             )
         else:
             return {"success": False, "error": "No image or query provided."}
