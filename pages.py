@@ -1016,4 +1016,4 @@ async function diagnosePhoto() { const btn = document.getElementById('photoBtn')
 lucide.createIcons();
 </script>
 </body>
-</html>'''
+</html>'''a
