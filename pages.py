@@ -700,6 +700,7 @@ async function searchParts() {
                     <h3>No local matches found</h3>
                     <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">We couldn't find "<b>${esc(q)}</b>" in the local catalog.</p>
                     <button class="btn" onclick="askAIPart('${esc(q)}')" style="background:var(--grad6);font-size:14px;">🤖 Ask AI to Identify Part</button>
+                    <button class="btn btn-dark" onclick="window.open('https://www.google.com/search?q=' + encodeURIComponent('${esc(q)} + auto parts supplier south africa'), '_blank')" style="margin-top:10px;font-size:14px;">🌐 Search Web for Part Number</button>
                 </div>
                 <div id="partsAIResult" style="display:none; background:var(--input-bg); padding:14px; border-radius:8px; border:1px solid var(--border); margin-top:14px; font-size:14px; line-height:1.6;"></div>
             `;
@@ -715,12 +716,9 @@ function searchSupplier(name, number) {
 }
 
 function addToPO(name, number) {
-    // Switch to Purchase panel
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('purchase').classList.add('active');
     window.scrollTo(0, 0);
-
-    // Append to PO items
     const textarea = document.getElementById('poItems');
     const newItem = `${name} (${number}) - Qty: 1\n`;
     textarea.value += newItem;
@@ -891,13 +889,11 @@ function filterProblems() {
         return;
     }
     
-    // 1. Try exact substring match
     let filtered = window.ALL_PROBLEMS.filter(p =>
         p.title.toLowerCase().includes(q) ||
         p.system.toLowerCase().includes(q)
     );
     
-    // 2. If nothing found, try keyword match (any word in title/system/causes)
     if (filtered.length === 0) {
         const words = q.split(/\s+/);
         filtered = window.ALL_PROBLEMS.filter(p => {
@@ -913,7 +909,6 @@ function filterProblems() {
         </div>
     `).join('');
 
-    // Always add the AI fallback at the bottom, regardless of local matches
     html += `
         <div class="card" style="border: 1px dashed var(--primary); background: rgba(14, 165, 233, 0.05); margin-top: 24px;">
             <h3 style="color: var(--primary);">Not finding it?</h3>
@@ -950,7 +945,6 @@ async function showProblemDetails(problemTitle) {
     const p = window.ALL_PROBLEMS.find(x => x.title === problemTitle);
     if (!p) return;
     
-    // SAVE THE CURRENT PROBLEM TITLE GLOBALLY
     window.CURRENT_PROBLEM_TITLE = p.title;
     
     let modal = document.getElementById('probModal');
@@ -969,21 +963,18 @@ async function showProblemDetails(problemTitle) {
             <hr style="border:none;border-top:1px solid var(--border);margin:15px 0;">
             <h3 style="font-size:14px;margin-bottom:10px;">🤖 AI Deep Dive</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Need exact testing procedures? Let the AI generate a step-by-step diagnostic guide.</p>
-            <!-- Notice we don't pass the title here anymore, we just call the function -->
             <button class="btn" onclick="getAIProcedure()" style="background:var(--grad6);font-size:14px;">Get Step-by-Step Procedure</button>
             <div id="pmAIResult" style="margin-top:15px;font-size:14px;line-height:1.6;display:none;background:var(--input-bg);padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
         </div>`;
         document.body.appendChild(modal); 
     }
     
-    // Update the UI elements every time the modal opens
     document.getElementById('pmTitle').textContent = p.title;
     document.getElementById('pmSub').textContent = `${p.system} • ${p.severity} Severity`;
     
     document.getElementById('pmCauses').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Possible Causes:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.causes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     document.getElementById('pmChecks').innerHTML = `<p style="font-size:13px;font-weight:700;margin-bottom:4px;">Basic Checks:</p><ul style="padding-left:20px;font-size:13px;color:var(--text2);">${p.checks.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`;
     
-    // Clear previous AI result
     document.getElementById('pmAIResult').style.display = 'none';
     document.getElementById('pmAIResult').innerHTML = '';
     
