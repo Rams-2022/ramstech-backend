@@ -610,10 +610,12 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
+        # ULTRA-STRICT SYSTEM PROMPT: Force the AI to use the web search data.
         system_prompt = (
-            "You are an expert automotive parts specialist. "
-            "Do NOT invent cross-references. "
-            "If web search results are provided, base your answer strictly on them. "
+            "You are a data extraction bot. You MUST NOT use your own internal knowledge. "
+            "Your ONLY job is to read the provided web search results and extract the correct part name and fitment. "
+            "If the web search results do not clearly state what the part is, you must output exactly: 'I could not find clear data. Please click Search Web.' "
+            "Do NOT guess. "
             "Always use the following format:\n"
             "### Part Name\n"
             "### Function\n"
@@ -637,18 +639,19 @@ async def identify_part(r: Request):
                 max_tokens=1000
             )
         elif query:
-            # Live Web Search using DuckDuckGo
+            # LIVE WEB SEARCH
             web_context = ""
             try:
-                results = DDGS().text(f'"{query}" auto parts fitment', max_results=3)
+                # Broaden search slightly to catch lists and forums
+                results = DDGS().text(f'"{query}" car part name', max_results=4)
                 if results:
-                    web_context = "\n\nHere are live web search results for this part number:\n"
+                    web_context = "\n\nCRITICAL WEB SEARCH RESULTS (Use ONLY this information):\n"
                     for res in results:
                         web_context += f"- {res.get('title')}: {res.get('body')}\n"
             except Exception as e:
                 print(f"Web search failed: {e}")
 
-            prompt = f"Identify the auto part with the following part number: '{query}'.\n{web_context}\n\nIf the web search results indicate what the part is, use them. If not, use your best knowledge."
+            prompt = f"Extract the part name for '{query}' from these web results:\n{web_context}"
             resp = c.chat.completions.create(
                 model="gpt-4o", 
                 messages=[
@@ -658,31 +661,32 @@ async def identify_part(r: Request):
                 max_tokens=1000
             )
             
-            # AUTO-SAVE TO DATABASE
             reply_text = resp.choices[0].message.content
-            extracted_name = "Unknown Part"
-            if "### Part Name" in reply_text:
-                try:
-                    extracted_name = reply_text.split("### Part Name")[1].split("###")[0].strip()
-                except: pass
-                
-            # Check if it already exists to avoid duplicates
-            existing_parts = store_list("custom_parts")
-            already_exists = any(p.get("part_number", "").lower() == query.lower() for p in existing_parts)
             
-            if not already_exists:
-                iid = str(uuid.uuid4())[:8]
-                new_part = {
-                    "id": iid,
-                    "name": extracted_name,
-                    "part_number": query,
-                    "brand": "AI Verified",
-                    "sell_price": 0.0,
-                    "fitment": reply_text,
-                    "created": now()
-                }
-                store_save("custom_parts", iid, new_part)
-                print(f"[DB] Auto-saved new part: {query} - {extracted_name}")
+            # AUTO-SAVE TO DATABASE (Only if it found a real answer)
+            if "I could not find clear data" not in reply_text:
+                extracted_name = "Unknown Part"
+                if "### Part Name" in reply_text:
+                    try:
+                        extracted_name = reply_text.split("### Part Name")[1].split("###")[0].strip()
+                    except: pass
+                    
+                existing_parts = store_list("custom_parts")
+                already_exists = any(p.get("part_number", "").lower() == query.lower() for p in existing_parts)
+                
+                if not already_exists:
+                    iid = str(uuid.uuid4())[:8]
+                    new_part = {
+                        "id": iid,
+                        "name": extracted_name,
+                        "part_number": query,
+                        "brand": "AI Verified",
+                        "sell_price": 0.0,
+                        "fitment": reply_text,
+                        "created": now()
+                    }
+                    store_save("custom_parts", iid, new_part)
+                    print(f"[DB] Auto-saved new part: {query} - {extracted_name}")
                 
         else:
             return {"success": False, "error": "No image or query provided."}
