@@ -1,5 +1,5 @@
 # pages.py — RamsTech v10.0 (Expanded Inspection Checklist)
-HTML_PAGE = r"""<!DOCTYPE html>
+HTML_PAGE = r'''<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -737,6 +737,7 @@ async function askAIPart(query) {
             let html = esc(res.reply)
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
+            
             resBox.innerHTML = html + `
                 <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
                     <button class="btn-sm blue" onclick="searchSupplier('${esc(query)}', '')">🌐 Find Supplier Online</button>
@@ -1015,4 +1016,4 @@ async function diagnosePhoto() { const btn = document.getElementById('photoBtn')
 lucide.createIcons();
 </script>
 </body>
-</html>"""q
+</html>'''
