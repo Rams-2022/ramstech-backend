@@ -82,7 +82,9 @@ var _m = 'code', _pic = null, _rec = null;
 
 function aiToggle(){
   var p = document.getElementById('aiPanel');
-  p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+  var isOpen = (p.style.display === 'block');
+  p.style.display = isOpen ? 'none' : 'block';
+  sessionStorage.setItem('ramstech_ai_open', !isOpen ? 'true' : 'false');
 }
 
 function aiMode(m){
@@ -135,11 +137,10 @@ function aiVoice(){
     var f = {code:'aiCode', symptom:'aiSym', ask:'aiAsk'}[_m];
     var el = document.getElementById(f);
     el.value = (el.value ? el.value + ' ' : '') + t;
-    _rec = null; // Reset after success
+    _rec = null; 
   };
   
   _rec.onerror = function(e){ 
-    // Ignore "aborted" errors (happens if user clicks away or taps mic again)
     if (e.error !== 'aborted' && e.error !== 'no-speech') {
         alert('Voice Error: ' + e.error); 
     }
@@ -223,5 +224,12 @@ async function aiSubmit(){
 document.getElementById('aiPanel').addEventListener('click', function(e){
   if(e.target === this) aiToggle();
 });
+
+// RESTORE PANEL IF OPENED BEFORE CAMERA
+setTimeout(function() {
+    if (sessionStorage.getItem('ramstech_ai_open') === 'true') {
+        document.getElementById('aiPanel').style.display = 'block';
+    }
+}, 200);
 </script>
 """
