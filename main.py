@@ -579,34 +579,40 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
+        # A stricter system prompt to reduce hallucinations
+        system_prompt = (
+            "You are an expert auto parts specialist. Your knowledge is strictly based on OEM part numbers and automotive databases. "
+            "Do NOT guess. If you are not sure about a part, state that you are unsure. "
+            "Always format your answer clearly with these sections:\n"
+            "### Part Name\n"
+            "### Function\n"
+            "### Vehicle Fitment (Make, Model, Years, Engine Code)\n"
+            "### OEM Cross-References (if any)"
+        )
+
         if img_b64:
             if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
-            prompt = (
-                "You are an expert auto parts specialist. Analyze this image of a part or part label. "
-                "1. Extract the part number if visible.\n"
-                "2. Identify the part name.\n"
-                "3. Describe its function.\n"
-                "4. List the makes and models it fits (e.g., Toyota Hilux 2015+).\n"
-                "Format with clear headings and bullet points."
-            )
+            prompt = f"Analyze this image of an auto part. Extract the part number if visible. Then, using your knowledge base, identify the part name, function, and vehicle fitment. If no part number is visible, describe the part based on its visual features."
             resp = c.chat.completions.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                ]}],
-                max_tokens=800
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                    ]}
+                ],
+                max_tokens=1000
             )
         elif query:
-            prompt = (
-                f"You are an expert auto parts specialist. Based on the part description or number '{query}', "
-                f"identify the part name, describe its function, and list the makes and models it fits. "
-                f"Format with clear headings and bullet points."
-            )
+            prompt = f"Identify the auto part with the following description or part number: '{query}'. Provide its name, function, vehicle fitment, and cross-references."
             resp = c.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=800
+                model="gpt-4o", # Upgraded from mini to the full model for better accuracy
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1000
             )
         else:
             return {"success": False, "error": "No image or query provided."}
