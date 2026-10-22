@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, APIRouter
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, RedirectResponse
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io, urllib.request, urllib.parse, urllib.error, hmac, hashlib, base64
-from duckduckgo_search import DDGS # NEW: For web searching
+from duckduckgo_search import DDGS 
 
 app = FastAPI(title="RamsTech")
 
@@ -436,7 +436,7 @@ def search_parts(q: str = ""):
             results.append({
                 "name": part.get("name"),
                 "part_number": part.get("part_number"),
-                "brand": part.get("brand", "Custom"),
+                "brand": part.get("brand", "Verified"),
                 "sell_price": float(part.get("sell_price", 0))
             })
             
@@ -657,6 +657,34 @@ async def identify_part(r: Request):
                 ],
                 max_tokens=1000
             )
+            
+            # AUTO-SAVE TO DATABASE
+            # We extract the Part Name to save it for future searches
+            reply_text = resp.choices[0].message.content
+            extracted_name = "Unknown Part"
+            if "### Part Name" in reply_text:
+                try:
+                    extracted_name = reply_text.split("### Part Name")[1].split("###")[0].strip()
+                except: pass
+                
+            # Check if it already exists to avoid duplicates
+            existing_parts = store_list("custom_parts")
+            already_exists = any(p.get("part_number", "").lower() == query.lower() for p in existing_parts)
+            
+            if not already_exists:
+                iid = str(uuid.uuid4())[:8]
+                new_part = {
+                    "id": iid,
+                    "name": extracted_name,
+                    "part_number": query,
+                    "brand": "AI Verified",
+                    "sell_price": 0.0,
+                    "fitment": reply_text,
+                    "created": now()
+                }
+                store_save("custom_parts", iid, new_part)
+                print(f"[DB] Auto-saved new part: {query} - {extracted_name}")
+                
         else:
             return {"success": False, "error": "No image or query provided."}
             
