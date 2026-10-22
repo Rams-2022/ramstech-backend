@@ -637,7 +637,7 @@ async def identify_part(r: Request):
                 max_tokens=1000
             )
         elif query:
-            # NEW: Live Web Search using DuckDuckGo
+            # Live Web Search using DuckDuckGo
             web_context = ""
             try:
                 results = DDGS().text(f'"{query}" auto parts fitment', max_results=3)
@@ -659,7 +659,6 @@ async def identify_part(r: Request):
             )
             
             # AUTO-SAVE TO DATABASE
-            # We extract the Part Name to save it for future searches
             reply_text = resp.choices[0].message.content
             extracted_name = "Unknown Part"
             if "### Part Name" in reply_text:
