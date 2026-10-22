@@ -729,7 +729,7 @@ function addToPO(name, number) {
 async function askAIPart(query) {
     const resBox = document.getElementById('partsAIResult');
     resBox.style.display = 'block';
-    resBox.innerHTML = '<span style="color:var(--primary);">Analyzing part details... please wait.</span>';
+    resBox.innerHTML = '<span style="color:var(--primary);">Analyzing part details (checking live web data)... please wait.</span>';
     
     try {
         const res = await jpost('/api/parts/identify', { query: query });
@@ -737,10 +737,13 @@ async function askAIPart(query) {
             let html = esc(res.reply)
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
+            
+            // Add a "Save to Database" button
             resBox.innerHTML = html + `
                 <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn-sm green" onclick="savePartToDB('${esc(query)}', '${esc(res.reply.replace(/'/g, "\\'"))}')">💾 Save to Database</button>
                     <button class="btn-sm blue" onclick="searchSupplier('${esc(query)}', '')">🌐 Find Supplier Online</button>
-                    <button class="btn-sm green" onclick="addToPO('${esc(query)}', '')">🛒 Add to PO</button>
+                    <button class="btn-sm purple" onclick="addToPO('${esc(query)}', '')">🛒 Add to PO</button>
                 </div>
             `;
         } else {
@@ -748,6 +751,21 @@ async function askAIPart(query) {
         }
     } catch(e) {
         resBox.innerHTML = 'Network error.';
+    }
+}
+
+async function savePartToDB(partNumber, fullText) {
+    // Extract the name from the text (very basic extraction)
+    let nameMatch = fullText.match(/### Part Name.*?<br>(.*?)<br>/i);
+    let name = nameMatch ? nameMatch[1].replace(/<[^>]+>/g, '').trim() : "Verified Part";
+    
+    try {
+        const res = await jpost('/api/parts/save', { part_number: partNumber, name: name, brand: "Verified" });
+        if(res.success) {
+            toast('Part saved to local database!');
+        }
+    } catch(e) {
+        toast('Failed to save part', 'error');
     }
 }
 
