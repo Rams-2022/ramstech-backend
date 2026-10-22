@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, APIRouter
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, RedirectResponse
 from datetime import datetime, timedelta
 import openai, os, json, uuid, csv, io, urllib.request, urllib.parse, urllib.error, hmac, hashlib, base64
+from duckduckgo_search import DDGS # NEW: For web searching
 
 app = FastAPI(title="RamsTech")
 
@@ -27,7 +28,7 @@ OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 try: db.init()
 except: pass
 
-MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices", "inventory", "purchase_orders", "staff", "clockins", "expenses", "fuel_logs", "workshops", "damage_reports", "inspections"]}
+MEM = {k: {} for k in ["jobs", "customers", "appointments", "quotes", "invoices", "inventory", "purchase_orders", "staff", "clockins", "expenses", "fuel_logs", "workshops", "damage_reports", "inspections", "custom_parts"]}
 WORKSHOP = {"name": "My Workshop", "phone": "", "address": "", "email": "", "logo": "RT", "labour_rate": 450}
 
 def now(): return datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -413,6 +414,7 @@ def search_parts(q: str = ""):
     q = q.lower().strip()
     if not q: return {"results": []}
     results = []
+    # Search local catalog
     for part in PARTS_CATALOG:
         if (q in part.get("name", "").lower() or 
             q in part.get("number", "").lower() or 
@@ -424,7 +426,37 @@ def search_parts(q: str = ""):
                 "brand": part.get("brand"),
                 "sell_price": float(part.get("price", 0))
             })
+            
+    # Search custom saved parts
+    custom_parts = store_list("custom_parts")
+    for part in custom_parts:
+        if (q in part.get("name", "").lower() or 
+            q in part.get("part_number", "").lower() or 
+            q in part.get("brand", "").lower()):
+            results.append({
+                "name": part.get("name"),
+                "part_number": part.get("part_number"),
+                "brand": part.get("brand", "Custom"),
+                "sell_price": float(part.get("sell_price", 0))
+            })
+            
     return {"results": results}
+
+@app.post("/api/parts/save")
+async def save_custom_part(r: Request):
+    d = await r.json()
+    iid = str(uuid.uuid4())[:8]
+    part = {
+        "id": iid,
+        "name": d.get("name", "Unknown Part"),
+        "part_number": d.get("part_number", ""),
+        "brand": d.get("brand", "Verified"),
+        "sell_price": float(d.get("sell_price", 0)),
+        "fitment": d.get("fitment", ""),
+        "created": now()
+    }
+    store_save("custom_parts", iid, part)
+    return {"success": True, "part": part}
 
 @app.get("/api/vin/{vin}")
 def decode_vin(vin: str):
@@ -578,16 +610,21 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
-        # STRICT SYSTEM PROMPT: Stop hallucinating.
         system_prompt = (
-            "You are a highly factual automotive parts database. "
-            "You must NOT guess. If you are not 100% confident in the exact part number, you must reply exactly with: 'I am not 100% certain. Please use the Search Web button to verify this part number.' "
-            "Do not invent cross-references."
+            "You are an expert automotive parts specialist. "
+            "Do NOT invent cross-references. "
+            "If web search results are provided, base your answer strictly on them. "
+            "Always use the following format:\n"
+            "### Part Name\n"
+            "### Function\n"
+            "### Vehicle Fitment (Make, Model, Years, Engine Code)\n"
+            "### Warning\n"
+            "State: 'AI can make mistakes. Please verify this part number with your local supplier.'"
         )
 
         if img_b64:
             if img_b64.startswith("data:"): img_b64 = img_b64.split(",", 1)[1]
-            prompt = f"Analyze this image of an auto part. Extract the part number if visible. Then, identify the part name and vehicle fitment. If you are not certain, say so."
+            prompt = f"Analyze this image of an auto part. Extract the part number if visible. Then, identify the part name, function, and vehicle fitment."
             resp = c.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -597,17 +634,28 @@ async def identify_part(r: Request):
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
                     ]}
                 ],
-                max_tokens=500
+                max_tokens=1000
             )
         elif query:
-            prompt = f"Identify the auto part with the following part number: '{query}'. Provide the Part Name, Function, and Vehicle Fitment. If you are not 100% sure, output 'UNKNOWN'."
+            # NEW: Live Web Search using DuckDuckGo
+            web_context = ""
+            try:
+                results = DDGS().text(f'"{query}" auto parts fitment', max_results=3)
+                if results:
+                    web_context = "\n\nHere are live web search results for this part number:\n"
+                    for res in results:
+                        web_context += f"- {res.get('title')}: {res.get('body')}\n"
+            except Exception as e:
+                print(f"Web search failed: {e}")
+
+            prompt = f"Identify the auto part with the following part number: '{query}'.\n{web_context}\n\nIf the web search results indicate what the part is, use them. If not, use your best knowledge."
             resp = c.chat.completions.create(
                 model="gpt-4o", 
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500
+                max_tokens=1000
             )
         else:
             return {"success": False, "error": "No image or query provided."}
