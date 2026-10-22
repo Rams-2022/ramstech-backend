@@ -459,6 +459,8 @@ function showTab(name, el) {
   var panel = document.getElementById(name); if (panel) panel.classList.add('active');
   if (el) { document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active')); el.classList.add('active'); }
   window.scrollTo(0, 0);
+  // REMEMBER THE TAB FOR CAMERA RELOADS
+  localStorage.setItem('ramstech_active_tab', name);
   var fab = document.getElementById('aiFab'), diagTabs = ['chat','codes','problems','vin','paint','photo'];
   if (fab) {
     if (diagTabs.includes(name)) { fab.style.setProperty('display', 'flex', 'important'); fab.style.setProperty('opacity', '1', 'important'); fab.style.setProperty('visibility', 'visible', 'important'); }
@@ -527,6 +529,7 @@ function hideInspectForm() { document.getElementById('inspectForm').style.displa
 
 async function previewInspectPhoto(e) {
   const file = e.target.files[0]; if (!file) return;
+  document.getElementById('inspPhotoPreview').innerHTML = '<div class="loading">Processing image...</div>';
   const reader = new FileReader();
   reader.onload = function(ev) {
     const img = new Image();
@@ -779,7 +782,6 @@ async function scanPart(e) {
             } catch (err) {
                 resBox.innerHTML = '<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Network error. Please try again.</p></div>';
             }
-            // Reset file input
             document.getElementById('partsImage').value = '';
         };
         img.src = ev.target.result;
@@ -1006,14 +1008,29 @@ async function getAIProcedure() {
 }
 
 let paintB64 = '';
-async function previewPaint(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(ev) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); paintB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; document.getElementById('paintPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`; }; img.src = ev.target.result; }; reader.readAsDataURL(file); }
+async function previewPaint(e) { const file = e.target.files[0]; if (!file) return; document.getElementById('paintPreview').innerHTML = '<div class="loading">Processing image...</div>'; const reader = new FileReader(); reader.onload = function(ev) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); paintB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; document.getElementById('paintPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`; }; img.src = ev.target.result; }; reader.readAsDataURL(file); }
 async function matchPaint() { const btn = document.getElementById('paintBtn'); const c = document.getElementById('paintResult'); if (!paintB64) { toast('Please select an image', 'error'); return; } btn.disabled = true; btn.textContent = '🎨 Analyzing...'; c.innerHTML = '<div class="loading">Scanning paint colour...</div>'; try { const res = await jpost('/api/paint/match', { image_base64: paintB64 }); if (!res.success) throw new Error(res.error); const col = res.detected_colour || {}; let h = `<div class="card" style="border-left:4px solid ${col.hex_code || '#ccc'};"><div style="height:60px;border-radius:8px;background:${col.hex_code || '#000'};margin-bottom:12px;"></div><h3>${esc(col.name || 'Unknown')}</h3><p style="font-family:monospace;font-size:18px;">${col.hex_code || ''}</p></div>`; c.innerHTML = h; } catch(e) { c.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${e.message}</p></div>`; } btn.disabled = false; btn.textContent = '🎨 Match Paint Colour'; }
 
 let diagB64 = '';
-async function previewDiag(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(ev) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); diagB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; document.getElementById('photoPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`; }; img.src = ev.target.result; }; reader.readAsDataURL(file); }
+async function previewDiag(e) { const file = e.target.files[0]; if (!file) return; document.getElementById('photoPreview').innerHTML = '<div class="loading">Processing image...</div>'; const reader = new FileReader(); reader.onload = function(ev) { const img = new Image(); img.onload = function() { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > 1000) { h = (h * 1000) / w; w = 1000; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); diagB64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; document.getElementById('photoPreview').innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.8)}" style="width:100%;border-radius:12px;margin-bottom:10px;border:1px solid var(--border);">`; }; img.src = ev.target.result; }; reader.readAsDataURL(file); }
 async function diagnosePhoto() { const btn = document.getElementById('photoBtn'); const c = document.getElementById('photoResult'); if (!diagB64) { toast('Please select an image', 'error'); return; } btn.disabled = true; btn.textContent = '📸 Analyzing...'; c.innerHTML = '<div class="loading">Scanning photo...</div>'; try { const res = await jpost('/api/diagnose/photo', { image_base64: diagB64, vehicle_info: document.getElementById('photoVehicle').value }); if (!res.success) throw new Error(res.error); let h = `<div class="card" style="border-left:4px solid var(--primary);"><h3>🔍 ${esc(res.problem || 'Detected')}</h3><p><strong>Confidence:</strong> ${esc(res.confidence || '')}</p><p style="margin-top:8px;">${esc(res.description || '')}</p></div>`; if (res.possible_causes) res.possible_causes.forEach(x => h += `<div class="list-item">• ${esc(x)}</div>`); c.innerHTML = h; } catch(e) { c.innerHTML = `<div class="card" style="border-left:4px solid #ef4444;"><p style="color:#ef4444;">Error: ${e.message}</p></div>`; } btn.disabled = false; btn.textContent = '📸 Analyze Photo'; }
 
 lucide.createIcons();
+
+// RESTORE TAB AFTER CAMERA RELOAD
+setTimeout(() => {
+    const lastTab = localStorage.getItem('ramstech_active_tab');
+    if (lastTab && lastTab !== 'home') {
+        let navEl = null;
+        document.querySelectorAll('.bnav-item').forEach(item => {
+            const onclickStr = item.getAttribute('onclick');
+            if (onclickStr && onclickStr.includes(`'${lastTab}'`)) {
+                navEl = item;
+            }
+        });
+        showTab(lastTab, navEl);
+    }
+}, 100);
 </script>
 </body>
 </html>'''
