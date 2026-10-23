@@ -84,7 +84,7 @@ function aiToggle(){
   var p = document.getElementById('aiPanel');
   var isOpen = (p.style.display === 'block');
   p.style.display = isOpen ? 'none' : 'block';
-  sessionStorage.setItem('ramstech_ai_open', !isOpen ? 'true' : 'false');
+  localStorage.setItem('ramstech_ai_open', !isOpen ? 'true' : 'false');
 }
 
 function aiMode(m){
@@ -225,11 +225,18 @@ document.getElementById('aiPanel').addEventListener('click', function(e){
   if(e.target === this) aiToggle();
 });
 
-// RESTORE PANEL IF OPENED BEFORE CAMERA
-setTimeout(function() {
-    if (sessionStorage.getItem('ramstech_ai_open') === 'true') {
-        document.getElementById('aiPanel').style.display = 'block';
+// AGGRESSIVE STATE RESTORATION
+function restoreAIState() {
+    if (localStorage.getItem('ramstech_ai_open') === 'true') {
+        var p = document.getElementById('aiPanel');
+        if (p) p.style.display = 'block';
     }
-}, 200);
+}
+window.addEventListener('pageshow', restoreAIState);
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+        setTimeout(restoreAIState, 100);
+    }
+});
 </script>
 """
