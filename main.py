@@ -202,7 +202,7 @@ async def create_inspection(r: Request):
         "vehicle": d.get("vehicle", ""),
         "checklist": d.get("checklist", []),
         "notes": d.get("notes", ""),
-        "photos": d.get("photos", [])[:3],
+        "photos": d.get("photos", [])[:10], # UPDATED: Allow up to 10 photos
         "created": now()
     }
     store_save("inspections", iid, insp)
@@ -610,12 +610,10 @@ async def identify_part(r: Request):
     try:
         c = openai.OpenAI(api_key=OPENAI_KEY)
         
-        # ULTRA-STRICT SYSTEM PROMPT: Force the AI to use the web search data.
         system_prompt = (
-            "You are a data extraction bot. You MUST NOT use your own internal knowledge. "
-            "Your ONLY job is to read the provided web search results and extract the correct part name and fitment. "
-            "If the web search results do not clearly state what the part is, you must output exactly: 'I could not find clear data. Please click Search Web.' "
-            "Do NOT guess. "
+            "You are an expert automotive parts specialist. "
+            "Do NOT invent cross-references. "
+            "If web search results are provided, base your answer strictly on them. "
             "Always use the following format:\n"
             "### Part Name\n"
             "### Function\n"
@@ -642,7 +640,6 @@ async def identify_part(r: Request):
             # LIVE WEB SEARCH
             web_context = ""
             try:
-                # Broaden search slightly to catch lists and forums
                 results = DDGS().text(f'"{query}" car part name', max_results=4)
                 if results:
                     web_context = "\n\nCRITICAL WEB SEARCH RESULTS (Use ONLY this information):\n"
@@ -663,7 +660,7 @@ async def identify_part(r: Request):
             
             reply_text = resp.choices[0].message.content
             
-            # AUTO-SAVE TO DATABASE (Only if it found a real answer)
+            # AUTO-SAVE TO DATABASE
             if "I could not find clear data" not in reply_text:
                 extracted_name = "Unknown Part"
                 if "### Part Name" in reply_text:
