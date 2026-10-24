@@ -406,6 +406,11 @@ input[type="checkbox"] {
 </div>
 
 <script>
+function getAuthHeaders() {
+    const token = localStorage.getItem('auth_token');
+    return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
 function toast(msg, type='success') {
   const wrap = document.getElementById('toastWrap');
   const t = document.createElement('div');
@@ -459,7 +464,6 @@ function showTab(name, el) {
   var panel = document.getElementById(name); if (panel) panel.classList.add('active');
   if (el) { document.querySelectorAll('.bnav-item').forEach(t => t.classList.remove('active')); el.classList.add('active'); }
   window.scrollTo(0, 0);
-  // REMEMBER THE TAB FOR CAMERA RELOADS
   localStorage.setItem('ramstech_active_tab', name);
   var fab = document.getElementById('aiFab'), diagTabs = ['chat','codes','problems','vin','paint','photo'];
   if (fab) {
@@ -478,12 +482,37 @@ function toggleTheme() { document.body.classList.toggle('dark'); document.getEle
 async function checkStatus() { try { await fetch('/health'); document.getElementById('status').innerHTML = '<span style="color:var(--primary);font-weight:800;letter-spacing:1px;">● SYSTEM ONLINE</span>'; } catch (e) { document.getElementById('status').innerHTML = '<span style="color:#ef4444;font-weight:800;letter-spacing:1px;">● SYSTEM OFFLINE</span>'; } }
 checkStatus();
 function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-async function jget(u) { const r = await fetch(u); return r.json(); }
-async function jpost(u, b) { const r = await fetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
-async function jput(u, b) { const r = await fetch(u, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}); return r.json(); }
-async function jdel(u) { const r = await fetch(u, {method:'DELETE'}); return r.json(); }
 
-// DASHBOARD ADVANCED ANALYTICS
+// ── SECURE FETCH WRAPPERS ──
+async function jget(u) { 
+    const r = await fetch(u, { headers: getAuthHeaders() }); 
+    if (r.status === 401) { window.appLogout(); return {}; } 
+    return r.json(); 
+}
+async function jpost(u, b) { 
+    const r = await fetch(u, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, 
+        body: JSON.stringify(b) 
+    }); 
+    if (r.status === 401) { window.appLogout(); return {}; }
+    return r.json(); 
+}
+async function jput(u, b) { 
+    const r = await fetch(u, { 
+        method:'PUT', 
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, 
+        body: JSON.stringify(b) 
+    }); 
+    if (r.status === 401) { window.appLogout(); return {}; }
+    return r.json(); 
+}
+async function jdel(u) { 
+    const r = await fetch(u, { method:'DELETE', headers: getAuthHeaders() }); 
+    if (r.status === 401) { window.appLogout(); return {}; }
+    return r.json(); 
+}
+
 let rC = null, jC = null, mC = null;
 async function loadDashboard() { 
   try { 
@@ -505,7 +534,6 @@ async function loadDashboard() {
   } catch(e){ console.error(e); }
 }
 
-// INSPECTIONS
 const INSPECT_ITEMS = [
   "Body & Paint Condition", "Windscreen & Glass", "Mirrors & Wipers", "Headlights & Taillights",
   "Indicators & Hazards", "Brake Lights", "Tyre Tread & Condition", "Tyre Pressures & Spare",
@@ -582,7 +610,6 @@ async function loadInspections() {
   } catch(e) {}
 }
 
-// CHAT & VOICE
 let rec = null, isRec = false;
 function toggleMic() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { toast('Voice not supported', 'error'); return; }
@@ -598,11 +625,10 @@ async function sendMsg() {
   b.scrollTop = b.scrollHeight;
 }
 
-// JOBS
 async function loadJobs() {
   const c = document.getElementById('jobList'); c.innerHTML = '<div class="loading">Loading...</div>';
   try { const d = await jget('/api/jobs'); if (!d.jobs.length) { c.innerHTML = '<div class="card"><p>No jobs yet.</p></div>'; return; }
-    c.innerHTML = d.jobs.reverse().map(j => {
+    c.innerHTML = [...d.jobs].reverse().map(j => {
       let badgeClass = 'new'; if (j.status === 'Completed' || j.status === 'Invoiced') badgeClass = 'completed'; if (j.status === 'In Progress' || j.status === 'Diagnosing') badgeClass = 'medium'; if (j.status === 'Awaiting Parts' || j.status === 'Awaiting Approval') badgeClass = 'high';
       let cost = j.total ? `<div style="margin-top:10px;padding:10px;background:var(--input-bg);border-radius:8px;font-size:13px;border:1px solid var(--border);"><strong>💰 Total: R${j.total.toFixed(2)}</strong></div>` : '';
       let as = j.assigned_to ? `<p style="color:var(--text2);font-size:12px;">👷 ${esc(j.assigned_to)}</p>` : '';
@@ -619,14 +645,12 @@ async function setCost(id) { const h = prompt('Labour hours:', '1'); if (h === n
 async function generateInvoice(jid) { try { const d = await jget('/api/jobs'); const job = d.jobs.find(x => x.id == jid); if (!job) return; const res = await jpost('/api/invoices', { customer: job.customer, vehicle: job.vehicle, description: job.complaint, labour: job.labour_cost || 0, parts: job.parts_cost || 0 }); if (res.success) { toast('Invoice generated!'); showTab('invoices'); loadInvoices(); } } catch(e) { toast('Error', 'error'); } }
 async function shareJobWhatsApp(id) { const d = await jget('/api/jobs'); const j = d.jobs.find(x => x.id == id); if (!j) return; const txt = `🔧 *Job #${j.id} Update*\n\nHi ${j.customer},\nYour vehicle (${j.vehicle}) is currently: *${j.status}*.\n\nIssue: ${j.complaint}`; window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); }
 
-// CUSTOMERS & INVOICES
 function showCustomerForm(){document.getElementById('customerForm').style.display='block'} function hideCustomerForm(){document.getElementById('customerForm').style.display='none'}
 async function createCustomer() { const name = document.getElementById('custName').value.trim(); const phone = document.getElementById('custPhone').value.trim(); if (!name || !phone) { toast('Name and phone required', 'error'); return; } await jpost('/api/customers', { name: name, phone: phone, email: document.getElementById('custEmail').value, address: document.getElementById('custAddress').value }); document.getElementById('custName').value = ''; document.getElementById('custPhone').value = ''; hideCustomerForm(); loadCustomers(); toast('Customer added'); }
 async function loadCustomers() { try { const d = await jget('/api/customers'); document.getElementById('customerList').innerHTML = d.customers.map(c=>`<div class="card"><div style="display:flex;justify-content:space-between;"><div><h3>👤 ${esc(c.name)}</h3><p>📞 ${esc(c.phone)}</p>${c.email ? `<p>📧 ${esc(c.email)}</p>` : ''}</div><button class="btn-sm whatsapp" onclick="window.open('https://wa.me/${c.phone.replace(/\D/g,'')}', '_blank')">📱 Chat</button></div></div>`).join('') || '<div class="card"><p>No customers yet</p></div>'; } catch(e){} }
 async function loadInvoices() { try { const d = await jget('/api/invoices'); document.getElementById('invoiceList').innerHTML = d.invoices.map(i=>{ const isPaid = i.paid; const badge = isPaid ? 'paid' : 'outstanding'; const payBtn = !isPaid ? `<button class="btn-sm blue" onclick="window.location.href='/pay/${i.id}'">💳 Pay Now</button>` : ''; return `<div class="card"><h3>Invoice #${i.id} <span class="badge ${badge}">${badge.toUpperCase()}</span></h3><p><strong>${esc(i.customer)}</strong></p><p style="font-size:20px; font-weight:800; color:var(--primary); margin: 8px 0;">R ${i.total.toFixed(2)}</p><div style="display:flex; gap:5px; flex-wrap:wrap;"><button class="btn-sm green" onclick="window.open('/api/workflow/invoice-html/${i.id}', '_blank')">🖨 PDF</button><button class="btn-sm whatsapp" onclick="shareInvoiceWhatsApp('${i.id}', '${esc(i.customer)}', '${i.total}')">📱 Share</button>${payBtn}</div></div>`; }).join('') || '<div class="card"><p>No invoices yet</p></div>'; } catch(e){} }
-function shareInvoiceWhatsApp(id, customer, total) { const txt = `Hi ${customer}, your invoice #${id} is ready. Total due: R${total}. You can view and pay it here: https://ramstech.onrender.com/pay/${id}`; window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); }
+function shareInvoiceWhatsApp(id, customer, total) { const txt = `Hi ${customer}, your invoice #${id} is ready. Total due: R${total}. You can view and pay it here: ${window.location.origin}/pay/${id}`; window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank'); }
 
-// INVENTORY
 function showInvForm(){document.getElementById('invForm').style.display='block'} function hideInvForm(){document.getElementById('invForm').style.display='none'}
 async function addInventory() {
   const name = document.getElementById('invPartName').value.trim();
@@ -645,7 +669,6 @@ async function loadInventory() {
 }
 async function adjInv(id, d) { await jpost('/api/inventory/' + id + '/adjust', {delta:d}); loadInventory(); }
 
-// APPOINTMENTS
 function showApptForm(){document.getElementById('apptForm').style.display='block'} function hideApptForm(){document.getElementById('apptForm').style.display='none'}
 async function createAppt() {
   const c = document.getElementById('apptCustomer').value.trim(); const d = document.getElementById('apptDate').value; const t = document.getElementById('apptTime').value;
@@ -661,7 +684,6 @@ async function loadAppts() {
 }
 async function delAppt(id) { if (!confirm('Delete?')) return; await jdel('/api/appointments/' + id); loadAppts(); }
 
-// CLOCK INS
 async function loadClockin() {
   try { const sd = await jget('/api/staff'); const cd = await jget('/api/clockins');
     document.getElementById('clockinList').innerHTML = sd.staff.length ? sd.staff.map(s => {
@@ -673,7 +695,6 @@ async function loadClockin() {
 async function clockIn(id) { await jpost('/api/clockins', {staff_id:id}); loadClockin(); }
 async function clockOut(id) { await jpost('/api/clockins/' + id + '/out', {}); loadClockin(); }
 
-// SETTINGS & PARTS
 async function loadSettings() { try { const d = await jget('/api/workshop'); document.getElementById('wsName').value = d.name||''; } catch(e){} }
 async function saveSettings() { const p = { name: document.getElementById('wsName').value, logo: document.getElementById('wsLogo').value, phone: document.getElementById('wsPhone').value, address: document.getElementById('wsAddress').value, email: document.getElementById('wsEmail').value, labour_rate: parseFloat(document.getElementById('wsRate').value) || 450 }; await jpost('/api/workshop', p); toast('Settings saved!'); }
 
@@ -793,7 +814,6 @@ function showPOForm(){document.getElementById('poForm').style.display='block'} f
 async function createPO() { const sup = document.getElementById('poSupplier').value; const items = document.getElementById('poItems').value; if (!sup || !items) { toast('Supplier and items required', 'error'); return; } try { await jpost('/api/po/create', { supplier: sup, items: items }); hidePOForm(); loadPOs(); toast('PO Created'); } catch(e) { toast('Error', 'error'); } }
 async function loadPOs() { try { const d = await jget('/api/po/list'); document.getElementById('poList').innerHTML = d.purchase_orders.length ? d.purchase_orders.map(p=>`<div class="card"><h3>PO #${p.po_number}</h3><p>${esc(p.supplier)}</p><p>Status: <b>${p.status}</b></p></div>`).join('') : '<div class="card"><p>No purchase orders</p></div>'; } catch(e){} }
 
-// MODALS (Kanban, Photo, Staff, Scanner)
 async function openKanban() {
   let modal = document.getElementById('kanbanModal');
   if (!modal) { modal = document.createElement('div'); modal.id = 'kanbanModal'; modal.style.cssText = 'display:block;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:9999;padding:16px;overflow:auto;'; modal.innerHTML = `<div style="background:var(--card);padding:20px;border-radius:16px;max-width:800px;margin:0 auto;color:var(--text);border:1px solid var(--primary);"><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2 style="font-size:18px;font-weight:800;">📊 Kanban Board</h2><button onclick="document.getElementById('kanbanModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text);">✕</button></div><div id="kanbanContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">Loading...</div></div>`; document.body.appendChild(modal); } else { modal.style.display = 'block'; }
@@ -824,7 +844,6 @@ let html5QrCode = null;
 async function openScanner() { let modal = document.getElementById('scannerModal'); if (!modal) { modal = document.createElement('div'); modal.id = 'scannerModal'; modal.style.cssText = 'display:block;position:fixed;inset:0;background:#000;z-index:9999;padding:16px;'; modal.innerHTML = `<div style="color:white;display:flex;justify-content:space-between;margin-bottom:10px;"><h2 style="font-size:18px;">📷 Scan Barcode</h2><button onclick="closeScanner()" style="background:none;border:none;color:white;font-size:24px;">✕</button></div><div id="reader" style="width:100%;border-radius:12px;overflow:hidden;"></div>`; document.body.appendChild(modal); } else { modal.style.display = 'block'; } if (!html5QrCode) { const script = document.createElement('script'); script.src = "https://unpkg.com/html5-qrcode"; script.onload = () => { html5QrCode = new Html5Qrcode("reader"); html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); }); }; document.body.appendChild(script); } else { html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 150} }, (text) => { closeScanner(); document.getElementById('vinInput').value = text; decodeVin(); }); } }
 function closeScanner() { document.getElementById('scannerModal').style.display = 'none'; if (html5QrCode) html5QrCode.stop().catch(e=>{}); }
 
-// VIN & AI VISION & FAULT CODES
 async function decodeVin() { try { const d = await jget('/api/vin/'+document.getElementById('vinInput').value); document.getElementById('vinResult').innerHTML = '<div class="card"><h3>'+d.manufacturer+'</h3><p>Year: '+d.year+'</p></div>'; } catch(e){} }
 
 async function searchCodes() { 
@@ -865,9 +884,8 @@ async function searchCodes() {
     } 
 }
 
-// PROBLEMS SEARCH & MODAL
 window.ALL_PROBLEMS = [];
-window.CURRENT_PROBLEM_TITLE = ""; // Global variable to store the active problem
+window.CURRENT_PROBLEM_TITLE = ""; 
 
 async function loadProblems() { 
     try { 
@@ -1018,7 +1036,6 @@ async function diagnosePhoto() { const btn = document.getElementById('photoBtn')
 
 lucide.createIcons();
 
-// AGGRESSIVE STATE RESTORATION
 function restorePageState() {
     const lastTab = localStorage.getItem('ramstech_active_tab');
     if (lastTab && lastTab !== 'home') {
@@ -1031,7 +1048,6 @@ function restorePageState() {
         });
         showTab(lastTab, navEl);
         
-        // Reopen Photo Intake if it was open
         if (lastTab === 'jobs' && localStorage.getItem('jobs_photointake_open') === 'true') {
             openPhotoIntake();
         }
@@ -1043,6 +1059,134 @@ document.addEventListener('visibilitychange', function() {
         setTimeout(restorePageState, 100);
     }
 });
+
+// --- LOCK SCREEN LOGIC (MERGED FROM AUTH_LOCK) ---
+var _lockRole = null;
+function lockShow(){
+  var s = document.getElementById('lockScreen');
+  if(s) s.style.display='flex';
+  document.getElementById('lockChoiceView').style.display='block';
+  document.getElementById('lockPinView').style.display='none';
+  document.getElementById('lockError').textContent='';
+  _lockRole = null;
+}
+function lockHide(){
+  var s = document.getElementById('lockScreen');
+  if(s) s.style.display='none';
+}
+function lockPick(role){
+  _lockRole = role;
+  document.getElementById('lockChoiceView').style.display='none';
+  document.getElementById('lockPinView').style.display='block';
+  document.getElementById('lockPinTitle').textContent = role==='owner'?'Owner PIN':'Technician PIN';
+  document.getElementById('lockPinInput').value='';
+  document.getElementById('lockError').textContent='';
+  setTimeout(function(){document.getElementById('lockPinInput').focus();},150);
+}
+function lockBack(){
+  document.getElementById('lockChoiceView').style.display='block';
+  document.getElementById('lockPinView').style.display='none';
+  _lockRole = null;
+  document.getElementById('lockError').textContent='';
+}
+
+async function lockSubmit(){
+  var pin = document.getElementById('lockPinInput').value.trim();
+  if(pin.length !== 4){
+    document.getElementById('lockError').textContent = 'Enter 4 digits';
+    return;
+  }
+  document.getElementById('lockError').textContent = 'Checking...';
+
+  if(_lockRole === 'owner'){
+    try {
+      var r = await fetch('/api/auth/owner-login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({pin:pin})
+      });
+      var d = await r.json();
+      if(d.success){
+        localStorage.setItem('app_role','owner');
+        localStorage.setItem('auth_token', d.token); // <--- SAVE TOKEN
+        localStorage.removeItem('tech_session');
+        document.body.classList.remove('tech-mode');
+        lockHide();
+        return;
+      }
+    } catch(e){}
+    document.getElementById('lockError').textContent = 'Invalid owner PIN';
+    document.getElementById('lockPinInput').value = '';
+    return;
+  }
+
+  try {
+    var r = await fetch('/api/tech/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pin:pin})
+    });
+    var d = await r.json();
+    if(d.success){
+      localStorage.setItem('app_role','tech');
+      localStorage.setItem('auth_token', d.token); // <--- SAVE TOKEN
+      localStorage.setItem('tech_session', JSON.stringify({name:d.name})); // <--- REMOVED PIN
+      document.body.classList.add('tech-mode');
+      lockHide();
+      setTimeout(function(){
+        if(typeof tvOpen === 'function') tvOpen();
+      }, 400);
+      return;
+    }
+  } catch(e){}
+  document.getElementById('lockError').textContent = 'Invalid technician PIN';
+  document.getElementById('lockPinInput').value = '';
+}
+
+window.appLogout = function(){
+  localStorage.removeItem('app_role');
+  localStorage.removeItem('auth_token'); // <--- REMOVE TOKEN
+  localStorage.removeItem('tech_session');
+  document.body.classList.remove('tech-mode');
+  if(typeof tvClose === 'function') tvClose();
+  lockShow();
+};
+
+(function(){
+  var role = localStorage.getItem('app_role');
+  if(!role){
+    setTimeout(lockShow, 150);
+  } else if(role === 'tech'){
+    document.body.classList.add('tech-mode');
+    setTimeout(function(){
+      if(typeof tvOpen === 'function') tvOpen();
+    }, 900);
+  }
+})();
+
+setInterval(function(){
+  if(localStorage.getItem('app_role') === 'tech'){
+    var m = document.getElementById('tvModal');
+    if(m && m.style.display !== 'block'){
+      if(typeof tvOpen === 'function') tvOpen();
+    }
+  }
+}, 1500);
+
+setInterval(function(){
+  var s = document.getElementById('settings');
+  if(!s || document.getElementById('appLogoutBtn')) return;
+  if(localStorage.getItem('app_role') !== 'owner') return;
+  var card = s.querySelector('.card');
+  if(!card) return;
+  var b = document.createElement('button');
+  b.id = 'appLogoutBtn';
+  b.className = 'btn btn-dark';
+  b.textContent = 'Logout';
+  b.style.cssText = 'background:linear-gradient(135deg,#ef4444,#dc2626);margin-top:10px;';
+  b.onclick = function(){
+    if(confirm('Log out of RamsTech?')) window.appLogout();
+  };
+  card.appendChild(b);
+}, 1200);
 </script>
 </body>
 </html>'''
