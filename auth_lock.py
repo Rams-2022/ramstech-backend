@@ -1,28 +1,43 @@
 """Owner/Technician login lock for the app."""
 import os
+import auth
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
-# Owner PIN — change this in Render Environment (default: 9999)
 OWNER_PIN = os.getenv("OWNER_PIN", "9999").strip()
 
+if OWNER_PIN == "9999":
+    print("[WARNING] SECURITY RISK: Owner PIN is set to default (9999).")
 
 @router.post("/api/auth/owner-login")
 async def owner_login(r: Request):
+    client_ip = r.client.host if r.client else "unknown"
+    forwarded = r.headers.get("X-Forwarded-For")
+    if forwarded: client_ip = forwarded.split(",")[0].strip()
+
+    rate = auth._check_rate_limit(client_ip)
+    if rate is not None:
+        raise HTTPException(429, f"Too many attempts. Try again in {rate} seconds.")
+
     d = await r.json()
     pin = str(d.get("pin") or "").strip()
-    if not pin:
-        raise HTTPException(400, "PIN required")
+    
+    if not pin: raise HTTPException(400, "PIN required")
+        
     if pin == OWNER_PIN:
-        return {"success": True, "role": "owner"}
+        auth._clear_attempts(client_ip)
+        token = auth.create_token({"id": "owner_1", "name": "Owner", "role": "owner"})
+        return {"success": True, "role": "owner", "token": token}
+        
+    auth._record_attempt(client_ip)
     raise HTTPException(401, "Invalid owner PIN")
-
 
 @router.get("/api/auth/owner-pin-default")
 def owner_pin_default():
     return {"is_default": OWNER_PIN == "9999"}
 
+# ... PASTE YOUR AUTH_LOCK_HTML r"""...""" HERE ...
 
 AUTH_LOCK_HTML = r"""
 <style>
