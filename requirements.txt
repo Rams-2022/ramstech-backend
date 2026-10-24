@@ -9,3 +9,4 @@ httpx==0.27.2
 pywebpush==2.3.0
 py_vapid
 duckduckgo-search
+PyJWT==2.8.0
